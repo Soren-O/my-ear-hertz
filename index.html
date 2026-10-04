@@ -620,8 +620,8 @@ img{max-width:100%}
     </header>
     <div class="article">
       <h2>Levels</h2>
-      <p>Each set of tones is learned three ways: pick the number, type it, then tune a tone to it. The sets grow: C5, C6 and C7, first by note name and then by number (523, 1,047 and 2,093 Hz); the low octaves; the high octaves; all seven octaves; half-, third- and quarter-octaves.</p>
-      <p>Then the piano, C3 to C8: pick the note, then the key, then the frequency. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
+      <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, type, find. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
@@ -708,18 +708,15 @@ const store = {
 };
 
 /* ---------- levels ----------
-   Each set of tones is learned in three steps: pick the number from buttons, type it, then tune a tone to it.
-   The piano set uses frequency buttons, then note names, then a keyboard. The last level mixes typing and
-   tuning arbitrary whole-number frequencies. */
-const FMIN = 125, FMAX = 8000;
-const R40 = [100,106,112,118,125,132,140,150,160,170,180,190,200,212,224,236,250,265,280,300,315,335,355,375,400,425,450,475,500,530,560,600,630,670,710,750,800,850,900,950];
-const GRID = [...R40, ...R40.map(v => v*10)].filter(v => v >= FMIN && v <= FMAX);   // round numbers ~1 semitone apart
-const every = k => GRID.filter((_, i) => i % k === 0);
-const OCTAVES = every(12);
+   Everything is notes, C3 to C9 at A4 = 440, rounded to whole hertz. Five stages split the octave finer and
+   finer: Cs; C·F♯ (halves); C·E·G♯ (thirds); C·D♯·F♯·A (quarters); all twelve notes. Each stage runs four
+   ranges: C5–C7, C3–C5, C7–C9, then all of C3–C9. Every set is learned by note name first (♪), then by
+   number with the note (Hz), and each pass goes Name → Type → Find. The very first set finds one C at a time.
+   The last level mixes typing and tuning arbitrary whole-number frequencies. */
 const NOTE = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
-const PIANO = Array.from({length: 61}, (_, i) => Math.round(440 * Math.pow(2, (i - 21) / 12)));   // C3 … C8, A4 = 440, to the nearest Hz
-const noteName = f => { const m = Math.round(69 + 12 * Math.log2(f / 440)); return NOTE[m % 12] + (Math.floor(m / 12) - 1); };
 const noteHz = midi => 440 * Math.pow(2, (midi - 69) / 12);
+const hzOf = midi => Math.round(noteHz(midi));                             // to the nearest Hz: at most 5¢ off (C♯3)
+const noteName = f => { const m = Math.round(69 + 12 * Math.log2(f / 440)); return NOTE[m % 12] + (Math.floor(m / 12) - 1); };
 const noteCents = f => {                                                   // nearest note plus how far off, e.g. "B5 +40¢"
   const m = Math.round(69 + 12 * Math.log2(f / 440)), c = Math.round(1200 * Math.log2(f / noteHz(m)));
   return NOTE[m % 12] + (Math.floor(m / 12) - 1) + (c ? ` ${c > 0 ? '+' : '−'}${Math.abs(c)}¢` : '');
@@ -729,31 +726,32 @@ function parseNote(raw){                                                   // "C
   if (!m) return null;
   return 12 * (+m[3] + 1) + {C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11}[m[1].toUpperCase()] + (/[#♯]/.test(m[2]) ? 1 : m[2] ? -1 : 0);
 }
-const [C5, C6, C7] = [72, 84, 96].map(m => Math.round(noteHz(m)));         // 523, 1,047, 2,093 Hz: notes are rounded to whole hertz,
-                                                                          // at most 5¢ off (C♯3), far below what anyone can hear
-const TIERS = [
-  {name:'Three Cs',        choices:[C5, C6, C7],             cn:3, denom:1, wrap:'note'},   // familiar notes to start, named as notes
-  {name:'Three Cs in Hz',  choices:[C5, C6, C7],             cn:3, denom:1, wrap:'both'},   // then the same three as numbers with their notes
-  {name:'Low octaves',     choices:[125, 250, 500, 1000],    cn:4, denom:1},
-  {name:'High octaves',    choices:[1000, 2000, 4000, 8000], cn:4, denom:1},
-  {name:'All octaves',     choices:OCTAVES,  cn:7, denom:1},
-  {name:'Half-octaves',    choices:every(6), cn:4, denom:2},
-  {name:'Third-octaves',   choices:every(4), cn:6, denom:3},
-  {name:'Quarter-octaves', choices:every(3), cn:4, denom:4},
-  {name:'Piano',           choices:PIANO,    cn:6, denom:12, piano:true},
-  {name:'Any frequency',   choices:null},
-];
-const FIND_ONE_AT_A_TIME = [{task:'find', short:'Find C6', only:[C6]}, {task:'find', short:'Find C5', only:[C5]},
-                           {task:'find', short:'Find C7', only:[C7]}, {task:'find', short:'Find'}];
-const STAGES = {
-  cNotes: [{task:'notes', short:'Name'}, {task:'type', short:'Type'}, ...FIND_ONE_AT_A_TIME],
-  cHz:    [{task:'pick', short:'Name'}, {task:'type', short:'Type'}, ...FIND_ONE_AT_A_TIME],
-  plain: [{task:'pick', short:'Name'}, {task:'type', short:'Type'}, {task:'find', short:'Find'}],
-  piano: [{task:'notes', short:'Notes'}, {task:'piano', short:'Keys'}, {task:'pick', short:'Hz', wrap:'both'}],
-  last:  [{task:'mixed', short:'Mixed'}],
-};
-const LEVELS = TIERS.flatMap((T, ti) => (ti === 0 ? STAGES.cNotes : ti === 1 ? STAGES.cHz : T.piano ? STAGES.piano : T.choices ? STAGES.plain : STAGES.last)
-  .map(S => Object.assign({}, T, S, {tier: ti}, S.only ? {choices: S.only, narrow: true} : {})));
+const FMIN = hzOf(48), FMAX = hzOf(120);                                   // C3–C9: 131–8,372 Hz, six octaves
+const CS = [48, 60, 72, 84, 96, 108, 120].map(hzOf);                       // every C we train
+const [C5, C6, C7] = [72, 84, 96].map(hzOf);                               // 523, 1,047, 2,093 Hz
+const DIVISIONS = [{name: 'Cs', step: 12}, {name: 'C · F♯', step: 6}, {name: 'C · E · G♯', step: 4},
+                   {name: 'C · D♯ · F♯ · A', step: 3}, {name: 'All notes', step: 1}];   // step: semitones between notes
+const RANGES = [['C5–C7', 72, 96], ['C3–C5', 48, 72], ['C7–C9', 96, 120], ['C3–C9', 48, 120]];   // MIDI bounds
+const TIERS = DIVISIONS.flatMap((D, di) => RANGES.map(([rn, lo, hi], ri) => {
+  const midis = [];
+  for (let m = lo; m <= hi; m += D.step) midis.push(m);
+  const n = midis.length, per = 12 / D.step;
+  return {name: `${D.name}, ${rn}`, div: di, choices: midis.map(hzOf), denom: per, piano: D.step === 1, first: di === 0 && ri === 0,
+          cn: n <= 7 ? n : per <= 3 ? per * 2 : per === 4 ? 4 : 6};          // button columns: whole octaves per row where they fit
+})).concat([{name: 'Any frequency', div: DIVISIONS.length, choices: null}]);
+const FIND_ONE = [['Find C6', C6], ['Find C5', C5], ['Find C7', C7]];
+function stepsFor(T){
+  if (!T.choices) return [{task: 'mixed', short: 'Mixed'}];
+  const pass = (wrap, mark) => {
+    const steps = [T.piano && wrap === 'note' ? {task: 'piano', short: `${mark} Keys`} : {task: wrap === 'note' ? 'notes' : 'pick', short: `${mark} Name`},
+                   {task: 'type', short: `${mark} Type`}];
+    if (T.first) FIND_ONE.forEach(([short, f]) => steps.push({task: 'find', short: `${mark} ${short}`, only: [f]}));
+    steps.push({task: 'find', short: `${mark} Find`});
+    return steps.map(x => Object.assign(x, {wrap}));
+  };
+  return [...pass('note', '♪'), ...pass('both', 'Hz')];
+}
+const LEVELS = TIERS.flatMap((T, ti) => stepsFor(T).map(S => Object.assign({}, T, S, {tier: ti}, S.only ? {choices: S.only, narrow: true} : {})));
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
 const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
 const ROUND = 20, UP = 20, DOWN = 12, COARSE = 20;
@@ -761,7 +759,7 @@ const FIND_TOL = 0.10;                                                   // Find
 const lvOf = r => r.lv || LEVELS.length;
 const modeOf = r => r.m === 'match' ? 'match' : 'pick';
 const levelTitle = lv => `${LEVELS[lv-1].name} · ${LEVELS[lv-1].short}`;
-const tierHue = ti => (25 + 275 * ti / (TIERS.length - 1)).toFixed(1);
+const divHue = di => (25 + 275 * di / DIVISIONS.length).toFixed(1);
 
 // Progress restarted under new keys when this level ladder arrived (2026-10-03); sound settings carry over.
 const DEFAULTS = {dur:5, match:true, rove:true, scramble:true, auto:true, level:1, hiTrim:-6};
@@ -786,6 +784,13 @@ if (settings.ladder < 3) {                 // 2026-10-04: a note-name pass of th
   history.forEach(shift); rounds.forEach(shift);
   if (settings.level > 6) settings.level = map(settings.level);          // within the C set: the same step, now in note names
   settings.ladder = 3;
+  store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
+}
+if (settings.ladder < 4) {                 // 2026-10-04: the whole ladder became notes; steps 1–12 (C5–C7) carry over
+  const shift = r => { if (r.lv > 12) r.lv = LEVELS.length; };            // old round-number answers count as "any frequency"
+  history.forEach(shift); rounds.forEach(shift);
+  if (settings.level > 12) settings.level = 13;
+  settings.ladder = 4;
   store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
 }
 if (!LEVELS[settings.level-1]) settings.level = 1;
@@ -1406,24 +1411,21 @@ function renderHome(){
   $('homeStage').textContent = L.short;
   drawLevelRing(); renderWeek();
 }
-function drawLevelRing(){                          // one arc per set of tones, split into its steps
-  const svg = $('levelRing'), S = 300, c = S/2, r = 136, per = 360 / TIERS.length, tierGap = 8, stepGap = 2.5;
+function drawLevelRing(){                          // one arc per stage (Cs, C·F♯, …, last), filled by how far along it you are
+  const svg = $('levelRing'), S = 300, c = S/2, r = 136, groups = DIVISIONS.length + 1, per = 360 / groups, gap = 7;
   const lr = [...rounds].reverse().find(x => x.lv === settings.level);
   const within = clamp((lr ? lr.score : 0) / UP, 0, 1);                 // how close the last round came to moving up
   let s = '';
-  TIERS.forEach((T, ti) => {
-    const lvs = LEVELS.map((L, i) => i + 1).filter(n => LEVELS[n-1].tier === ti);
-    const span = (per - tierGap - stepGap * (lvs.length - 1)) / lvs.length, h = tierHue(ti);
-    lvs.forEach((n, j) => {
-      const a0 = -90 + ti * per + tierGap / 2 + j * (span + stepGap);
-      s += `<path class="track" d="${arcPath(c, c, r, a0, a0 + span)}"/>`;
-      const frac = n < settings.level ? 1 : n === settings.level ? Math.max(within, 0.08) : 0;
-      if (frac > 0) {
-        const d = arcPath(c, c, r, a0, a0 + span * frac);
-        s += `<path class="halo" d="${d}" style="stroke:${spec(h)}"/><path class="lit" d="${d}" style="stroke:${spec(h)}"/>`;
-      }
-    });
-  });
+  for (let g = 0; g < groups; g++) {
+    const lvs = LEVELS.map((L, i) => i + 1).filter(n => LEVELS[n-1].div === g);
+    const done = lvs.filter(n => n < settings.level).length + (lvs.includes(settings.level) ? Math.max(within, 0.04) : 0);
+    const a0 = -90 + g * per + gap / 2, span = per - gap, h = divHue(g);
+    s += `<path class="track" d="${arcPath(c, c, r, a0, a0 + span)}"/>`;
+    if (done > 0) {
+      const d = arcPath(c, c, r, a0, a0 + span * done / lvs.length);
+      s += `<path class="halo" d="${d}" style="stroke:${spec(h)}"/><path class="lit" d="${d}" style="stroke:${spec(h)}"/>`;
+    }
+  }
   svg.innerHTML = s;
 }
 function renderWeek(){
@@ -1566,17 +1568,21 @@ function renderChoices(L, task){
   box.innerHTML = L.choices.map(f => {
     const name = noteName(f);
     let cls = 'key';
-    if (L.piano ? /^C\d/.test(name) : L.choices.length > 7 && OCTAVES.includes(f)) cls += ' anchor';
+    if (L.choices.length > 7 && /^C\d/.test(name)) cls += ' anchor';     // Cs in bold on bigger sets
     if (fb && f === last.f) cls += ' actual';
     else if (fb && f === last.g) cls += ' wrong';
     const label = task === 'notes' ? name : L.wrap === 'both' ? `${keyLabel(f)}<small>${name}</small>` : keyLabel(f);
     return `<button type="button" class="${cls}" style="--h:${hueOf(f)}" data-f="${f}" aria-label="${task === 'notes' ? name : fmtFreq(f) + ' hertz'}">${label}</button>`;
   }).join('');
 }
-function renderPiano(L){                           // one octave per row, C to B; C8 closes the last row
+function renderPiano(L){                           // one octave per row, C to B; a lone top C joins the row below it
   const fb = phase === 'revealed' && last, rows = [];
-  L.choices.forEach(f => { const oc = Math.min(+noteName(f).replace(/\D+/g, ''), 7); (rows[oc - 3] = rows[oc - 3] || []).push(f); });
-  $('piano').innerHTML = rows.map(row => {
+  L.choices.forEach(f => {
+    const oc = +noteName(f).replace(/\D+/g, ''), row = rows.length && rows[rows.length - 1].oc === oc ? rows[rows.length - 1] : null;
+    if (row) row.keys.push(f); else rows.push({oc, keys: [f]});
+  });
+  if (rows.length > 1 && rows[rows.length - 1].keys.length === 1) rows[rows.length - 2].keys.push(rows.pop().keys[0]);
+  $('piano').innerHTML = rows.map(({keys: row}) => {
     let wi = -1, keys = '';
     row.forEach(f => {
       const name = noteName(f), st = fb && f === last.f ? ' actual' : fb && f === last.g ? ' wrong' : '';
@@ -1595,11 +1601,11 @@ function drawStrip(L){
   const Lp = 10, Rp = 10, AY = 50;
   const X = f => Lp + Math.log(f/FMIN) / Math.log(FMAX/FMIN) * (W - Lp - Rp);
   let s = `<defs>${specGradient('stripGrad', Lp, W - Rp)}</defs><line x1="${Lp}" x2="${W-Rp}" y1="${AY}" y2="${AY}" stroke="url(#stripGrad)" stroke-width="3" stroke-linecap="round"/>`;
-  (L.choices || TIERS[5].choices).forEach(f => { if (!OCTAVES.includes(f)) s += `<line class="minor" x1="${X(f)}" x2="${X(f)}" y1="${AY+4}" y2="${AY+8}"/>`; });
-  OCTAVES.forEach((f, i) => {
+  (L.choices || []).forEach(f => { if (!CS.includes(f)) s += `<line class="minor" x1="${X(f)}" x2="${X(f)}" y1="${AY+4}" y2="${AY+8}"/>`; });
+  CS.forEach((f, i) => {                                                 // a tick at every C
     const x = X(f);
     s += `<line class="tick" x1="${x}" x2="${x}" y1="${AY+4}" y2="${AY+10}"/>`;
-    s += `<text x="${x}" y="${AY+24}" text-anchor="${i === 0 ? 'start' : i === OCTAVES.length-1 ? 'end' : 'middle'}">${fmtK(f)}</text>`;
+    s += `<text x="${x}" y="${AY+24}" text-anchor="${i === 0 ? 'start' : i === CS.length-1 ? 'end' : 'middle'}">${fmtK(f)}</text>`;
   });
   if (last) {
     const cx = v => clamp(X(v), Lp, W - Rp);
@@ -1689,7 +1695,7 @@ function exampleMatch(){
   const rnd = mulberry32(5), gauss = gaussFrom(rnd);
   const c = Math.log2(1000), out = [];
   for (let i = 0; i < 60; i++) {
-    const p = i / 59, lv = i < 40 ? 6 : 15, L = LEVELS[lv-1];  // Find on the C set, then on the low octaves
+    const p = i / 59, lv = i < 40 ? 6 : 15, L = LEVELS[lv-1];  // ♪ Find on C5–C7, then on C3–C5
     const T = L.choices[Math.floor(rnd() * L.choices.length)];
     const lg = c + (0.75 + 0.2*p) * (Math.log2(T) - c) + 0.08 + (0.45 - 0.25*p) * gauss();
     out.push({m: 'match', f: T, g: Math.round(Math.pow(2, lg)), lv, ok: Math.abs(Math.pow(2, lg) / T - 1) <= FIND_TOL ? 1 : 0});
@@ -1816,7 +1822,7 @@ function drawScatter(data, F, match){
   const Y = g => T + (1 - Math.log(g/lo)/Math.log(hi/lo)) * (H - T - B);
   let s = `<defs><clipPath id="scClip"><rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}"/></clipPath></defs>`;
   let lastX = -1e9, lastY = 1e9;
-  OCTAVES.filter(f => f >= lo && f <= hi).forEach(f => {
+  CS.filter(f => f >= lo && f <= hi).forEach(f => {
     const x = X(f), y = Y(f);
     s += `<line class="grid" x1="${x}" x2="${x}" y1="${T}" y2="${H-B}"/><line class="grid" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/>`;
     if (x - lastX >= 26) { s += `<text x="${x}" y="${H-B+15}" text-anchor="middle">${fmtK(f)}</text>`; lastX = x; }
@@ -1878,7 +1884,7 @@ function renderSettings(){
   $('levelSeg').innerHTML = TIERS.map((T, ti) => {
     const steps = LEVELS.map((L, i) => [L, i + 1]).filter(([L]) => L.tier === ti);
     const cur = LEVELS[settings.level-1].tier === ti;
-    return `<div class="row tier${cur ? ' sel' : ''}"><span class="lvbadge" style="--h:${tierHue(ti)}">${ti + 1}</span><span class="row-main"><b>${T.name}</b></span><span class="steps">${steps.map(([L, n]) => `<button type="button" data-lv="${n}" aria-pressed="${n === settings.level}">${L.short}</button>`).join('')}</span></div>`;
+    return `<div class="row tier${cur ? ' sel' : ''}"><span class="lvbadge" style="--h:${divHue(T.div)}">${ti + 1}</span><span class="row-main"><b>${T.name}</b></span><span class="steps">${steps.map(([L, n]) => `<button type="button" data-lv="${n}" aria-pressed="${n === settings.level}">${L.short}</button>`).join('')}</span></div>`;
   }).join('');
   [['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
@@ -1954,10 +1960,12 @@ function confetti(){
 
 /* ---------- lab ----------
    Free play. Tones here show their numbers, so they count as labeled tones for the scramble and the cold-answer check. */
-const LAB_DEFAULTS = {ttX: 3, len: 0.25, lo: 125, hi: 8000, show: true, rtColor: 'white', swFrom: 125, swTo: 8000, swSec: 10, shDir: 1, nzKind: 'pink', nzVol: 0.5,
+const LAB_DEFAULTS = {ttX: 3, len: 0.25, lo: CS[0], hi: CS[CS.length - 1], show: true, rtColor: 'white', swFrom: 125, swTo: 8000, swSec: 10, shDir: 1, nzKind: 'pink', nzVol: 0.5,
                       mix: [{f: 440, v: 0.8, p: 0, on: true}, {f: 443, v: 0.8, p: 0, on: true}]};
 let lab = Object.assign({}, LAB_DEFAULTS, store.get('hbe3.lab', {}));
 const saveLab = () => store.set('hbe3.lab', lab);
+if (!CS.includes(lab.lo)) lab.lo = CS[0];                                   // ranges are Cs now
+if (!CS.includes(lab.hi)) lab.hi = CS[CS.length - 1];
 let labActive = null, mixNodes = [], mixBus = null;
 const MIX_PRESETS = [
   ['Beats',       [[440, 0], [443, 0]]],
@@ -2204,7 +2212,7 @@ $('ttPlay').addEventListener('click', () => labToggle('tt', ttStart));
 function renderLab(){
   ttShow();
   $('rtLen').value = lab.len; $('rtLenOut').textContent = `${lab.len.toFixed(2)} s`;
-  const opts = sel => OCTAVES.map(f => `<option value="${f}"${f === sel ? ' selected' : ''}>${fmtHz(f)}</option>`).join('');
+  const opts = sel => CS.map(f => `<option value="${f}"${f === sel ? ' selected' : ''}>${noteName(f)} · ${fmtHz(f)}</option>`).join('');
   $('rtLo').innerHTML = opts(lab.lo); $('rtHi').innerHTML = opts(lab.hi);
   $('rtShow').checked = lab.show;
   $('rtColor').innerHTML = [['white', 'White'], ['pink', 'Pink'], ['brown', 'Brown'], ['blue', 'Blue'], ['violet', 'Violet']].map(([k, n]) => `<button type="button" data-c="${k}" aria-pressed="${lab.rtColor === k}">${n}</button>`).join('');
@@ -2233,7 +2241,7 @@ $('shPlay').addEventListener('click', () => labToggle('sh', shStart));
 $('rtLen').addEventListener('input', () => { lab.len = +$('rtLen').value; $('rtLenOut').textContent = `${lab.len.toFixed(2)} s`; saveLab(); });
 ['rtLo', 'rtHi'].forEach(id => $(id).addEventListener('change', () => {
   let a = +$('rtLo').value, b = +$('rtHi').value;
-  if (a >= b) { if (id === 'rtLo') b = OCTAVES[Math.min(OCTAVES.indexOf(a) + 1, OCTAVES.length - 1)]; else a = OCTAVES[Math.max(OCTAVES.indexOf(b) - 1, 0)]; }
+  if (a >= b) { if (id === 'rtLo') b = CS[Math.min(CS.indexOf(a) + 1, CS.length - 1)]; else a = CS[Math.max(CS.indexOf(b) - 1, 0)]; }
   lab.lo = a; lab.hi = b; saveLab(); renderLab();
 }));
 $('rtShow').addEventListener('change', () => { lab.show = $('rtShow').checked; saveLab(); });
