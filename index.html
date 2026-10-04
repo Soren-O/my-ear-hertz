@@ -834,17 +834,50 @@ function ampFor(f, roveDb){
 /* ---------- audio ---------- */
 let ctx = null, out = null, voices = [], timers = [], audioState = 'idle', noiseBuf = null;
 let adj = null, adjIdle = null;            // the continuous tone in Find the tone
+// Browsers, Safari above all (iPhone and Mac), can leave the audio engine silent after an interruption:
+// the screen locking, switching apps, a call or notification, the Mac sleeping, AirPods hopping between
+// devices. Sometimes it even reports "running" while its clock has stopped. When the engine looks dead we
+// mark it stale and build a fresh one on the next tap, the user gesture browsers require for sound.
+let audioStale = false, clockCheck = null;
 function audio(){
+  if (ctx && ctx.state === 'running' && clockCheck && clockCheck.running) {
+    const wall = (performance.now() - clockCheck.wall) / 1000;
+    if (wall > 1 && ctx.currentTime - clockCheck.ct < 0.1 * wall) audioStale = true;   // its clock stopped moving
+  }
+  if (ctx && (audioStale || ctx.state === 'closed' || ctx.state === 'interrupted')) resetAudio();
   if (!ctx) {
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e) {}
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
     out = ctx.createGain(); out.gain.value = 1; out.connect(ctx.destination);
+    ctx.onstatechange = () => { if (ctx && ctx.state === 'interrupted') audioStale = true; };
   }
-  if (ctx.state !== 'running') { try { ctx.resume(); } catch(e) {} }
+  if (ctx.state !== 'running') { try { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch(e) {} }
+  clockCheck = {wall: performance.now(), ct: ctx.currentTime, running: ctx.state === 'running'};
   return ctx;
 }
+function resetAudio(){
+  try { stopAll(); } catch(e) {}
+  const old = ctx;
+  ctx = null; out = null; noiseBuf = null; mixBus = null; adj = null; voices = []; audioStale = false; clockCheck = null;
+  for (const k in noiseBufs) delete noiseBufs[k];                         // buffers belong to the old engine's sample rate
+  try { old.close(); } catch(e) {}
+}
+const quiet = () => (audioState === 'idle' || audioState === 'paused') && !labActive;
+let hiddenAt = null;
+document.addEventListener('visibilitychange', () => {                    // leaving for, or back from, another app or tab
+  if (!ctx) return;
+  if (document.visibilityState === 'hidden') { hiddenAt = {wall: performance.now(), ct: ctx.currentTime}; return; }
+  const away = hiddenAt ? (performance.now() - hiddenAt.wall) / 1000 : 0;
+  const stalled = away > 1 && ctx.currentTime - (hiddenAt ? hiddenAt.ct : 0) < 0.5 * away;   // its clock stopped while we were away
+  if (ctx.state !== 'running' || quiet() || stalled) audioStale = true;
+  hiddenAt = null;
+});
+window.addEventListener('pageshow', e => { if (e.persisted && ctx) audioStale = true; });   // restored from the back/forward cache
+navigator.mediaDevices?.addEventListener?.('devicechange', () => { if (ctx && quiet()) audioStale = true; });   // headphones or speakers changed
+const revive = () => { if (ctx && (audioStale || ctx.state !== 'running')) audio(); };
+['pointerup', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, revive, true));
 function envelope(g, t0, dur, amp, ramp){
   ramp = Math.min(ramp, dur/3);
   g.gain.setValueAtTime(0, t0);
