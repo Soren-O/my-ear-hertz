@@ -405,6 +405,7 @@ label.lab-row{cursor:pointer;justify-content:space-between}
 .mx input[type=range]{width:100%;accent-color:var(--ink)}
 .mx-bot{display:grid;grid-template-columns:auto minmax(0,1.4fr) auto minmax(0,1fr) auto;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
 .icon.sm{width:32px;height:32px;font-size:18px;line-height:1}
+.snd{font-family:var(--font-num);font-size:11.5px}
 .tt-note{text-align:center;font-family:var(--font-num);font-size:13px;color:var(--muted);margin-top:-8px;min-height:18px}
 .icon.sm:disabled{opacity:.3}
 
@@ -584,6 +585,7 @@ img{max-width:100%}
       <label class="row"><span class="row-main"><b>Scramble</b></span><input type="checkbox" class="switch" id="optScramble"></label>
       <label class="row"><span class="row-main"><b>Match loudness</b></span><input type="checkbox" class="switch" id="optMatch"></label>
       <label class="row"><span class="row-main"><b>Vary loudness</b></span><input type="checkbox" class="switch" id="optRove"></label>
+      <div class="row"><span class="row-main"><b>Sound check</b><small class="snd" id="sndStatus"></small></span><button class="ghost" type="button" id="sndTest">Test</button></div>
       <div class="row col">
         <span class="row-main"><b>Tone length</b></span>
         <div class="seg" id="durSeg" style="--n:4" role="group" aria-label="Tone length"></div>
@@ -855,8 +857,34 @@ function audio(){
   }
   if (ctx.state !== 'running') { try { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch(e) {} }
   clockCheck = {wall: performance.now(), ct: ctx.currentTime, running: ctx.state === 'running'};
+  wakeSession();
   return ctx;
 }
+// iOS mutes Web Audio on silent mode unless the page is also playing ordinary media, and an interrupted
+// audio session can stay stuck across reloads. A silent, looping <audio> clip started from a tap puts the
+// page in "playback" mode, which fixes both. It is digital silence; nothing audible plays.
+let keepAlive = null;
+function silentWavUrl(){
+  const sr = 8000, n = sr / 2, v = new DataView(new ArrayBuffer(44 + n));
+  const tag = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  tag(0, 'RIFF'); v.setUint32(4, 36 + n, true); tag(8, 'WAVE'); tag(12, 'fmt '); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr, true);
+  v.setUint16(32, 1, true); v.setUint16(34, 8, true); tag(36, 'data'); v.setUint32(40, n, true);
+  for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);                 // 8-bit audio: 128 is silence
+  return URL.createObjectURL(new Blob([v.buffer], {type: 'audio/wav'}));
+}
+function wakeSession(){
+  try {
+    if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback';
+    if (!keepAlive) {
+      keepAlive = new Audio(silentWavUrl());
+      keepAlive.loop = true; keepAlive.setAttribute('playsinline', ''); keepAlive.setAttribute('x-webkit-airplay', 'deny');
+      if ('mediaSession' in navigator && window.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({title: 'My Ear Hertz'});
+    }
+    if (keepAlive.paused) { const p = keepAlive.play(); if (p && p.catch) p.catch(() => {}); }
+  } catch(e) {}
+}
+navigator.audioSession?.addEventListener?.('statechange', () => { if (navigator.audioSession.state === 'interrupted') audioStale = true; });
 function resetAudio(){
   try { stopAll(); } catch(e) {}
   const old = ctx;
@@ -868,7 +896,11 @@ const quiet = () => (audioState === 'idle' || audioState === 'paused') && !labAc
 let hiddenAt = null;
 document.addEventListener('visibilitychange', () => {                    // leaving for, or back from, another app or tab
   if (!ctx) return;
-  if (document.visibilityState === 'hidden') { hiddenAt = {wall: performance.now(), ct: ctx.currentTime}; return; }
+  if (document.visibilityState === 'hidden') {
+    hiddenAt = {wall: performance.now(), ct: ctx.currentTime};
+    if (keepAlive && quiet()) keepAlive.pause();                          // don't hold the phone's audio while idle in the background
+    return;
+  }
   const away = hiddenAt ? (performance.now() - hiddenAt.wall) / 1000 : 0;
   const stalled = away > 1 && ctx.currentTime - (hiddenAt ? hiddenAt.ct : 0) < 0.5 * away;   // its clock stopped while we were away
   if (ctx.state !== 'running' || quiet() || stalled) audioStale = true;
@@ -876,7 +908,7 @@ document.addEventListener('visibilitychange', () => {                    // leav
 });
 window.addEventListener('pageshow', e => { if (e.persisted && ctx) audioStale = true; });   // restored from the back/forward cache
 navigator.mediaDevices?.addEventListener?.('devicechange', () => { if (ctx && quiet()) audioStale = true; });   // headphones or speakers changed
-const revive = () => { if (ctx && (audioStale || ctx.state !== 'running')) audio(); };
+const revive = () => { if (!ctx) return; if (audioStale || ctx.state !== 'running') audio(); else wakeSession(); };
 ['pointerup', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, revive, true));
 function envelope(g, t0, dur, amp, ramp){
   ramp = Math.min(ramp, dur/3);
@@ -1795,7 +1827,21 @@ function renderClear(){
 
 /* ---------- settings ---------- */
 const fmtDb = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)} dB`;
+function soundStatus(){
+  const as = navigator.audioSession, parts = [ctx ? ctx.state : 'not started yet'];
+  if (ctx) parts.push(`${Math.round(ctx.sampleRate / 100) / 10} kHz`);
+  parts.push(as ? `session ${as.type} · ${as.state}` : 'no session API');
+  if (keepAlive) parts.push(keepAlive.paused ? 'keep-alive off' : 'keep-alive on');
+  $('sndStatus').textContent = parts.join(' · ');
+}
+$('sndTest').addEventListener('click', () => {                          // rebuild the audio engine from scratch, then play 1 kHz
+  if (ctx) resetAudio();
+  if (!audio()) return;
+  play(1000, {dur: 0.8, rove: false, labeled: true});
+  setTimeout(soundStatus, 300); setTimeout(soundStatus, 1200);
+});
 function renderSettings(){
+  soundStatus();
   $('levelSeg').innerHTML = TIERS.map((T, ti) => {
     const steps = LEVELS.map((L, i) => [L, i + 1]).filter(([L]) => L.tier === ti);
     const cur = LEVELS[settings.level-1].tier === ti;
