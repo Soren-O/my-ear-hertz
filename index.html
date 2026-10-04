@@ -405,6 +405,7 @@ label.lab-row{cursor:pointer;justify-content:space-between}
 .mx input[type=range]{width:100%;accent-color:var(--ink)}
 .mx-bot{display:grid;grid-template-columns:auto minmax(0,1.4fr) auto minmax(0,1fr) auto;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
 .icon.sm{width:32px;height:32px;font-size:18px;line-height:1}
+.tt-note{text-align:center;font-family:var(--font-num);font-size:13px;color:var(--muted);margin-top:-8px;min-height:18px}
 .icon.sm:disabled{opacity:.3}
 
 @media (prefers-reduced-motion:reduce){
@@ -634,6 +635,23 @@ img{max-width:100%}
       <span class="title">Lab</span>
       <span class="spacer"></span>
     </header>
+
+    <div class="card lab">
+      <div class="card-head"><span class="label">Turntable</span><span>1 turn = 1 octave</span></div>
+      <div class="lab-readout"><span class="num" id="ttNum"></span><span class="unit">Hz</span></div>
+      <p class="tt-note" id="ttNote"></p>
+      <div class="deck" id="ttDeck" aria-label="Turntable: drag in circles or scroll to change the pitch">
+        <div class="platter"><div class="record" id="ttRecord"><div class="label"></div></div><div class="sheen"></div></div>
+        <div class="tonearm"></div>
+      </div>
+      <div class="arrows" id="ttArrows">
+        <button class="arr" type="button" data-oct="-1" aria-label="Down an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l6 6 6-6M6 12l6 6 6-6"/></svg></button>
+        <button class="arr" type="button" data-oct="-0.08333333" aria-label="Down a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+        <button class="arr" type="button" data-oct="0.08333333" aria-label="Up a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
+        <button class="arr" type="button" data-oct="1" aria-label="Up an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
+      </div>
+      <button class="cta" id="ttPlay" type="button">Play</button>
+    </div>
 
     <div class="card lab">
       <div class="card-head"><span class="label">Random tones</span><span></span></div>
@@ -1132,7 +1150,7 @@ function quitRound(){
 }
 function showError(msg){ const e = $('guessErr'); e.textContent = msg; e.hidden = !msg; }
 
-let deckAngle = 0, deckRaf = 0, deckLast = 0, deckDrag = null;
+let deckAngle = 0, deckRaf = 0, deckLast = 0;
 function spin(deg){ deckAngle += deg; $('record').style.setProperty('--rot', `${deckAngle.toFixed(1)}deg`); }
 function nudge(du){
   if (!canAdjust()) return;
@@ -1147,7 +1165,7 @@ function deckLoop(now){
   deckRaf = 0;
   if (!(screen === 'train' && trial && trial.task === 'find' && phase === 'listening')) return;
   const dt = Math.min(0.05, (now - deckLast) / 1000); deckLast = now;
-  if (audioState === 'adjust' && !deckDrag) spin(200 * dt);
+  if (audioState === 'adjust' && !$('pad').classList.contains('active')) spin(200 * dt);
   deckRaf = requestAnimationFrame(deckLoop);
 }
 function startDeck(){ if (!deckRaf && !reduceMotion.matches) { deckLast = performance.now(); deckRaf = requestAnimationFrame(deckLoop); } }
@@ -1197,7 +1215,7 @@ $('playBtn').addEventListener('animationend', e => { if (e.animationName === 'po
 
 let holdTimer = null;
 const stopHold = () => { clearTimeout(holdTimer); holdTimer = null; };
-document.querySelectorAll('.arr').forEach(b => {
+document.querySelectorAll('#adjust .arr').forEach(b => {
   const d = +b.dataset.d, kick = Math.sign(d) * (Math.abs(d) > 1 ? 24 : 6);   // the record turns the way a drag would
   b.addEventListener('mousedown', e => e.preventDefault());               // keep keyboard focus where it was
   b.addEventListener('pointerdown', e => {
@@ -1214,38 +1232,45 @@ document.querySelectorAll('.arr').forEach(b => {
   ['pointerup','pointercancel','lostpointercapture'].forEach(ev => b.addEventListener(ev, stopHold));
   b.addEventListener('click', e => { if (e.detail === 0) { if (canAdjust()) spin(kick); nudge(d); } });   // keyboard activation
 });
-const pad = $('pad');
-pad.addEventListener('pointerdown', e => {
-  if (!canAdjust()) return;
-  e.preventDefault();
-  const r = $('record').getBoundingClientRect();
-  deckDrag = {id: e.pointerId, cx: r.left + r.width / 2, cy: r.top + r.height / 2, r: r.width / 2, a: null};
-  try { pad.setPointerCapture(e.pointerId); } catch(err) {}
-  pad.classList.add('active');
-  showTip(false);
+// Turntable input, shared by Find and the Lab: drag in circles (clockwise is up) or scroll on it.
+function bindDeck(deck, record, h){
+  let drag = null;
+  deck.addEventListener('pointerdown', e => {
+    if (!h.can()) return;
+    e.preventDefault();
+    const r = record.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const dx = e.clientX - cx, dy = e.clientY - cy, near = Math.hypot(dx, dy) < r.width / 2 * 0.15;
+    drag = {id: e.pointerId, cx, cy, r: r.width / 2, a: near ? null : Math.atan2(dy, dx)};   // measure from where the finger lands
+    try { deck.setPointerCapture(e.pointerId); } catch(err) {}
+    deck.classList.add('active');
+    h.grab?.();
+  });
+  deck.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.cx, dy = e.clientY - drag.cy;
+    if (Math.hypot(dx, dy) < drag.r * 0.15) { drag.a = null; return; }   // too near the spindle to read an angle
+    const a = Math.atan2(dy, dx);
+    if (drag.a != null) {
+      let da = a - drag.a;
+      if (da > Math.PI) da -= 2 * Math.PI; else if (da < -Math.PI) da += 2 * Math.PI;
+      h.turn(da);
+    }
+    drag.a = a;
+  });
+  const end = () => { if (drag) h.release?.(); drag = null; deck.classList.remove('active'); };
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev => deck.addEventListener(ev, end));
+  deck.addEventListener('wheel', e => {
+    if (!h.can()) return;
+    e.preventDefault();
+    h.wheel(e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1));
+  }, {passive: false});
+}
+bindDeck($('pad'), $('record'), {
+  can: canAdjust,
+  grab: () => showTip(false),
+  turn: da => { spin(da * 180 / Math.PI); nudge(da * 40 * (1 + Math.min(3, Math.abs(da) * 12))); },
+  wheel: px => { spin(-px * 0.15); nudge(-px * 0.06); },
 });
-pad.addEventListener('pointermove', e => {
-  if (!deckDrag || e.pointerId !== deckDrag.id) return;
-  const dx = e.clientX - deckDrag.cx, dy = e.clientY - deckDrag.cy;
-  if (Math.hypot(dx, dy) < deckDrag.r * 0.15) { deckDrag.a = null; return; }   // too near the spindle to read an angle
-  const a = Math.atan2(dy, dx);
-  if (deckDrag.a != null) {
-    let da = a - deckDrag.a;
-    if (da > Math.PI) da -= 2 * Math.PI; else if (da < -Math.PI) da += 2 * Math.PI;   // clockwise is positive: up in pitch
-    spin(da * 180 / Math.PI);
-    nudge(da * 40 * (1 + Math.min(3, Math.abs(da) * 12)));
-  }
-  deckDrag.a = a;
-});
-const endDrag = () => { deckDrag = null; pad.classList.remove('active'); };
-['pointerup','pointercancel','lostpointercapture'].forEach(ev => pad.addEventListener(ev, endDrag));
-pad.addEventListener('wheel', e => {
-  if (!canAdjust()) return;
-  e.preventDefault();
-  const k = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
-  spin(-e.deltaY * k * 0.15);
-  nudge(-e.deltaY * k * 0.06);
-}, {passive: false});
 
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -1817,7 +1842,7 @@ function confetti(){
 
 /* ---------- lab ----------
    Free play. Tones here show their numbers, so they count as labeled tones for the scramble and the cold-answer check. */
-const LAB_DEFAULTS = {len: 0.25, lo: 125, hi: 8000, show: true, rtColor: 'white', swFrom: 125, swTo: 8000, swSec: 10, shDir: 1, nzKind: 'pink', nzVol: 0.5,
+const LAB_DEFAULTS = {ttX: 3, len: 0.25, lo: 125, hi: 8000, show: true, rtColor: 'white', swFrom: 125, swTo: 8000, swSec: 10, shDir: 1, nzKind: 'pink', nzVol: 0.5,
                       mix: [{f: 440, v: 0.8, p: 0, on: true}, {f: 443, v: 0.8, p: 0, on: true}]};
 let lab = Object.assign({}, LAB_DEFAULTS, store.get('hbe3.lab', {}));
 const saveLab = () => store.set('hbe3.lab', lab);
@@ -1832,7 +1857,7 @@ const MIX_PRESETS = [
 ];
 const logPos = f => Math.log(f / 20) / Math.log(1000), posLog = q => 20 * Math.pow(1000, q);   // 20 Hz–20 kHz slider
 function labButtons(){
-  [['rtPlay','rt'],['mxPlay','mx'],['nzPlay','nz'],['swPlay','sw'],['shPlay','sh']].forEach(([id, k]) => {
+  [['ttPlay','tt'],['rtPlay','rt'],['mxPlay','mx'],['nzPlay','nz'],['swPlay','sw'],['shPlay','sh']].forEach(([id, k]) => {
     $(id).textContent = labActive === k ? 'Stop' : 'Play'; $(id).setAttribute('aria-pressed', String(labActive === k));
   });
 }
@@ -2010,7 +2035,62 @@ function renderNoise(){
   $('nzSlope').textContent = NOISES.find(x => x[0] === lab.nzKind)[2];
   $('nzVol').value = lab.nzVol;
 }
+// Lab turntable: unlike Find, the pitch is evenly spaced on a log scale. One turn is one octave across
+// 125 Hz–8 kHz, and past either end it fades out and wraps around the same way Find does.
+const TT_SPAN = Math.log2(FMAX / FMIN), TT_GAP = 0.25;                     // octaves of range, octaves of fade at each end
+const tt = {angle: 0, node: null, raf: 0, last: 0, noted: null};
+function ttPos(){
+  const x = lab.ttX;
+  if (x <= TT_SPAN) return {f: FMIN * Math.pow(2, x), g: 1};
+  if (x <= TT_SPAN + TT_GAP) return {f: FMAX, g: 1 - (x - TT_SPAN) / TT_GAP};
+  return {f: FMIN, g: (x - TT_SPAN - TT_GAP) / TT_GAP};
+}
+function ttShow(){
+  const {f} = ttPos(), m = Math.round(69 + 12 * Math.log2(f / 440));
+  const cents = Math.round(1200 * Math.log2(f / (440 * Math.pow(2, (m - 69) / 12))));
+  $('ttNum').textContent = fmtHz(f);
+  $('ttNote').textContent = `${NOTE[m % 12]}${Math.floor(m / 12) - 1} ${cents >= 0 ? '+' : '−'}${Math.abs(cents)}¢`;
+  $('ttRecord').style.setProperty('--rot', `${tt.angle.toFixed(1)}deg`);
+}
+function ttTurn(da){                                                       // da in radians; 2π = one octave
+  const C = TT_SPAN + 2 * TT_GAP;
+  tt.angle += da * 180 / Math.PI;
+  lab.ttX = ((lab.ttX + da / (2 * Math.PI)) % C + C) % C;
+  ttShow();
+  if (labActive !== 'tt' || !tt.node || tt.node.dead) return;
+  const {f, g} = ttPos(), now = ctx.currentTime;
+  tt.node.o.frequency.setTargetAtTime(f, now, 0.012);
+  tt.node.g.gain.setTargetAtTime(ampFor(f, 0) * g, now, 0.03);
+  if (tt.noted == null || Math.abs(Math.log2(f / tt.noted)) > 1/12) { noteAnchor(f); tt.noted = f; }   // a shown number is a labeled tone
+}
+function ttStart(){
+  const {f, g} = ttPos();
+  tt.node = startOsc(f, ctx.currentTime + 0.02, ampFor(f, 0) * g);
+  noteAnchor(f); tt.noted = f;
+  tt.last = performance.now();
+  if (!tt.raf && !reduceMotion.matches) tt.raf = requestAnimationFrame(ttLoop);
+}
+function ttLoop(now){                                                      // 33⅓ rpm while playing; decoration only
+  tt.raf = 0;
+  if (labActive !== 'tt' || screen !== 'lab') return;
+  const dt = Math.min(0.05, (now - tt.last) / 1000); tt.last = now;
+  if (!$('ttDeck').classList.contains('active')) { tt.angle += 200 * dt; $('ttRecord').style.setProperty('--rot', `${tt.angle.toFixed(1)}deg`); }
+  tt.raf = requestAnimationFrame(ttLoop);
+}
+bindDeck($('ttDeck'), $('ttRecord'), {
+  can: () => true,                                                         // turn it while stopped to set a pitch, then press Play
+  turn: ttTurn,
+  wheel: px => ttTurn(-px * 0.0026),                                       // ~15° per mouse-wheel notch
+  release: saveLab,
+});
+$('ttArrows').addEventListener('click', e => {
+  const b = e.target.closest('[data-oct]'); if (!b) return;
+  ttTurn(+b.dataset.oct * 2 * Math.PI); saveLab();
+});
+$('ttPlay').addEventListener('click', () => labToggle('tt', ttStart));
+
 function renderLab(){
+  ttShow();
   $('rtLen').value = lab.len; $('rtLenOut').textContent = `${lab.len.toFixed(2)} s`;
   const opts = sel => OCTAVES.map(f => `<option value="${f}"${f === sel ? ' selected' : ''}>${fmtHz(f)}</option>`).join('');
   $('rtLo').innerHTML = opts(lab.lo); $('rtHi').innerHTML = opts(lab.hi);
