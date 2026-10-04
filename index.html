@@ -254,7 +254,12 @@ p{margin:0}
 .adjust[data-off="1"] .wheel,.adjust[data-off="1"] .arr{opacity:.4;cursor:default}
 
 .after{display:flex;flex-direction:column;gap:10px}
-.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pair{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.pair .ghost{padding-inline:8px;gap:6px;min-width:0}
+.pair .ghost span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ghost:disabled{opacity:.3;cursor:default}
+.tip.offscale{position:fixed;top:50%;transform:translate(-50%,-50%);z-index:40;padding:16px 40px 14px 16px;line-height:1.45}
+.offscale .pair{grid-template-columns:repeat(2,minmax(0,1fr))}
 .hint{font-size:12.5px;color:var(--faint);text-align:center;line-height:1.55}
 .hint kbd{font-family:var(--font-num);font-size:10.5px;border:1px solid var(--line-hi);border-radius:5px;padding:0 4px;color:var(--muted)}
 
@@ -359,6 +364,48 @@ p{margin:0}
 .pk:active{filter:brightness(.9)}
 .pk.on{box-shadow:inset 0 0 0 2px var(--accent-ring, var(--ink))}
 .wk.actual,.bk.actual{background:var(--win);border-color:var(--win)}
+/* Training layout: in portrait the two columns dissolve into one stack, with the after-answer row last */
+.train-body,.train-left,.train-right{display:contents}
+#after{order:1}
+/* Roll: the whole C3–C9 keyboard in a scrolling strip; only the round's notes can be tapped */
+.roll{--w:38px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;margin-inline:-20px;padding:2px 20px 10px;scrollbar-width:thin}
+.roll-track{position:relative;height:150px}
+.rk{position:absolute;top:0;padding:0 0 9px;border:1px solid var(--key-edge);cursor:pointer;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:1px;font-family:var(--font-num);font-size:10px;line-height:1.15;font-variant-numeric:tabular-nums;--bar:transparent}
+.rw{left:calc(var(--x) * var(--w));width:var(--w);height:100%;background:var(--key-w);color:var(--key-b);border-radius:0 0 7px 7px}
+.rb{left:calc(var(--x) * var(--w) - var(--w) * .3);width:calc(var(--w) * .6);height:60%;background:var(--key-b);color:var(--key-w);border-color:var(--key-b);border-radius:0 0 5px 5px;z-index:1;font-size:8.5px}
+.rk:disabled{cursor:default}
+.rw:disabled{opacity:.3}
+.rb:disabled{opacity:.45}
+.rk.live{--bar:oklch(var(--spec-l) var(--spec-c) var(--h));box-shadow:inset 0 -4px 0 var(--bar)}
+.rk i,.rk em{font-style:normal;font-size:8.5px;opacity:.75}
+.rk.on{box-shadow:inset 0 0 0 2px var(--accent-ring, var(--ink)),inset 0 -4px 0 var(--bar)}
+.rk.actual{background:var(--win);border-color:var(--win);color:var(--cta-ink)}
+.rk.wrong{background:var(--lose);border-color:var(--lose);color:var(--cta-ink)}
+/* Landscape phones: orb and results in a band across the top, the keyboard (or other answer control) full width below */
+@media (orientation: landscape) and (max-height: 540px){
+  .app{padding-inline:max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px))}
+  .app[data-screen="train"]{max-width:none;padding-block:0 8px}
+  #scr-train{gap:6px}
+  .train-top{margin-inline:0;padding-inline:0;min-height:44px}
+  .train-body{display:flex;flex-direction:column;gap:10px}
+  .train-left{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:24px;row-gap:4px;align-items:center}
+  .train-left .stage{grid-row:1 / span 3;padding:22px}
+  .train-left .verdict,.train-left .strip,.train-left .after{grid-column:2}
+  .train-right{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .orb{width:min(30vh,132px)}
+  .orb::before{inset:-10px} .orb::after{inset:-20px}
+  .orb-num{font-size:clamp(26px,8vh,38px)}
+  .orb-guess{font-size:clamp(20px,6vh,28px);margin-top:2px}
+  .strip{height:64px}
+  .after{flex-direction:row;align-items:center}
+  .after .pair{flex:2}
+  .after #nextBtn{flex:1;padding:12px}
+  .roll{--w:34px;margin-inline:0;padding-inline:0}
+  .roll-track{height:min(40vh,150px)}
+  .adjust{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;row-gap:8px;align-items:center}
+  .adjust .deck{width:min(40vh,160px);grid-row:1 / span 2}
+}
+
 .wk.wrong,.bk.wrong{background:var(--lose);border-color:var(--lose)}
 
 /* Reveal: target on top, your answer under it, ratio below the orb */
@@ -467,6 +514,8 @@ img{max-width:100%}
       <div><button class="ghost" id="quitYes" type="button">End</button><button class="cta" id="quitNo" type="button">Keep going</button></div>
     </div>
 
+    <div class="train-body">
+    <div class="train-left">
     <div class="stage">
       <button class="orb" id="playBtn" type="button" data-state="idle" data-hidden="1" aria-label="Replay tone">
         <span class="orb-core">
@@ -480,8 +529,20 @@ img{max-width:100%}
     <div class="verdict" id="sub" aria-live="polite"></div>
     <svg id="strip" class="strip" role="img" aria-label="Frequency scale"></svg>
 
+    <div class="after" id="after" hidden>
+      <div class="pair"><button id="hearTrue" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l4.5-4v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span id="hearTrueTxt">Actual</span></button><button id="hearGuess" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l4.5-4v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Yours</span></button><button id="hearInst" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span id="hearInstTxt">Piano</span></button></div>
+      <button id="nextBtn" class="cta" type="button">Next</button>
+      <div class="tip offscale" id="offScale" role="dialog" aria-labelledby="offScaleTxt" hidden>
+        <button class="tip-x" id="offScaleClose" type="button" aria-label="Close">×</button>
+        <p id="offScaleTxt"></p>
+        <div class="pair" id="offScaleNotes"></div>
+      </div>
+    </div>
+    </div>
+    <div class="train-right">
     <div class="keys" id="choices"></div>
     <div class="piano" id="piano" hidden></div>
+    <div class="roll" id="roll" hidden><div class="roll-track" id="rollTrack"></div></div>
     <form id="guessForm" class="guess" autocomplete="off" novalidate hidden>
       <div class="field">
         <input id="guessInput" inputmode="decimal" disabled aria-label="Your answer in hertz" aria-describedby="guessErr">
@@ -508,11 +569,9 @@ img{max-width:100%}
       <button class="cta" id="lockBtn" type="button">Lock in</button>
     </div>
     <p class="error" id="guessErr" aria-live="assertive" hidden></p>
-
-    <div class="after" id="after" hidden>
-      <div class="pair"><button id="hearTrue" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l4.5-4v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span id="hearTrueTxt">Actual</span></button><button id="hearGuess" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l4.5-4v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Yours</span></button></div>
-      <button id="nextBtn" class="cta" type="button">Next</button>
     </div>
+    </div>
+
   </section>
 
   <!-- ============ RESULTS ============ -->
@@ -593,6 +652,10 @@ img{max-width:100%}
         <div class="seg" id="durSeg" style="--n:4" role="group" aria-label="Tone length"></div>
       </div>
       <div class="row col">
+        <span class="row-main"><b>Instrument</b></span>
+        <div class="chips" id="instSeg" role="group" aria-label="Instrument"></div>
+      </div>
+      <div class="row col">
         <span class="row-main"><b>Top octave</b></span>
         <div class="trim-row"><input type="range" id="optTrim" min="-15" max="6" step="1" aria-label="Top-octave level"><output id="trimOut" for="optTrim"></output><button class="ghost" type="button" id="trimCheck">1k / 8k</button></div>
       </div>
@@ -621,12 +684,15 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
-      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, type, find. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, type, find. When you name a tone, the first ten answers of a round use buttons and the last ten use a full piano keyboard. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
       <h2>Find the tone</h2>
       <p>Spin the record until the tone sounds like the number; within 10% passes. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
+      <h2>Instruments</h2>
+      <p>After an answer, the note button plays it on a real instrument, retuned to the exact number. Choose the instrument in Settings; notes outside its range play on the piano. A number more than 1% from any note offers the two notes around it instead.</p>
+      <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
       <h2>Memory</h2>
       <p>Pull is how far your answers lean toward the tone before them. Cold is the first answer of a round after 10 quiet minutes.</p>
     </div>
@@ -762,7 +828,7 @@ const levelTitle = lv => `${LEVELS[lv-1].name} · ${LEVELS[lv-1].short}`;
 const divHue = di => (25 + 275 * di / DIVISIONS.length).toFixed(1);
 
 // Progress restarted under new keys when this level ladder arrived (2026-10-03); sound settings carry over.
-const DEFAULTS = {dur:5, match:true, rove:true, scramble:true, auto:true, level:1, hiTrim:-6};
+const DEFAULTS = {dur:5, match:true, rove:true, scramble:true, auto:true, level:1, hiTrim:-6, instrument:'piano'};
 const carried = store.get('hbe2.settings', {}) || {};
 let settings = Object.assign({}, DEFAULTS,
   Object.fromEntries(['dur','match','rove','scramble','auto','hiTrim'].filter(k => k in carried).map(k => [k, carried[k]])),
@@ -917,7 +983,7 @@ navigator.audioSession?.addEventListener?.('statechange', () => { if (navigator.
 function resetAudio(){
   try { stopAll(); } catch(e) {}
   const old = ctx;
-  ctx = null; out = null; noiseBuf = null; mixBus = null; adj = null; voices = []; audioStale = false; clockCheck = null;
+  ctx = null; out = null; noiseBuf = null; mixBus = null; adj = null; voices = []; audioStale = false; clockCheck = null; noteBufs = {};
   for (const k in noiseBufs) delete noiseBufs[k];                         // buffers belong to the old engine's sample rate
   try { old.close(); } catch(e) {}
 }
@@ -1031,6 +1097,7 @@ function silence(){
 }
 function stopAll(){
   timers.forEach(clearTimeout); timers = [];
+  instToken++;
   clearTimeout(adjIdle);
   silence();
   if (adj) adj.dead = true;
@@ -1053,9 +1120,82 @@ function play(f, opts = {}){
 function setAudio(s){
   audioState = s;
   $('playBtn').dataset.state = s;            // the orb's motion follows play state only, never pitch or level
-  if (s === 'idle') document.querySelectorAll('.probes .on, .key.on, .pk.on').forEach(b => b.classList.remove('on'));
+  if (s === 'idle') document.querySelectorAll('.probes .on, .key.on, .pk.on, .rk.on').forEach(b => b.classList.remove('on'));
   renderStatus();
   startWave();
+}
+
+/* ---------- instruments: the answer played on a real instrument ----------
+   Recorded notes (FluidR3 GM SoundFont, CC BY 3.0), one file per instrument in sounds/, loaded when first needed.
+   Each note carries its measured pitch, so playback is retuned to exactly the number asked for. Ranges are the
+   real instrument's, within C3–C8 (the violin stops at A6, the organ at C7, where these recordings go bad);
+   outside its range a note plays on the first instrument that has it. */
+const INSTRUMENTS = [
+  {id: 'piano',   name: 'Piano',   lo: 48, hi: 108, demo: 72},
+  {id: 'guitar',  name: 'Guitar',  lo: 48, hi: 83,  demo: 72},
+  {id: 'violin',  name: 'Violin',  lo: 55, hi: 93,  demo: 72},
+  {id: 'flute',   name: 'Flute',   lo: 60, hi: 98,  demo: 72},
+  {id: 'marimba', name: 'Marimba', lo: 48, hi: 96,  demo: 72},
+  {id: 'bells',   name: 'Bells',   lo: 79, hi: 108, demo: 96},
+  {id: 'organ',   name: 'Organ',   lo: 48, hi: 96,  demo: 72},
+];
+const INST_LEVEL = 0.06;                                                 // loudness of a note, about that of a mid-range test tone
+const chosenInst = () => INSTRUMENTS.find(I => I.id === settings.instrument) || INSTRUMENTS[0];
+const nearestNote = f => Math.round(69 + 12 * Math.log2(f / 440));
+const hasNote = (I, f) => nearestNote(f) >= I.lo && nearestNote(f) <= I.hi;
+const instFor = f => hasNote(chosenInst(), f) ? chosenInst() : INSTRUMENTS.find(I => hasNote(I, f)) || null;
+const soundFiles = {};
+let noteBufs = {}, instToken = 0;
+function loadSounds(id){
+  if (!soundFiles[id]) soundFiles[id] = new Promise((res, rej) => {
+    const el = document.createElement('script');
+    const fail = () => { delete soundFiles[id]; el.remove(); rej(new Error('sounds')); };
+    el.src = `sounds/${id}.js`;
+    el.onload = () => window.MEH_SOUNDS && MEH_SOUNDS[id] ? res(MEH_SOUNDS[id]) : fail();
+    el.onerror = fail;
+    document.head.appendChild(el);
+  });
+  return soundFiles[id];
+}
+function noteBuffer(id, m){                                              // decoded once per audio engine
+  const key = id + m;
+  if (!noteBufs[key]) noteBufs[key] = loadSounds(id).then(S => {
+    const b = atob(S[m][2]), u = new Uint8Array(b.length);
+    for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
+    return new Promise((res, rej) => ctx.decodeAudioData(u.buffer, res, rej));
+  }).catch(e => { delete noteBufs[key]; throw e; });
+  return noteBufs[key];
+}
+const midiExact = f => 69 + 12 * Math.log2(f / 440);
+const onScale = f => Math.abs(f / hzOf(nearestNote(f)) - 1) <= 0.01;   // within 1% of a note
+const neighbours = f => [Math.floor(midiExact(f)), Math.floor(midiExact(f)) + 1].map(hzOf);
+const instPlayable = f => onScale(f) ? !!instFor(f) : neighbours(f).some(instFor);
+function showOffScale(f){
+  const [a, b] = neighbours(f);
+  $('offScaleTxt').textContent = `This frequency is not on the traditional scale. The closest notes are ${noteName(a)} and ${noteName(b)}.`;
+  $('offScaleNotes').innerHTML = [a, b].map(n => `<button type="button" class="ghost listen" data-f="${n}"${instFor(n) ? '' : ' disabled'}>${noteName(n)} · ${fmtHz(n)} Hz</button>`).join('');
+  $('offScale').hidden = false;
+  $('offScaleClose').focus({preventScroll: true});
+}
+function warmInstrument(f){ const I = instFor(f); if (I && ctx) noteBuffer(I.id, nearestNote(f)).catch(() => {}); }
+function playInstrument(f, I = instFor(f)){
+  if (!I) return;
+  if (!audio()) { showError('This browser cannot play audio.'); return; }
+  stopAll();
+  noteAnchor(f);
+  const m = nearestNote(f), tok = ++instToken;
+  Promise.all([loadSounds(I.id), noteBuffer(I.id, m)]).then(([S, buf]) => {
+    if (tok !== instToken || !ctx) return;                               // something else played meanwhile
+    const [hz, w] = S[m], rate = f / hz;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = buf; src.playbackRate.value = rate;
+    g.gain.value = Math.min(1, INST_LEVEL * Math.pow(10, (tilt(f) + hiCut(f)) / 20) / w);
+    src.connect(g); g.connect(out);
+    src.start(ctx.currentTime + 0.02);
+    track(src, g);
+    setAudio('tone');
+    timers.push(setTimeout(() => setAudio('idle'), buf.duration / rate * 1000 + 80));
+  }).catch(() => { if (tok === instToken && screen === 'train') showError('Couldn’t load the instrument.'); });
 }
 
 /* ---------- Find the tone: fresh random pitch stops for every target ----------
@@ -1144,6 +1284,7 @@ function go(name){
   if ((screen === 'train' || screen === 'lab') && name !== screen) stopAll();
   if (name !== 'train') showTip(false);
   screen = name;
+  $('app').dataset.screen = name;
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + name; });
   window.scrollTo(0, 0);
   if (name === 'progress') { progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
@@ -1159,6 +1300,7 @@ const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' &
 
 function startRound(){
   round = {id: Date.now(), lv: settings.level, items: []};
+  loadSounds(chosenInst().id).catch(() => {});
   $('quitConfirm').hidden = true;
   go('train');
   nextQuestion();
@@ -1175,10 +1317,12 @@ function nextQuestion(){
     startAdj(settings.scramble);
     if (!settings.hideFindTip && !round.tipShown) { round.tipShown = true; showTip(true); }
   } else {
-    trial = {task, f: target, lv: round.lv, rp: 0};
+    const style = CHOICE_TASKS.includes(task) && round.items.length >= ROUND / 2 ? 'roll' : 'classic';   // first ten as before, last ten on the full keyboard
+    trial = {task, f: target, lv: round.lv, rp: 0, style};
     input.value = '';
     render();
     play(target, {scramble: settings.scramble});
+    if (style === 'roll') centerRoll();
     if (task === 'type') input.focus({preventScroll: true});
   }
 }
@@ -1197,6 +1341,7 @@ function record(rec){
   last = rec; phase = 'revealed';
   input.blur();
   render();
+  warmInstrument(rec.f);
   const orb = $('playBtn');                                              // pop for right, shake for wrong
   orb.classList.remove('pop', 'shake'); void orb.offsetWidth;
   if (!reduceMotion.matches) orb.classList.add(rec.ok ? 'pop' : 'shake');
@@ -1211,7 +1356,7 @@ function answer(g){
   const ok = trial.task !== 'type' ? g === trial.f                      // a button or key
            : L.choices ? Math.abs(g - trial.f) < 0.75                   // typed: the number, to the nearest Hz or better
            : Math.abs(oct(g, trial.f)) <= 1/12;                          // typed, last level: within 6%
-  record({task: trial.task, f: trial.f, g, t: Date.now(), rp: trial.rp, lv: trial.lv, ok: ok ? 1 : 0});
+  record({task: trial.task, f: trial.f, g, t: Date.now(), rp: trial.rp, lv: trial.lv, ok: ok ? 1 : 0, ui: trial.style});
 }
 function lockIn(){
   if (!canAdjust()) return;
@@ -1307,10 +1452,14 @@ function onKey(e){                                 // buttons and piano keys: an
 }
 $('choices').addEventListener('click', onKey);
 $('piano').addEventListener('click', onKey);
+$('roll').addEventListener('click', onKey);
 const advance = () => { if (!round) return; round.items.length >= ROUND ? finishRound() : nextQuestion(); };
 $('nextBtn').addEventListener('click', advance);
 $('hearTrue').addEventListener('click', () => last && play(last.f, {dur: 2, rove: false, labeled: true}));
 $('hearGuess').addEventListener('click', () => last && play(clamp(last.g, 20, 20000), {dur: 2, rove: false, labeled: true}));
+$('hearInst').addEventListener('click', () => { if (!last) return; if (onScale(last.f)) playInstrument(last.f); else showOffScale(last.f); });
+$('offScaleNotes').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b) playInstrument(+b.dataset.f); });
+$('offScaleClose').addEventListener('click', () => { $('offScale').hidden = true; $('hearInst').focus({preventScroll: true}); });
 $('lockBtn').addEventListener('click', lockIn);
 $('playBtn').addEventListener('animationend', e => { if (e.animationName === 'pop' || e.animationName === 'shake') e.currentTarget.classList.remove('pop', 'shake'); });
 
@@ -1378,7 +1527,7 @@ document.addEventListener('keydown', e => {
   const inField = e.target.closest('input, select, textarea'), onButton = e.target.closest('button');
   if (screen === 'summary' && e.key === 'Enter' && !onButton) { e.preventDefault(); startRound(); return; }
   if (screen !== 'train' || !round || !trial) return;
-  if (e.key === 'Escape') { if (!$('findTip').hidden) showTip(false); else $('quitBtn').click(); return; }
+  if (e.key === 'Escape') { if (!$('offScale').hidden) $('offScaleClose').click(); else if (!$('findTip').hidden) showTip(false); else $('quitBtn').click(); return; }
   if (trial.task === 'find' && phase === 'listening' && !inField) {
     const step = e.shiftKey ? COARSE : 1;
     const map = {ArrowUp: step, ArrowDown: -step, PageUp: COARSE, PageDown: -COARSE};
@@ -1478,16 +1627,23 @@ function render(){
   input.inputMode = L.wrap === 'note' ? 'text' : 'decimal';
   input.setAttribute('autocapitalize', L.wrap === 'note' ? 'characters' : 'off');
 
-  $('choices').hidden = task !== 'pick' && task !== 'notes';
-  $('piano').hidden = task !== 'piano';
+  const roll = trial.style === 'roll';
+  $('choices').hidden = roll || (task !== 'pick' && task !== 'notes');
+  $('piano').hidden = roll || task !== 'piano';
+  $('roll').hidden = !roll;
   $('guessForm').hidden = task !== 'type';
   $('adjust').hidden = !find || phase === 'revealed';
-  if (task === 'pick' || task === 'notes') renderChoices(L, task);
-  if (task === 'piano') renderPiano(L);
+  if (roll) { renderRoll(L); if (phase === 'revealed') centerRoll([last.f, last.g]); }
+  else if (task === 'pick' || task === 'notes') renderChoices(L, task);
+  else if (task === 'piano') renderPiano(L);
   input.disabled = phase !== 'listening';
   $('checkBtn').disabled = phase !== 'listening';
   $('after').hidden = phase !== 'revealed';
   $('hearTrueTxt').textContent = find ? 'Target' : 'Actual';
+  const inst = last && instFor(last.f);
+  $('hearInst').disabled = !(last && instPlayable(last.f));
+  if (phase !== 'revealed') $('offScale').hidden = true;
+  $('hearInstTxt').textContent = (inst || chosenInst()).name;
   $('nextBtn').textContent = done >= ROUND ? 'Results' : 'Next';
   $('playBtn').setAttribute('aria-label', phase === 'listening' ? (find ? 'Resume tone' : 'Replay tone') : (find ? 'Play target' : 'Replay actual tone'));
   renderStatus();
@@ -1574,6 +1730,28 @@ function renderChoices(L, task){
     const label = task === 'notes' ? name : L.wrap === 'both' ? `${keyLabel(f)}<small>${name}</small>` : keyLabel(f);
     return `<button type="button" class="${cls}" style="--h:${hueOf(f)}" data-f="${f}" aria-label="${task === 'notes' ? name : fmtFreq(f) + ' hertz'}">${label}</button>`;
   }).join('');
+}
+function renderRoll(L){                           // the full C3–C9 keyboard; keys outside the set are greyed and disabled
+  const live = new Set(L.choices), fb = phase === 'revealed' && last, both = L.wrap === 'both';
+  let wi = 0, keys = '';
+  for (let m = 48; m <= 120; m++) {
+    const f = hzOf(m), name = noteName(f), black = name.includes('♯'), on = live.has(f);
+    const st = fb && f === last.f ? ' actual' : fb && f === last.g ? ' wrong' : '';
+    const label = !on ? (!black && /^C\d/.test(name) ? `<em>${name}</em>` : '') : both ? (black ? `${f}` : `${f}<i>${name}</i>`) : name;
+    keys += `<button type="button" class="rk ${black ? 'rb' : 'rw'}${on ? ' live' : ''}${st}" style="--x:${wi};--h:${hueOf(f)}" data-f="${f}"${on ? '' : ' disabled'} aria-label="${name}">${label}</button>`;
+    if (!black) wi++;
+  }
+  const track = $('rollTrack');
+  track.style.width = `calc(${wi} * var(--w))`;
+  track.innerHTML = keys;
+}
+function centerRoll(fs){                           // center the set's keys, or the given keys (your answer and the right one)
+  const roll = $('roll');
+  const keys = fs ? fs.map(f => roll.querySelector(`.rk[data-f="${f}"]`)).filter(Boolean) : [...roll.querySelectorAll('.rk.live')];
+  if (!keys.length) return;
+  const a = Math.min(...keys.map(k => k.offsetLeft)), z = Math.max(...keys.map(k => k.offsetLeft + k.offsetWidth));
+  const left = (a + z) / 2 - roll.clientWidth / 2;
+  if (fs && !reduceMotion.matches) roll.scrollTo({left, behavior: 'smooth'}); else roll.scrollLeft = left;
 }
 function renderPiano(L){                           // one octave per row, C to B; a lone top C joins the row below it
   const fb = phase === 'revealed' && last, rows = [];
@@ -1888,6 +2066,7 @@ function renderSettings(){
   }).join('');
   [['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
+  $('instSeg').innerHTML = INSTRUMENTS.map(I => `<button type="button" data-inst="${I.id}" aria-pressed="${I === chosenInst()}">${I.name}</button>`).join('');
   $('durSeg').innerHTML = [1, 2, 5, 10].map(d => `<button type="button" data-dur="${d}" aria-pressed="${settings.dur === d}">${d} s</button>`).join('');
   $('optTrim').value = String(settings.hiTrim);
   $('trimOut').textContent = fmtDb(settings.hiTrim);
@@ -1895,6 +2074,11 @@ function renderSettings(){
 $('levelSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-lv]'); if (!b) return;
   settings.level = +b.dataset.lv; saveSettings(); renderSettings();
+});
+$('instSeg').addEventListener('click', e => {
+  const b = e.target.closest('[data-inst]'); if (!b) return;
+  settings.instrument = b.dataset.inst; saveSettings(); renderSettings();
+  playInstrument(hzOf(chosenInst().demo), chosenInst());
 });
 $('durSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-dur]'); if (!b) return;
