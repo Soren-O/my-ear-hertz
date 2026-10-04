@@ -171,6 +171,7 @@ p{margin:0}
 .orb-label{font-family:var(--font-label);font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
 .orb-num{font-family:var(--font-num);font-weight:200;font-size:clamp(40px,12.5vw,52px);letter-spacing:-.05em;line-height:1.05;font-variant-numeric:tabular-nums}
 .orb-unit{font-family:var(--font-num);font-size:12px;color:var(--muted)}
+.orb-unit:empty{display:none}
 .orb-wave{display:none;width:min(42vw,164px);aspect-ratio:2/1}
 .orb[data-hidden="1"] .orb-wave{display:block}
 .orb[data-hidden="1"] .orb-num,.orb[data-hidden="1"] .orb-unit{display:none}
@@ -225,6 +226,7 @@ p{margin:0}
 .keys.dense .key{font-size:12px;padding:10px 0 13px;border-radius:10px}
 .keys.dense .key::after{bottom:5px;height:2px}
 .key.anchor{font-weight:600}
+.key small{display:block;font-family:var(--font-label);font-size:8px;letter-spacing:.14em;color:var(--muted);margin-top:4px}
 .key.on{border-color:var(--ink)}
 .key.actual{border-color:var(--good);background:var(--good-bg);color:var(--good);font-weight:600}
 .key.wrong{border-color:var(--bad);background:var(--bad-bg);color:var(--bad);font-weight:600}
@@ -618,13 +620,13 @@ img{max-width:100%}
     </header>
     <div class="article">
       <h2>Levels</h2>
-      <p>Each set of tones is learned three ways: pick the number, type it, then tune a tone to it. The sets grow: 500, 1,000 and 2,000; the low octaves; the high octaves; all seven octaves; half-, third- and quarter-octaves.</p>
-      <p>Then the piano, C3 to C8: pick the frequency, then the note, then the key. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
+      <p>Each set of tones is learned three ways: pick the number, type it, then tune a tone to it. The sets grow: C5, C6 and C7, first by note name and then by number (523, 1,047 and 2,093 Hz); the low octaves; the high octaves; all seven octaves; half-, third- and quarter-octaves.</p>
+      <p>Then the piano, C3 to C8: pick the note, then the key, then the frequency. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
       <h2>Find the tone</h2>
-      <p>Spin the record until the tone sounds like the number; within 10% passes. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: 1,000, then 500, then 2,000, then all three.</p>
+      <p>Spin the record until the tone sounds like the number; within 10% passes. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
       <h2>Memory</h2>
       <p>Pull is how far your answers lean toward the tone before them. Cold is the first answer of a round after 10 quiet minutes.</p>
     </div>
@@ -715,10 +717,23 @@ const GRID = [...R40, ...R40.map(v => v*10)].filter(v => v >= FMIN && v <= FMAX)
 const every = k => GRID.filter((_, i) => i % k === 0);
 const OCTAVES = every(12);
 const NOTE = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
-const PIANO = Array.from({length: 61}, (_, i) => 440 * Math.pow(2, (i - 21) / 12));   // C3 … C8, equal temperament, A4 = 440
+const PIANO = Array.from({length: 61}, (_, i) => Math.round(440 * Math.pow(2, (i - 21) / 12)));   // C3 … C8, A4 = 440, to the nearest Hz
 const noteName = f => { const m = Math.round(69 + 12 * Math.log2(f / 440)); return NOTE[m % 12] + (Math.floor(m / 12) - 1); };
+const noteHz = midi => 440 * Math.pow(2, (midi - 69) / 12);
+const noteCents = f => {                                                   // nearest note plus how far off, e.g. "B5 +40¢"
+  const m = Math.round(69 + 12 * Math.log2(f / 440)), c = Math.round(1200 * Math.log2(f / noteHz(m)));
+  return NOTE[m % 12] + (Math.floor(m / 12) - 1) + (c ? ` ${c > 0 ? '+' : '−'}${Math.abs(c)}¢` : '');
+};
+function parseNote(raw){                                                   // "C6", "c 6", "F#4", "Bb3" → MIDI number
+  const m = String(raw).replace(/\s+/g, '').match(/^([A-Ga-g])([#♯b♭]?)(-?\d)$/);
+  if (!m) return null;
+  return 12 * (+m[3] + 1) + {C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11}[m[1].toUpperCase()] + (/[#♯]/.test(m[2]) ? 1 : m[2] ? -1 : 0);
+}
+const [C5, C6, C7] = [72, 84, 96].map(m => Math.round(noteHz(m)));         // 523, 1,047, 2,093 Hz: notes are rounded to whole hertz,
+                                                                          // at most 5¢ off (C♯3), far below what anyone can hear
 const TIERS = [
-  {name:'Three tones',     choices:[500, 1000, 2000],        cn:3, denom:1},
+  {name:'Three Cs',        choices:[C5, C6, C7],             cn:3, denom:1, wrap:'note'},   // familiar notes to start, named as notes
+  {name:'Three Cs in Hz',  choices:[C5, C6, C7],             cn:3, denom:1, wrap:'both'},   // then the same three as numbers with their notes
   {name:'Low octaves',     choices:[125, 250, 500, 1000],    cn:4, denom:1},
   {name:'High octaves',    choices:[1000, 2000, 4000, 8000], cn:4, denom:1},
   {name:'All octaves',     choices:OCTAVES,  cn:7, denom:1},
@@ -728,18 +743,19 @@ const TIERS = [
   {name:'Piano',           choices:PIANO,    cn:6, denom:12, piano:true},
   {name:'Any frequency',   choices:null},
 ];
+const FIND_ONE_AT_A_TIME = [{task:'find', short:'Find C6', only:[C6]}, {task:'find', short:'Find C5', only:[C5]},
+                           {task:'find', short:'Find C7', only:[C7]}, {task:'find', short:'Find'}];
 const STAGES = {
-  first: [{task:'pick', short:'Name'}, {task:'type', short:'Type'},                            // Find starts with one tone at a time
-          {task:'find', short:'Find 1k', only:[1000]}, {task:'find', short:'Find 500', only:[500]},
-          {task:'find', short:'Find 2k', only:[2000]}, {task:'find', short:'Find'}],
+  cNotes: [{task:'notes', short:'Name'}, {task:'type', short:'Type'}, ...FIND_ONE_AT_A_TIME],
+  cHz:    [{task:'pick', short:'Name'}, {task:'type', short:'Type'}, ...FIND_ONE_AT_A_TIME],
   plain: [{task:'pick', short:'Name'}, {task:'type', short:'Type'}, {task:'find', short:'Find'}],
-  piano: [{task:'pick', short:'Hz'}, {task:'notes', short:'Notes'}, {task:'piano', short:'Keys'}],
+  piano: [{task:'notes', short:'Notes'}, {task:'piano', short:'Keys'}, {task:'pick', short:'Hz', wrap:'both'}],
   last:  [{task:'mixed', short:'Mixed'}],
 };
-const LEVELS = TIERS.flatMap((T, ti) => (ti === 0 ? STAGES.first : T.piano ? STAGES.piano : T.choices ? STAGES.plain : STAGES.last)
+const LEVELS = TIERS.flatMap((T, ti) => (ti === 0 ? STAGES.cNotes : ti === 1 ? STAGES.cHz : T.piano ? STAGES.piano : T.choices ? STAGES.plain : STAGES.last)
   .map(S => Object.assign({}, T, S, {tier: ti}, S.only ? {choices: S.only, narrow: true} : {})));
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
-const noteFirst = task => task === 'notes' || task === 'piano';
+const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
 const ROUND = 20, UP = 20, DOWN = 12, COARSE = 20;
 const FIND_TOL = 0.10;                                                   // Find passes within ±10%
 const lvOf = r => r.lv || LEVELS.length;
@@ -762,6 +778,14 @@ if ((settings.ladder || 1) < 2) {          // 2026-10-04: three single-tone Find
   history.forEach(shift); rounds.forEach(shift);
   if (settings.level > 3) settings.level += 3;                            // the old three-tone Find step now starts at Find 1k
   settings.ladder = 2;
+  store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
+}
+if (settings.ladder < 3) {                 // 2026-10-04: a note-name pass of the C set went in first; piano now runs Notes → Keys → Hz
+  const map = lv => lv <= 24 ? lv + 6 : ({25: 33, 26: 31, 27: 32, 28: 34})[lv] || lv;
+  const shift = r => { if (r.lv) r.lv = map(r.lv); };
+  history.forEach(shift); rounds.forEach(shift);
+  if (settings.level > 6) settings.level = map(settings.level);          // within the C set: the same step, now in note names
+  settings.ladder = 3;
   store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
 }
 if (!LEVELS[settings.level-1]) settings.level = 1;
@@ -1059,7 +1083,7 @@ function makeStops(target, narrow){
   const pts = u.map(x => lo + (hi - lo) * S(x));
   let k = pts.findIndex(p => p > lt); if (k < 0) k = pts.length;
   pts.splice(k, 0, lt);
-  return {pts, n: pts.length};
+  return {pts, n: pts.length, ti: k};                                    // ti: the target's stop
 }
 // The record wraps around: past the top the tone fades out, then the bottom fades in, and the reverse going down.
 const GAP = 60;                                                          // fade length, in stops
@@ -1171,7 +1195,7 @@ function record(rec){
   const orb = $('playBtn');                                              // pop for right, shake for wrong
   orb.classList.remove('pop', 'shake'); void orb.offsetWidth;
   if (!reduceMotion.matches) orb.classList.add(rec.ok ? 'pop' : 'shake');
-  if (rec.task === 'find' && rec.g === rec.f && !reduceMotion.matches) confetti();   // landed exactly on the target
+  if (rec.exact && !reduceMotion.matches) confetti();                    // landed exactly on the target
   showTip(false);
   $('nextBtn').focus({preventScroll: true});
 }
@@ -1180,16 +1204,17 @@ function answer(g){
   stopAll();
   const L = LEVELS[trial.lv-1];
   const ok = trial.task !== 'type' ? g === trial.f                      // a button or key
-           : L.choices ? Math.round(g) === Math.round(trial.f)           // typed: the exact number
+           : L.choices ? Math.abs(g - trial.f) < 0.75                   // typed: the number, to the nearest Hz or better
            : Math.abs(oct(g, trial.f)) <= 1/12;                          // typed, last level: within 6%
   record({task: trial.task, f: trial.f, g, t: Date.now(), rp: trial.rp, lv: trial.lv, ok: ok ? 1 : 0});
 }
 function lockIn(){
   if (!canAdjust()) return;
-  const P = Math.round(deckHz(trial) * 10) / 10;
+  const pos = deckPos(trial), exact = pos.i === trial.w.ti && pos.g === 1;
+  const P = exact ? trial.f : Math.round(deckHz(trial) * 10) / 10;
   stopAll();
   const ok = Math.abs(P / trial.f - 1) <= FIND_TOL;
-  record({task: 'find', m: 'match', f: trial.f, g: P, t: Date.now(), lv: trial.lv, mv: trial.mv, ok: ok ? 1 : 0});
+  record({task: 'find', m: 'match', f: trial.f, g: P, t: Date.now(), lv: trial.lv, mv: trial.mv, ok: ok ? 1 : 0, exact: exact ? 1 : 0});
 }
 function finishRound(){
   stopAll();
@@ -1256,6 +1281,12 @@ $('playBtn').addEventListener('click', () => {
 $('guessForm').addEventListener('submit', e => {
   e.preventDefault();
   if (phase !== 'listening') return;
+  if (LEVELS[trial.lv-1].wrap === 'note') {
+    const m = parseNote(input.value);
+    if (m == null) return showError('Enter a note, like C6.');
+    showError('');
+    return answer(Math.round(noteHz(m)));
+  }
   const g = parseGuess(input.value);
   if (g == null) return showError('Enter a number, like 440 or 2.5k.');
   if (g < 10 || g > 40000) return showError('10 to 40,000 Hz.');
@@ -1351,7 +1382,7 @@ document.addEventListener('keydown', e => {
   }
   if (inField || onButton) return;
   if (e.key === 'Enter' && phase === 'revealed') { e.preventDefault(); advance(); return; }
-  const ch = phase === 'listening' && trial.task === 'pick' && LEVELS[trial.lv-1].choices;     // number keys answer on sets of 9 or fewer
+  const ch = phase === 'listening' && (trial.task === 'pick' || trial.task === 'notes') && LEVELS[trial.lv-1].choices;     // number keys answer on sets of 9 or fewer
   if (ch && ch.length <= 9 && /^[1-9]$/.test(e.key) && +e.key <= ch.length) { e.preventDefault(); answer(ch[+e.key - 1]); }
 });
 
@@ -1413,7 +1444,7 @@ function renderStatus(){
 }
 function render(){
   if (!round || !trial) return;
-  const L = LEVELS[round.lv-1], task = trial.task, find = task === 'find', notes = noteFirst(task);
+  const L = LEVELS[round.lv-1], task = trial.task, find = task === 'find', notes = noteOnly(L, task), both = L.wrap === 'both';
   const done = round.items.length, k = Math.min(ROUND, done + (phase === 'revealed' ? 0 : 1));
   $('trCount').textContent = `${k}/${ROUND}`;
   let dots = '';
@@ -1428,20 +1459,22 @@ function render(){
     orb.dataset.revealed = '1'; orb.dataset.hidden = '0';
     orb.dataset.result = last.ok ? 'good' : 'bad';
     $('bigVal').textContent = notes ? noteName(last.f) : fmtFreq(last.f);
-    $('bigUnit').textContent = notes ? `${fmtFreq(last.f)} Hz` : 'Hz';
-    $('guessVal').textContent = notes ? noteName(last.g) : fmtFreq(last.g);                 // your answer, under the target
+    $('bigUnit').textContent = notes ? '' : both ? `Hz · ${noteName(last.f)}` : 'Hz';
+    $('guessVal').textContent = notes ? (find && last.g !== last.f ? noteCents(last.g) : noteName(last.g)) : fmtFreq(last.g);   // your answer, under the target
     fitNum($('bigVal'), 50); fitNum($('guessVal'), 40);
     sub.innerHTML = `<span class="ratio">×${(last.g / last.f).toFixed(2)}</span>`;
   } else {
     orb.dataset.revealed = '0'; orb.dataset.hidden = find ? '0' : '1';
     delete orb.dataset.result;
-    $('bigVal').textContent = find ? fmtFreq(trial.f) : '';
-    $('bigUnit').textContent = 'Hz';
+    $('bigVal').textContent = !find ? '' : notes ? noteName(trial.f) : fmtFreq(trial.f);
+    $('bigUnit').textContent = !find ? 'Hz' : notes ? '' : both ? `Hz · ${noteName(trial.f)}` : 'Hz';
     $('guessVal').textContent = '';
     fitNum($('bigVal'), 50);
     sub.innerHTML = '';
   }
-  $('strip').style.display = phase === 'revealed' ? '' : 'none';
+  $('strip').style.display = phase === 'revealed' && !notes ? '' : 'none';   // the Hz scale stays hidden on note-name steps
+  input.inputMode = L.wrap === 'note' ? 'text' : 'decimal';
+  input.setAttribute('autocapitalize', L.wrap === 'note' ? 'characters' : 'off');
 
   $('choices').hidden = task !== 'pick' && task !== 'notes';
   $('piano').hidden = task !== 'piano';
@@ -1531,12 +1564,12 @@ function renderChoices(L, task){
   box.classList.toggle('dense', L.choices.length > 30);
   const fb = phase === 'revealed' && last;
   box.innerHTML = L.choices.map(f => {
-    const name = L.piano ? noteName(f) : '';
+    const name = noteName(f);
     let cls = 'key';
     if (L.piano ? /^C\d/.test(name) : L.choices.length > 7 && OCTAVES.includes(f)) cls += ' anchor';
     if (fb && f === last.f) cls += ' actual';
     else if (fb && f === last.g) cls += ' wrong';
-    const label = task === 'notes' ? name : keyLabel(f);
+    const label = task === 'notes' ? name : L.wrap === 'both' ? `${keyLabel(f)}<small>${name}</small>` : keyLabel(f);
     return `<button type="button" class="${cls}" style="--h:${hueOf(f)}" data-f="${f}" aria-label="${task === 'notes' ? name : fmtFreq(f) + ' hertz'}">${label}</button>`;
   }).join('');
 }
@@ -1627,10 +1660,10 @@ function renderSummary(){
   tiles.push(L.task === 'find' ? ['Clicks', Math.round(mean(items.map(x => x.mv || 0))), ''] : ['Replays', items.reduce((t, x) => t + (x.rp || 0), 0), '']);
   $('sumTiles').innerHTML = tiles.map(tileHtml).join('');
 
-  const lab = noteFirst(L.task) ? noteName : fmtFreq;
+  const notes = noteOnly(L, L.task), lab = notes ? noteName : fmtFreq, labYou = notes && L.task === 'find' ? noteCents : lab;
   $('sumList').innerHTML = items.map(x => {
     const cls = grade(x)[0], same = x.g === x.f;
-    return `<li><span class="hd" style="--h:${hueOf(x.f)}"></span><span>${lab(x.f)}</span><span class="you">${same ? '' : lab(x.g)}</span><span class="ratio">${same ? '' : '×' + (x.g / x.f).toFixed(2)}</span><span class="mark ${cls}">${MARK[cls]}</span></li>`;
+    return `<li><span class="hd" style="--h:${hueOf(x.f)}"></span><span>${lab(x.f)}</span><span class="you">${same ? '' : labYou(x.g)}</span><span class="ratio">${same ? '' : '×' + (x.g / x.f).toFixed(2)}</span><span class="mark ${cls}">${MARK[cls]}</span></li>`;
   }).join('');
 }
 
@@ -1656,7 +1689,7 @@ function exampleMatch(){
   const rnd = mulberry32(5), gauss = gaussFrom(rnd);
   const c = Math.log2(1000), out = [];
   for (let i = 0; i < 60; i++) {
-    const p = i / 59, lv = i < 40 ? 6 : 9, L = LEVELS[lv-1];   // Find steps of the first two sets
+    const p = i / 59, lv = i < 40 ? 6 : 15, L = LEVELS[lv-1];  // Find on the C set, then on the low octaves
     const T = L.choices[Math.floor(rnd() * L.choices.length)];
     const lg = c + (0.75 + 0.2*p) * (Math.log2(T) - c) + 0.08 + (0.45 - 0.25*p) * gauss();
     out.push({m: 'match', f: T, g: Math.round(Math.pow(2, lg)), lv, ok: Math.abs(Math.pow(2, lg) / T - 1) <= FIND_TOL ? 1 : 0});
