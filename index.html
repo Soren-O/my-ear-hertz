@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="My Ear Hertz">
 <meta name="theme-color" content="#090B10" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#F1F3F7" media="(prefers-color-scheme: light)">
+<link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23090B10'/%3E%3Cpath d='M8 32c6-14 10-14 16 0s10 14 16 0 10-14 16 0' fill='none' stroke='%237DADF6' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
 <title>My Ear Hertz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -381,30 +382,6 @@ p{margin:0}
 .rk.on{box-shadow:inset 0 0 0 2px var(--accent-ring, var(--ink)),inset 0 -4px 0 var(--bar)}
 .rk.actual{background:var(--win);border-color:var(--win);color:var(--cta-ink)}
 .rk.wrong{background:var(--lose);border-color:var(--lose);color:var(--cta-ink)}
-/* Landscape phones: orb and results in a band across the top, the keyboard (or other answer control) full width below */
-@media (orientation: landscape) and (max-height: 540px){
-  .app{padding-inline:max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px))}
-  .app[data-screen="train"]{max-width:none;padding-block:0 8px}
-  #scr-train{gap:6px}
-  .train-top{margin-inline:0;padding-inline:0;min-height:44px}
-  .train-body{display:flex;flex-direction:column;gap:10px}
-  .train-left{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:24px;row-gap:4px;align-items:center}
-  .train-left .stage{grid-row:1 / span 3;padding:22px}
-  .train-left .verdict,.train-left .strip,.train-left .after{grid-column:2}
-  .train-right{display:flex;flex-direction:column;gap:8px;min-width:0}
-  .orb{width:min(30vh,132px)}
-  .orb::before{inset:-10px} .orb::after{inset:-20px}
-  .orb-num{font-size:clamp(26px,8vh,38px)}
-  .orb-guess{font-size:clamp(20px,6vh,28px);margin-top:2px}
-  .strip{height:64px}
-  .after{flex-direction:row;align-items:center}
-  .after .pair{flex:2}
-  .after #nextBtn{flex:1;padding:12px}
-  .roll{--w:34px;margin-inline:0;padding-inline:0}
-  .roll-track{height:min(40vh,150px)}
-  .adjust{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:16px;row-gap:8px;align-items:center}
-  .adjust .deck{width:min(40vh,160px);grid-row:1 / span 2}
-}
 
 .wk.wrong,.bk.wrong{background:var(--lose);border-color:var(--lose)}
 
@@ -462,6 +439,70 @@ label.lab-row{cursor:pointer;justify-content:space-between}
   .screen:not([hidden]),.orb,.orb::before,.orb::after,.progress i.cur{animation:none !important}
   .cta,.key{transition:none}
 }
+/* ---------- Landscape: the main layout, on phones held sideways, tablets and desktop windows ----------
+   Screens split into two columns. Training puts the orb in the middle, the result to its left and the
+   listen buttons to its right, with the answer controls across the bottom of the screen. */
+.halves,.half{display:contents}
+#scr-summary .actions{order:1}
+@media (orientation: landscape){
+  .app{max-width:1080px;padding-inline:max(20px, env(safe-area-inset-left, 0px)) max(20px, env(safe-area-inset-right, 0px));padding-bottom:20px}
+  .halves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px;align-items:start}
+  .half{display:flex;flex-direction:column;gap:18px;min-width:0}
+  #scr-home .halves{align-items:center}
+  #scr-home .hero{width:min(62vh,300px)}
+  #scr-summary .half:first-child{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 20px;align-items:center;align-content:start}
+  #scr-summary .score-ring{grid-row:1 / span 2;width:min(40vh,220px);margin:0}
+  #scr-summary .banner,#scr-summary #sumTiles{grid-column:2}
+  #scr-summary .actions{grid-column:1 / -1}
+  #scr-summary .half:last-child .card{max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px);overflow-y:auto}   /* the list scrolls, the buttons stay on screen */
+  .article{max-width:720px;margin-inline:auto}
+  #levelSeg{max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px);overflow-y:auto}   /* the long level list scrolls on its own */
+
+  .app[data-screen="train"]{max-width:none;padding-block:0 10px}
+  #scr-train{gap:6px;min-height:calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px);min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px)}
+  .train-top{margin-inline:0;padding-inline:0;min-height:44px}
+  .train-body{flex:1;display:flex;flex-direction:column;gap:10px}
+  .train-left{flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:clamp(16px,3vw,40px);row-gap:6px;align-items:center;align-content:center}
+  .train-left .stage{grid-column:2;grid-row:1 / span 3;padding:clamp(12px,3vh,28px)}
+  .train-left .after{display:contents}                                   /* listen buttons left of the orb, Next to its right */
+  .train-left .after > .pair{grid-column:1;grid-row:1 / span 3;grid-template-columns:minmax(0,1fr);width:min(100%,220px);justify-self:end;align-self:center}
+  .train-left .verdict{grid-column:3;grid-row:1;align-self:end;justify-self:start;width:min(100%,300px)}
+  .train-left .strip{grid-column:3;grid-row:2;justify-self:start;width:min(100%,300px)}
+  .train-left #nextBtn{grid-column:3;grid-row:3;justify-self:start;width:min(100%,300px)}
+  .train-left:has(.strip[style*="none"]) .verdict{grid-row:1 / span 2;align-self:center}
+  .train-right{display:flex;flex-direction:column;justify-content:flex-end;gap:8px;min-width:0;min-height:calc(clamp(116px,38vh,230px) + 12px)}   /* as tall as the keyboard, so the orb stays put when buttons and keyboard alternate */
+  .orb{width:clamp(104px,34vh,228px)}
+  .orb-num{font-size:clamp(26px,7.5vh,52px)}
+  .orb-guess{font-size:clamp(20px,5.5vh,42px)}
+  #guessForm{width:min(100%,560px);margin-inline:auto}
+  .roll{--w:clamp(32px,4.4vh,46px);margin-inline:0;padding-inline:0}
+  .roll-track{height:clamp(116px,38vh,230px)}
+  .piano{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
+  .adjust{display:grid;grid-template-columns:auto minmax(0,340px);justify-content:center;column-gap:20px;row-gap:8px;align-items:center}
+  .adjust .deck{width:clamp(140px,40vh,270px);grid-row:1 / span 2;margin:0}
+}
+/* Phones and tablets held upright show only a turn-sideways sign: the app is landscape-only there */
+.rotate{display:none}
+.rot-phone{transform-box:fill-box;transform-origin:center;animation:turn 2.8s ease-in-out infinite}
+.rot-arrow{color:var(--muted)}
+@keyframes turn{0%,25%{transform:rotate(0)}55%,85%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+@media (orientation: portrait) and (pointer: coarse){
+  .rotate{display:grid;place-items:center;position:fixed;inset:0;z-index:100;background:var(--bg);color:var(--ink)}
+  .rotate svg{width:min(40vw,160px)}
+  body{overflow:hidden}
+}
+@media (prefers-reduced-motion: reduce){.rot-phone{animation:none}}
+@media (orientation: landscape) and (max-height: 540px){
+  .app{padding-top:4px}
+  .topbar{min-height:44px}
+  .screen,.half{gap:10px}
+  .halves{row-gap:10px}
+  #scr-home .cta{padding-block:12px}
+  #scr-home .week .bar{height:28px}
+  .orb::before{inset:-10px} .orb::after{inset:-20px}
+  .strip{height:64px}
+  .pkeys{height:46px}
+}
 </style>
 <style>
 /* Standalone shell: keep content clear of the notch and home indicator. */
@@ -480,6 +521,7 @@ img{max-width:100%}
       <button class="icon" type="button" data-go="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
     </header>
 
+    <div class="halves"><div class="half">
     <div class="hero">
       <svg class="ring" id="levelRing" viewBox="0 0 300 300" aria-hidden="true"></svg>
       <div class="ring-center">
@@ -489,6 +531,7 @@ img{max-width:100%}
       </div>
     </div>
 
+    </div><div class="half">
     <button class="cta" id="startBtn" type="button">Start round</button>
 
     <div class="card">
@@ -500,6 +543,7 @@ img{max-width:100%}
       <button class="row" type="button" data-go="progress"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg></span><span class="row-main"><b>Progress</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="lab"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"/></svg></span><span class="row-main"><b>Lab</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </nav>
+    </div></div>
   </section>
 
   <!-- ============ TRAINING ============ -->
@@ -581,17 +625,20 @@ img{max-width:100%}
       <span class="title" id="sumSub"></span>
       <span class="spacer"></span>
     </header>
+    <div class="halves"><div class="half">
     <div class="score-ring">
       <svg id="scoreRing" viewBox="0 0 240 240" aria-hidden="true"></svg>
       <div class="score-mid"><div class="score-num" id="sumScore"></div></div>
     </div>
     <p class="banner" id="sumBanner" hidden></p>
     <div class="tiles two" id="sumTiles"></div>
-    <div class="card"><ol class="answers" id="sumList"></ol></div>
     <div class="actions">
       <button class="ghost" type="button" data-go="home">Menu</button>
       <button class="cta" type="button" id="sumNext">Next round</button>
     </div>
+    </div><div class="half">
+    <div class="card"><ol class="answers" id="sumList"></ol></div>
+    </div></div>
   </section>
 
   <!-- ============ PROGRESS ============ -->
@@ -601,6 +648,7 @@ img{max-width:100%}
       <span class="title">Progress</span>
       <span class="spacer"></span>
     </header>
+    <div class="halves"><div class="half">
     <div class="seg" id="progModes" role="group" aria-label="Mode">
       <button type="button" data-mode="pick" aria-pressed="true">Name the tone</button>
       <button type="button" data-mode="match" aria-pressed="false">Find the tone</button>
@@ -613,6 +661,7 @@ img{max-width:100%}
       <div class="card-head"><span class="label">Memory</span><span></span></div>
       <div class="tiles two" id="memTiles"></div>
     </div>
+    </div><div class="half">
     <div class="note-row" id="exampleRow"><span class="badge">Example data</span></div>
     <div class="tiles" id="tiles"></div>
     <div class="card chart">
@@ -624,6 +673,7 @@ img{max-width:100%}
       <svg id="scatter" role="img" aria-label="Answer versus actual frequency"></svg>
     </div>
     <div class="confirm" id="clearWrap"></div>
+    </div></div>
   </section>
 
   <!-- ============ SETTINGS ============ -->
@@ -634,6 +684,7 @@ img{max-width:100%}
       <span class="spacer"></span>
     </header>
 
+    <div class="halves"><div class="half">
     <p class="label group-label">Level</p>
     <div class="list" id="levelSeg"></div>
     <div class="list">
@@ -641,6 +692,7 @@ img{max-width:100%}
       <label class="row"><span class="row-main"><b>Find tip</b></span><input type="checkbox" class="switch" id="optTip"></label>
     </div>
 
+    </div><div class="half">
     <p class="label group-label">Sound</p>
     <div class="list">
       <label class="row"><span class="row-main"><b>Scramble</b></span><input type="checkbox" class="switch" id="optScramble"></label>
@@ -672,6 +724,7 @@ img{max-width:100%}
     <nav class="list" aria-label="More">
       <button class="row" type="button" data-go="about"><span class="row-main"><b>How it works</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </nav>
+    </div></div>
   </section>
 
   <!-- ============ ABOUT ============ -->
@@ -684,7 +737,7 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
-      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, type, find. When you name a tone, the first ten answers of a round use buttons and the last ten use a full piano keyboard. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, type, find. When you name a tone, answers alternate between buttons and a full piano keyboard. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
@@ -706,6 +759,7 @@ img{max-width:100%}
       <span class="spacer"></span>
     </header>
 
+    <div class="halves"><div class="half">
     <div class="card lab">
       <div class="card-head"><span class="label">Turntable</span><span>1 turn = 1 octave</span></div>
       <div class="lab-readout"><span class="num" id="ttNum"></span><span class="unit">Hz</span></div>
@@ -733,6 +787,7 @@ img{max-width:100%}
       <button class="cta" id="rtPlay" type="button">Play</button>
     </div>
 
+    </div><div class="half">
     <div class="card lab">
       <div class="card-head"><span class="label">Mixer</span><span></span></div>
       <div class="chips" id="mxPresets"></div>
@@ -760,9 +815,16 @@ img{max-width:100%}
       <div class="seg" id="shDir" style="--n:2" role="group" aria-label="Direction"><button type="button" data-dir="1">Up</button><button type="button" data-dir="-1">Down</button></div>
       <button class="cta" id="shPlay" type="button">Play</button>
     </div>
+    </div></div>
   </section>
 
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
+  <div class="rotate" role="img" aria-label="Turn your phone sideways">
+    <svg viewBox="0 0 120 120" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <g class="rot-phone"><rect x="42" y="27" width="36" height="66" rx="7"/><path d="M55 85h10"/></g>
+      <g class="rot-arrow"><path d="M14 60a46 46 0 0 0 46 46"/><path d="M53 99l7 7-7 7"/></g>
+    </svg>
+  </div>
 </div>
 
 <script>
@@ -1317,7 +1379,7 @@ function nextQuestion(){
     startAdj(settings.scramble);
     if (!settings.hideFindTip && !round.tipShown) { round.tipShown = true; showTip(true); }
   } else {
-    const style = CHOICE_TASKS.includes(task) && round.items.length >= ROUND / 2 ? 'roll' : 'classic';   // first ten as before, last ten on the full keyboard
+    const style = CHOICE_TASKS.includes(task) && round.items.length % 2 === 1 ? 'roll' : 'classic';   // answers alternate: buttons, then the full keyboard
     trial = {task, f: target, lv: round.lv, rp: 0, style};
     input.value = '';
     render();
@@ -1633,7 +1695,7 @@ function render(){
   $('roll').hidden = !roll;
   $('guessForm').hidden = task !== 'type';
   $('adjust').hidden = !find || phase === 'revealed';
-  if (roll) { renderRoll(L); if (phase === 'revealed') centerRoll([last.f, last.g]); }
+  if (roll) { renderRoll(L); if (phase === 'revealed' && !last.ok) showActualKey(); }
   else if (task === 'pick' || task === 'notes') renderChoices(L, task);
   else if (task === 'piano') renderPiano(L);
   input.disabled = phase !== 'listening';
@@ -1745,13 +1807,17 @@ function renderRoll(L){                           // the full C3–C9 keyboard; 
   track.style.width = `calc(${wi} * var(--w))`;
   track.innerHTML = keys;
 }
-function centerRoll(fs){                           // center the set's keys, or the given keys (your answer and the right one)
-  const roll = $('roll');
-  const keys = fs ? fs.map(f => roll.querySelector(`.rk[data-f="${f}"]`)).filter(Boolean) : [...roll.querySelectorAll('.rk.live')];
+function centerRoll(){                             // center the set's keys
+  const roll = $('roll'), keys = [...roll.querySelectorAll('.rk.live')];
   if (!keys.length) return;
   const a = Math.min(...keys.map(k => k.offsetLeft)), z = Math.max(...keys.map(k => k.offsetLeft + k.offsetWidth));
-  const left = (a + z) / 2 - roll.clientWidth / 2;
-  if (fs && !reduceMotion.matches) roll.scrollTo({left, behavior: 'smooth'}); else roll.scrollLeft = left;
+  roll.scrollLeft = (a + z) / 2 - roll.clientWidth / 2;
+}
+function showActualKey(){                          // after a miss, scroll only as far as needed to bring the right key into view
+  const roll = $('roll'), k = roll.querySelector('.rk.actual'); if (!k) return;
+  const r = roll.getBoundingClientRect(), b = k.getBoundingClientRect(), pad = 16;
+  const d = b.left < r.left + pad ? b.left - r.left - pad : b.right > r.right - pad ? b.right - r.right + pad : 0;
+  if (d) roll.scrollBy({left: d, behavior: reduceMotion.matches ? 'auto' : 'smooth'});
 }
 function renderPiano(L){                           // one octave per row, C to B; a lone top C joins the row below it
   const fb = phase === 'revealed' && last, rows = [];
