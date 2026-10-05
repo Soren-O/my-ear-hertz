@@ -446,6 +446,16 @@ label.lab-row{cursor:pointer;justify-content:space-between}
   .screen:not([hidden]),.orb,.orb::before,.orb::after,.progress i.cur{animation:none !important}
   .cta,.key{transition:none}
 }
+/* Compare: the tone playing now lights up; its key is pressed down in full color, the other key fades */
+.orb-num,.orb-guess{transition:opacity .2s ease}
+.orb-num.dim,.orb-guess.dim{opacity:.28}
+.ghost.listen{transition:background .15s ease,color .15s ease,border-color .15s ease}
+.ghost.lit{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.key.pressed,.rk.pressed,.wk.pressed,.bk.pressed{transform:translateY(3px);box-shadow:inset 0 4px 8px rgba(0,0,0,.28)}
+.key.pressed.actual{background:var(--good);border-color:var(--good);color:#fff}
+.key.pressed.wrong{background:var(--bad);border-color:var(--bad);color:#fff}
+.cmp .actual:not(.pressed),.cmp .wrong:not(.pressed){opacity:.45}
+.key,.rk,.wk,.bk{transition:transform .08s ease,opacity .15s ease,background .15s ease}
 /* ---------- Landscape: the main layout, on phones held sideways, tablets and desktop windows ----------
    Screens split into two columns. Training puts the orb in the middle, the result to its left and the
    listen buttons to its right, with the answer controls across the bottom of the screen. */
@@ -583,7 +593,7 @@ img{max-width:100%}
     <svg id="strip" class="strip" role="img" aria-label="Frequency scale"></svg>
 
     <div class="after" id="after" hidden>
-      <div class="pair"><button id="hearTrue" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l4.5-4v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span id="hearTrueTxt">Actual</span></button><button id="hearGuess" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l4.5-4v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>Yours</span></button><button id="hearInst" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span id="hearInstTxt">Piano</span></button></div>
+      <div class="pair"><button id="hearTrue" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l4.5-4v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span id="hearTrueTxt">Actual</span></button><button id="hearGuess" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5h3l4.5-4v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>My guess</span></button><button id="hearInst" class="ghost listen" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span id="hearInstTxt">Piano</span></button></div>
       <button id="nextBtn" class="cta" type="button">Next</button>
       <div class="tip offscale" id="offScale" role="dialog" aria-labelledby="offScaleTxt" hidden>
         <button class="tip-x" id="offScaleClose" type="button" aria-label="Close">×</button>
@@ -747,7 +757,7 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
-      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. When you name a tone, answers alternate between buttons and a full piano keyboard. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. When you name a tone, answers alternate between buttons and a full piano keyboard. After a miss, or after any Find, your tone and the right one take turns, a second each, until you go on. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
@@ -1011,7 +1021,7 @@ function ampFor(f, roveDb){
 }
 
 /* ---------- audio ---------- */
-let ctx = null, out = null, voices = [], timers = [], audioState = 'idle', noiseBuf = null;
+let ctx = null, out = null, voices = [], timers = [], audioState = 'idle', noiseBuf = null, cmp = null;
 let adj = null, adjIdle = null;            // the continuous tone in Find the tone
 // Browsers, Safari above all (iPhone and Mac), can leave the audio engine silent after an interruption:
 // the screen locking, switching apps, a call or notification, the Mac sleeping, AirPods hopping between
@@ -1183,6 +1193,7 @@ function stopAll(){
   clearTimeout(adjIdle);
   silence();
   if (adj) adj.dead = true;
+  endCompare();
   setAudio('idle');
   if (labActive) { labActive = null; labButtons(); }
 }
@@ -1205,6 +1216,44 @@ function setAudio(s){
   if (s === 'idle') document.querySelectorAll('.probes .on, .key.on, .pk.on, .rk.on').forEach(b => b.classList.remove('on'));
   renderStatus();
   startWave();
+}
+
+/* ---------- compare: after an answer, your tone and the right one, a second each, back and forth ----------
+   Always after Find; after naming only when the answer was wrong. Whichever is playing lights up: its number
+   in the orb, its listen button, and its key, pressed down. It runs until you move on, or for 30 seconds. */
+const CMP_TONE = 1, CMP_GAP = 0.12, CMP_MAX = 30;
+const CMP_BOXES = ['choices', 'piano', 'roll'];
+function startCompare(g, f){
+  if (!audio()) return;
+  stopAll();
+  const c = cmp = {g: clamp(g, 20, 20000), f, i: 0, t0: Date.now()};
+  CMP_BOXES.forEach(id => $(id).classList.add('cmp'));
+  const step = () => {
+    if (cmp !== c) return;
+    if (Date.now() - c.t0 > CMP_MAX * 1000) { endCompare(); setAudio('idle'); return; }
+    const which = c.i++ % 2 ? 'true' : 'you', freq = which === 'you' ? c.g : c.f;
+    tone(freq, ctx.currentTime + 0.02, CMP_TONE, ampFor(freq, 0), 0.03);
+    noteAnchor(freq);
+    showCompare(which);
+    timers.push(setTimeout(() => { if (cmp === c) showCompare(null); }, CMP_TONE * 1000));
+    timers.push(setTimeout(step, (CMP_TONE + CMP_GAP) * 1000));
+  };
+  setAudio('tone');
+  step();
+}
+function endCompare(){
+  cmp = null;
+  showCompare(null);
+  CMP_BOXES.forEach(id => $(id).classList.remove('cmp'));
+}
+function showCompare(which){                       // light up 'you' (my guess), 'true' (the target), or neither
+  const f = !last || !which ? null : which === 'you' ? last.g : last.f;
+  $('hearGuess').classList.toggle('lit', which === 'you');
+  $('hearTrue').classList.toggle('lit', which === 'true');
+  $('bigVal').classList.toggle('dim', which === 'you');
+  $('guessVal').classList.toggle('dim', which === 'true');
+  document.querySelectorAll('.pressed').forEach(k => k.classList.remove('pressed'));
+  if (f != null) CMP_BOXES.forEach(id => $(id).querySelectorAll(`[data-f="${f}"]`).forEach(k => k.classList.add('pressed')));
 }
 
 /* ---------- instruments: the answer played on a real instrument ----------
@@ -1423,6 +1472,7 @@ function record(rec){
   input.blur();
   render();
   warmInstrument(rec.f);
+  if (rec.task === 'find' || (!rec.ok && CHOICE_TASKS.includes(rec.task))) startCompare(rec.g, rec.f);
   const orb = $('playBtn');                                              // pop for right, shake for wrong
   orb.classList.remove('pop', 'shake'); void orb.offsetWidth;
   if (!reduceMotion.matches) orb.classList.add(rec.ok ? 'pop' : 'shake');
@@ -1538,8 +1588,14 @@ $('piano').addEventListener('click', onKey);
 $('roll').addEventListener('click', onKey);
 const advance = () => { if (!round) return; round.items.length >= ROUND ? finishRound() : nextQuestion(); };
 $('nextBtn').addEventListener('click', advance);
-$('hearTrue').addEventListener('click', () => last && play(last.f, {dur: 2, rove: false, labeled: true}));
-$('hearGuess').addEventListener('click', () => last && play(clamp(last.g, 20, 20000), {dur: 2, rove: false, labeled: true}));
+function hearOne(which){                           // a tap on Actual or My guess plays just that one, and stops the back and forth
+  if (!last) return;
+  play(which === 'you' ? clamp(last.g, 20, 20000) : last.f, {dur: 2, rove: false, labeled: true});
+  showCompare(which);
+  timers.push(setTimeout(() => showCompare(null), 2000));
+}
+$('hearTrue').addEventListener('click', () => hearOne('true'));
+$('hearGuess').addEventListener('click', () => hearOne('you'));
 $('hearInst').addEventListener('click', () => { if (!last) return; if (onScale(last.f)) playInstrument(last.f); else showOffScale(last.f); });
 $('offScaleNotes').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if (b) playInstrument(+b.dataset.f); });
 $('offScaleClose').addEventListener('click', () => { $('offScale').hidden = true; $('hearInst').focus({preventScroll: true}); });
