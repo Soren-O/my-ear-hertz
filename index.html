@@ -232,7 +232,14 @@ p{margin:0}
 .key.actual{border-color:var(--good);background:var(--good-bg);color:var(--good);font-weight:600}
 .key.wrong{border-color:var(--bad);background:var(--bad-bg);color:var(--bad);font-weight:600}
 
-.guess{margin:0}
+.guess{margin:0;display:flex;flex-direction:column;gap:8px}
+.field input[readonly]{pointer-events:none}
+.numpad{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.numpad button{height:52px;border-radius:13px;border:1px solid var(--line);background:linear-gradient(180deg,var(--surface-2),var(--surface));box-shadow:inset 0 1px 0 var(--hi),0 2px 6px -3px var(--shadow);font-family:var(--font-num);font-size:22px;font-weight:300;color:var(--ink);cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;display:grid;place-items:center}
+.numpad button:active{transform:translateY(1px)}
+.numpad button:disabled{opacity:.4;cursor:default}
+.numpad svg{width:22px;height:22px}
+.numpad [data-k="0"]{grid-column:2}
 .field{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-hi);border-radius:20px;padding:6px 6px 6px 18px}
 .field:focus-within{border-color:var(--ink)}
 .field input{flex:1;min-width:0;width:100%;border:none;background:transparent;font-family:var(--font-num);font-weight:300;font-size:30px;outline:none;padding:6px 0;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
@@ -474,7 +481,9 @@ label.lab-row{cursor:pointer;justify-content:space-between}
   .orb{width:clamp(104px,34vh,228px)}
   .orb-num{font-size:clamp(26px,7.5vh,52px)}
   .orb-guess{font-size:clamp(20px,5.5vh,42px)}
-  #guessForm{width:min(100%,560px);margin-inline:auto}
+  #guessForm .field{width:min(100%,560px);margin-inline:auto}
+  .numpad{grid-template-columns:repeat(11,minmax(0,1fr))}                 /* one row across the bottom */
+  .numpad [data-k="0"]{grid-column:auto}
   .roll{--w:clamp(32px,4.4vh,46px);margin-inline:0;padding-inline:0}
   .roll-track{height:clamp(116px,38vh,230px)}
   .piano{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
@@ -589,10 +598,11 @@ img{max-width:100%}
     <div class="roll" id="roll" hidden><div class="roll-track" id="rollTrack"></div></div>
     <form id="guessForm" class="guess" autocomplete="off" novalidate hidden>
       <div class="field">
-        <input id="guessInput" inputmode="decimal" disabled aria-label="Your answer in hertz" aria-describedby="guessErr">
+        <input id="guessInput" readonly tabindex="-1" inputmode="none" disabled aria-label="Your answer in hertz" aria-describedby="guessErr">
         <span class="hz">Hz</span>
         <button id="checkBtn" type="submit" disabled>Check</button>
       </div>
+      <div class="numpad" id="numpad" role="group" aria-label="Number pad"><button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="0">0</button><button type="button" data-k="back" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg></button></div>
     </form>
     <div class="adjust" id="adjust" hidden>
       <div class="deck" id="pad" aria-label="Turntable: drag in circles or scroll to change the pitch">
@@ -737,7 +747,7 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
-      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, type, find. When you name a tone, answers alternate between buttons and a full piano keyboard. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. When you name a tone, answers alternate between buttons and a full piano keyboard. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
@@ -849,11 +859,6 @@ const noteCents = f => {                                                   // ne
   const m = Math.round(69 + 12 * Math.log2(f / 440)), c = Math.round(1200 * Math.log2(f / noteHz(m)));
   return NOTE[m % 12] + (Math.floor(m / 12) - 1) + (c ? ` ${c > 0 ? '+' : '−'}${Math.abs(c)}¢` : '');
 };
-function parseNote(raw){                                                   // "C6", "c 6", "F#4", "Bb3" → MIDI number
-  const m = String(raw).replace(/\s+/g, '').match(/^([A-Ga-g])([#♯b♭]?)(-?\d)$/);
-  if (!m) return null;
-  return 12 * (+m[3] + 1) + {C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11}[m[1].toUpperCase()] + (/[#♯]/.test(m[2]) ? 1 : m[2] ? -1 : 0);
-}
 const FMIN = hzOf(48), FMAX = hzOf(120);                                   // C3–C9: 131–8,372 Hz, six octaves
 const CS = [48, 60, 72, 84, 96, 108, 120].map(hzOf);                       // every C we train
 const [C5, C6, C7] = [72, 84, 96].map(hzOf);                               // 523, 1,047, 2,093 Hz
@@ -871,8 +876,8 @@ const FIND_ONE = [['Find C6', C6], ['Find C5', C5], ['Find C7', C7]];
 function stepsFor(T){
   if (!T.choices) return [{task: 'mixed', short: 'Mixed'}];
   const pass = (wrap, mark) => {
-    const steps = [T.piano && wrap === 'note' ? {task: 'piano', short: `${mark} Keys`} : {task: wrap === 'note' ? 'notes' : 'pick', short: `${mark} Name`},
-                   {task: 'type', short: `${mark} Type`}];
+    const steps = [T.piano && wrap === 'note' ? {task: 'piano', short: `${mark} Keys`} : {task: wrap === 'note' ? 'notes' : 'pick', short: `${mark} Name`}];
+    if (wrap === 'both') steps.push({task: 'type', short: `${mark} Type`});   // typing is for numbers only
     if (T.first) FIND_ONE.forEach(([short, f]) => steps.push({task: 'find', short: `${mark} ${short}`, only: [f]}));
     steps.push({task: 'find', short: `${mark} Find`});
     return steps.map(x => Object.assign(x, {wrap}));
@@ -919,6 +924,21 @@ if (settings.ladder < 4) {                 // 2026-10-04: the whole ladder becam
   history.forEach(shift); rounds.forEach(shift);
   if (settings.level > 12) settings.level = 13;
   settings.ladder = 4;
+  store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
+}
+if (settings.ladder < 5) {                 // 2026-10-04: the ♪ Type steps (typing a note name) are gone
+  const map = [];                          // old level number - 1 → new level number
+  TIERS.forEach((T, ti) => {
+    const first = LEVELS.findIndex(L => L.tier === ti) + 1, count = LEVELS.filter(L => L.tier === ti).length;
+    for (let k = 0; k < count; k++) {
+      map.push(first + k);
+      if (k === 0 && T.choices) map.push(first + 1);                     // the old ♪ Type step → the step that followed it
+    }
+  });
+  const shift = r => { if (r.lv) r.lv = map[r.lv - 1] || LEVELS.length; };
+  history.forEach(shift); rounds.forEach(shift);
+  settings.level = map[settings.level - 1] || 1;
+  settings.ladder = 5;
   store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
 }
 if (!LEVELS[settings.level-1]) settings.level = 1;
@@ -1385,7 +1405,6 @@ function nextQuestion(){
     render();
     play(target, {scramble: settings.scramble});
     if (style === 'roll') centerRoll();
-    if (task === 'type') input.focus({preventScroll: true});
   }
 }
 function record(rec){
@@ -1490,21 +1509,23 @@ $('playBtn').addEventListener('click', () => {
   trial.rp++;
   play(trial.f, {scramble: settings.scramble});
 });
-$('guessForm').addEventListener('submit', e => {
-  e.preventDefault();
-  if (phase !== 'listening') return;
-  if (LEVELS[trial.lv-1].wrap === 'note') {
-    const m = parseNote(input.value);
-    if (m == null) return showError('Enter a note, like C6.');
-    showError('');
-    return answer(Math.round(noteHz(m)));
-  }
+function submitGuess(){
+  if (phase !== 'listening' || trial.task !== 'type') return;
   const g = parseGuess(input.value);
-  if (g == null) return showError('Enter a number, like 440 or 2.5k.');
+  if (g == null) return showError('Enter a number.');
   if (g < 10 || g > 40000) return showError('10 to 40,000 Hz.');
   showError('');
   answer(Math.round(g*10)/10);
-});
+}
+$('guessForm').addEventListener('submit', e => { e.preventDefault(); submitGuess(); });
+function padKey(k){                                // the on-screen number pad, and number keys on a keyboard
+  if (phase !== 'listening' || trial.task !== 'type') return;
+  const v = input.value;
+  input.value = k === 'back' ? v.slice(0, -1) : (v + k).replace(/^0+(?=\d)/, '').slice(0, 5);
+  showError('');
+}
+$('numpad').addEventListener('mousedown', e => e.preventDefault());       // keep focus off the keys, so Enter still checks
+$('numpad').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) padKey(b.dataset.k); });
 function onKey(e){                                 // buttons and piano keys: answer while listening, otherwise play a reference
   const b = e.target.closest('[data-f]'); if (!b) return;
   const f = parseFloat(b.dataset.f);
@@ -1596,6 +1617,11 @@ document.addEventListener('keydown', e => {
     if (e.key in map) { e.preventDefault(); if (canAdjust()) spin(Math.sign(map[e.key]) * (Math.abs(map[e.key]) > 1 ? 24 : 6)); nudge(map[e.key]); return; }
     if (e.key === 'Enter' && !onButton) { e.preventDefault(); lockIn(); return; }
   }
+  if (trial.task === 'type' && phase === 'listening' && !inField) {
+    if (/^[0-9]$/.test(e.key)) { e.preventDefault(); padKey(e.key); return; }
+    if (e.key === 'Backspace') { e.preventDefault(); padKey('back'); return; }
+    if (e.key === 'Enter') { e.preventDefault(); submitGuess(); return; }
+  }
   if (inField || onButton) return;
   if (e.key === 'Enter' && phase === 'revealed') { e.preventDefault(); advance(); return; }
   const ch = phase === 'listening' && (trial.task === 'pick' || trial.task === 'notes') && LEVELS[trial.lv-1].choices;     // number keys answer on sets of 9 or fewer
@@ -1686,8 +1712,6 @@ function render(){
     sub.innerHTML = '';
   }
   $('strip').style.display = phase === 'revealed' && !notes ? '' : 'none';   // the Hz scale stays hidden on note-name steps
-  input.inputMode = L.wrap === 'note' ? 'text' : 'decimal';
-  input.setAttribute('autocapitalize', L.wrap === 'note' ? 'characters' : 'off');
 
   const roll = trial.style === 'roll';
   $('choices').hidden = roll || (task !== 'pick' && task !== 'notes');
@@ -1699,6 +1723,7 @@ function render(){
   else if (task === 'pick' || task === 'notes') renderChoices(L, task);
   else if (task === 'piano') renderPiano(L);
   input.disabled = phase !== 'listening';
+  $('numpad').querySelectorAll('button').forEach(b => { b.disabled = phase !== 'listening'; });
   $('checkBtn').disabled = phase !== 'listening';
   $('after').hidden = phase !== 'revealed';
   $('hearTrueTxt').textContent = find ? 'Target' : 'Actual';
