@@ -757,12 +757,12 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
-      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. When you name a tone, answers alternate between buttons and a full piano keyboard. After a miss, or after any Find, your tone and the right one take turns, a second each, until you go on. Notes are rounded to whole hertz. Last comes any frequency: typed within 6%, or tuned within 10%.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. When you name a tone, answers alternate between buttons and a full piano keyboard. After a miss, or after any typed or tuned answer, your tone and the right one take turns, a second each, until you go on. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
       <h2>Find the tone</h2>
-      <p>Spin the record until the tone sounds like the number; within 10% passes. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
+      <p>Spin the record until the tone sounds like the number; within a quarter tone (about ±2.9%) passes. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
       <h2>Instruments</h2>
       <p>After an answer, the note button plays it on a real instrument, retuned to the exact number. Choose the instrument in Settings; notes outside its range play on the piano. A number more than 1% from any note offers the two notes around it instead.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
@@ -898,7 +898,8 @@ const LEVELS = TIERS.flatMap((T, ti) => stepsFor(T).map(S => Object.assign({}, T
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
 const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
 const ROUND = 20, UP = 20, DOWN = 12, COARSE = 20;
-const FIND_TOL = 0.10;                                                   // Find passes within ±10%
+const TOL = 1/24;      // every answer passes within a quarter tone (±50 cents, about ±2.9%), in octaves: fine enough to
+                       // tell which note any tone is nearest. Buttons and keys are a half step or more apart, so only the right one is.
 const lvOf = r => r.lv || LEVELS.length;
 const modeOf = r => r.m === 'match' ? 'match' : 'pick';
 const levelTitle = lv => `${LEVELS[lv-1].name} · ${LEVELS[lv-1].short}`;
@@ -1219,7 +1220,7 @@ function setAudio(s){
 }
 
 /* ---------- compare: after an answer, your tone and the right one, a second each, back and forth ----------
-   Always after Find; after naming only when the answer was wrong. Whichever is playing lights up: its number
+   After Find and typed answers (unless exactly right); after naming only when the answer was wrong. Whichever is playing lights up: its number
    in the orb, its listen button, and its key, pressed down. It runs until you move on, or for 30 seconds. */
 const CMP_TONE = 1, CMP_GAP = 0.12, CMP_MAX = 30;
 const CMP_BOXES = ['choices', 'piano', 'roll'];
@@ -1472,7 +1473,8 @@ function record(rec){
   input.blur();
   render();
   warmInstrument(rec.f);
-  if (rec.task === 'find' || (!rec.ok && CHOICE_TASKS.includes(rec.task))) startCompare(rec.g, rec.f);
+  const numeric = rec.task === 'find' || rec.task === 'type';             // tuned or typed: always, unless it was spot on; named: after a miss
+  if (numeric ? rec.g !== rec.f : !rec.ok) startCompare(rec.g, rec.f);
   const orb = $('playBtn');                                              // pop for right, shake for wrong
   orb.classList.remove('pop', 'shake'); void orb.offsetWidth;
   if (!reduceMotion.matches) orb.classList.add(rec.ok ? 'pop' : 'shake');
@@ -1483,10 +1485,7 @@ function record(rec){
 function answer(g){
   if (phase !== 'listening' || trial.task === 'find') return;
   stopAll();
-  const L = LEVELS[trial.lv-1];
-  const ok = trial.task !== 'type' ? g === trial.f                      // a button or key
-           : L.choices ? Math.abs(g - trial.f) < 0.75                   // typed: the number, to the nearest Hz or better
-           : Math.abs(oct(g, trial.f)) <= 1/12;                          // typed, last level: within 6%
+  const ok = Math.abs(oct(g, trial.f)) <= TOL;
   record({task: trial.task, f: trial.f, g, t: Date.now(), rp: trial.rp, lv: trial.lv, ok: ok ? 1 : 0, ui: trial.style});
 }
 function lockIn(){
@@ -1494,7 +1493,7 @@ function lockIn(){
   const pos = deckPos(trial), exact = pos.i === trial.w.ti && pos.g === 1;
   const P = exact ? trial.f : Math.round(deckHz(trial) * 10) / 10;
   stopAll();
-  const ok = Math.abs(P / trial.f - 1) <= FIND_TOL;
+  const ok = Math.abs(oct(P, trial.f)) <= TOL;
   record({task: 'find', m: 'match', f: trial.f, g: P, t: Date.now(), lv: trial.lv, mv: trial.mv, ok: ok ? 1 : 0, exact: exact ? 1 : 0});
 }
 function finishRound(){
@@ -2018,12 +2017,13 @@ function examplePick(){      // a simulated learner: rounds of octaves, then hal
 }
 function exampleMatch(){
   const rnd = mulberry32(5), gauss = gaussFrom(rnd);
+  const noteFind = [0, 1].map(ti => LEVELS.findIndex(L => L.tier === ti && L.task === 'find' && L.wrap === 'note' && !L.narrow) + 1);
   const c = Math.log2(1000), out = [];
   for (let i = 0; i < 60; i++) {
-    const p = i / 59, lv = i < 40 ? 6 : 15, L = LEVELS[lv-1];  // ♪ Find on C5–C7, then on C3–C5
+    const p = i / 59, lv = noteFind[i < 40 ? 0 : 1], L = LEVELS[lv-1];  // ♪ Find on C5–C7, then on C3–C5
     const T = L.choices[Math.floor(rnd() * L.choices.length)];
     const lg = c + (0.75 + 0.2*p) * (Math.log2(T) - c) + 0.08 + (0.45 - 0.25*p) * gauss();
-    out.push({m: 'match', f: T, g: Math.round(Math.pow(2, lg)), lv, ok: Math.abs(Math.pow(2, lg) / T - 1) <= FIND_TOL ? 1 : 0});
+    out.push({m: 'match', f: T, g: Math.round(Math.pow(2, lg)), lv, ok: Math.abs(lg - Math.log2(T)) <= TOL ? 1 : 0});
   }
   return out;
 }
