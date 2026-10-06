@@ -1,8 +1,10 @@
 # My Ear Hertz
 
-An ear trainer for learning pure-tone frequencies by the number, from C3 to C9 (131 Hz to 8,372 Hz).
+Perfect pitch training from C3 to C9 (131 Hz to 8,372 Hz), not just the standard scale, but arbitrary frequencies.
 
 Play it at **https://soren-o.github.io/my-ear-hertz/** (earbuds recommended; on an iPhone, turn off silent mode).
+
+Still in beta. 
 
 The app is the single file `index.html`. `sounds/` holds the instrument recordings, one file per instrument,
 loaded only when that instrument is used; `tools/make_sounds.py` rebuilds them.
