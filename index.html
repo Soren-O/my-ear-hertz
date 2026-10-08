@@ -379,6 +379,8 @@ p{margin:0}
 .steps{display:flex;gap:4px;flex-wrap:wrap}
 .steps button{border:1px solid var(--line-hi);background:transparent;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
 .steps button[aria-pressed="true"]{background:var(--cta);border-color:var(--cta);color:var(--cta-ink)}
+.steps button:disabled{opacity:.3;cursor:default}
+.row.tier.locked .lvbadge,.row.tier.locked .row-main{opacity:.4}
 /* Piano */
 .piano{display:flex;flex-direction:column;gap:8px}
 .prow{display:grid;grid-template-columns:26px minmax(0,1fr);gap:6px;align-items:center}
@@ -567,7 +569,7 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
   #scr-summary .actions{grid-column:1 / -1}
   #scr-summary .half:last-child .card{max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px);overflow-y:auto}   /* the list scrolls, the buttons stay on screen */
   .article{max-width:720px;margin-inline:auto}
-  #levelSeg{max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px);overflow-y:auto}   /* the long level list scrolls on its own */
+  #levelSeg,#levelPick{max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px);overflow-y:auto}   /* the long level list scrolls on its own */
 
   .app[data-screen="train"]{max-width:none;padding-block:0 10px}
   #scr-train{gap:6px;min-height:calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px);min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px)}
@@ -642,6 +644,7 @@ img{max-width:100%}
     </div>
 
     <nav class="list" aria-label="More">
+      <button class="row" type="button" data-go="levels"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4v-4h4v-4h4V8h4V4"/></svg></span><span class="row-main"><b>Levels</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="echo"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></span><span class="row-main"><b>Echo</b></span><span class="streak" id="homeStreak" hidden></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="progress"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg></span><span class="row-main"><b>Progress</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="lab"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"/></svg></span><span class="row-main"><b>Lab</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
@@ -824,6 +827,16 @@ img{max-width:100%}
     </div>
     <div class="confirm" id="clearWrap"></div>
     </div></div>
+  </section>
+
+  <!-- ============ LEVELS ============ -->
+  <section class="screen" id="scr-levels" aria-label="Levels" hidden>
+    <header class="topbar">
+      <button class="icon" data-go="home" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span class="title">Levels</span>
+      <span class="spacer"></span>
+    </header>
+    <div class="list" id="levelPick"></div>
   </section>
 
   <!-- ============ SETTINGS ============ -->
@@ -1107,6 +1120,10 @@ if (settings.ladder < 5) {                 // 2026-10-04: the ♪ Type steps (ty
 }
 if (!LEVELS[settings.level-1]) settings.level = 1;
 const saveSettings = () => store.set('hbe3.settings', settings);
+// settings.top: the highest level reached; only levels up to it can be picked. A future ladder change must map it too.
+if (!settings.top) settings.top = Math.max(1, ...rounds.map(r => r.lv && (r.ch === 'up' || r.score >= UP) ? r.lv + 1 : r.lv || 1));   // 2026-10-08: from rounds played so far
+settings.top = Math.min(LEVELS.length, Math.max(settings.top, settings.level));
+saveSettings();
 
 /* ---------- formatting & math ---------- */
 const fmtHz = f => Math.round(f).toLocaleString('en-US');
@@ -1666,7 +1683,7 @@ function go(name){
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + name; });
   window.scrollTo(0, 0);
   if (name === 'progress') { progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
-  ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, lab: renderLab, echo: renderEcho})[name]?.();
+  ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, levels: renderLevels, lab: renderLab, echo: renderEcho})[name]?.();
   placeBand();
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
@@ -1768,6 +1785,7 @@ function finishRound(){
     else if (score <= DOWN && lv > 1) change = {how: 'down', n: lv - 1};
     if (change) { settings.level = change.n; saveSettings(); }
   }
+  if (score >= UP && lv + 1 > settings.top && lv < LEVELS.length) { settings.top = lv + 1; saveSettings(); }   // opens the next level, auto or not
   const sum = {id: round.id, lv, score, n: round.items.length, t: Date.now(), ch: change ? change.how : null};
   rounds.push(sum);
   if (rounds.length > 2000) rounds = rounds.slice(-2000);
@@ -2639,7 +2657,7 @@ function renderClear(){
     $('clrYes').onclick = () => {
       history = []; rounds = []; lastRound = null;
       store.set('hbe3.history', history); store.set('hbe3.rounds', rounds);
-      settings.level = 1; saveSettings();
+      settings.level = 1; settings.top = 1; saveSettings();
       confirming = false; renderProgress();
     };
     $('clrNo').onclick = () => { confirming = false; renderClear(); };
@@ -2649,8 +2667,29 @@ function renderClear(){
   }
 }
 
+/* ---------- level list: the Levels screen and Settings ----------
+   Levels above settings.top are shown but locked; a 20/20 round opens the next one. */
+function levelRows(){
+  return TIERS.map((T, ti) => {
+    const steps = LEVELS.map((L, i) => [L, i + 1]).filter(([L]) => L.tier === ti);
+    const cur = LEVELS[settings.level-1].tier === ti, shut = steps[0][1] > settings.top;
+    return `<div class="row tier${cur ? ' sel' : ''}${shut ? ' locked' : ''}"><span class="lvbadge" style="--h:${divHue(T.div)}">${ti + 1}</span><span class="row-main"><b>${T.name}</b></span><span class="steps">${steps.map(([L, n]) => `<button type="button" data-lv="${n}" aria-pressed="${n === settings.level}"${n > settings.top ? ' disabled' : ''}>${L.short}</button>`).join('')}</span></div>`;
+  }).join('');
+}
+function pickLevel(e){
+  const b = e.target.closest('[data-lv]'), n = b ? +b.dataset.lv : 0;
+  if (!n || n > settings.top) return false;
+  settings.level = n; saveSettings();
+  return true;
+}
+function renderLevels(){
+  $('levelPick').innerHTML = levelRows();
+  $('levelPick').querySelector('.row.sel')?.scrollIntoView({block: 'center'});
+}
+$('levelPick').addEventListener('click', e => { if (pickLevel(e)) go('home'); });
+
 /* ---------- settings ---------- */
-const fmtDb = v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)} dB`;
+const fmtDb =v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)} dB`;
 function soundStatus(){
   const as = navigator.audioSession, parts = [ctx ? ctx.state : 'not started yet'];
   if (ctx) parts.push(`${Math.round(ctx.sampleRate / 100) / 10} kHz`);
@@ -2666,11 +2705,7 @@ $('sndTest').addEventListener('click', () => {                          // rebui
 });
 function renderSettings(){
   soundStatus();
-  $('levelSeg').innerHTML = TIERS.map((T, ti) => {
-    const steps = LEVELS.map((L, i) => [L, i + 1]).filter(([L]) => L.tier === ti);
-    const cur = LEVELS[settings.level-1].tier === ti;
-    return `<div class="row tier${cur ? ' sel' : ''}"><span class="lvbadge" style="--h:${divHue(T.div)}">${ti + 1}</span><span class="row-main"><b>${T.name}</b></span><span class="steps">${steps.map(([L, n]) => `<button type="button" data-lv="${n}" aria-pressed="${n === settings.level}">${L.short}</button>`).join('')}</span></div>`;
-  }).join('');
+  $('levelSeg').innerHTML = levelRows();
   [['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
   if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
@@ -2680,10 +2715,7 @@ function renderSettings(){
   $('optTrim').value = String(settings.hiTrim);
   $('trimOut').textContent = fmtDb(settings.hiTrim);
 }
-$('levelSeg').addEventListener('click', e => {
-  const b = e.target.closest('[data-lv]'); if (!b) return;
-  settings.level = +b.dataset.lv; saveSettings(); renderSettings();
-});
+$('levelSeg').addEventListener('click', e => { if (pickLevel(e)) renderSettings(); });
 const voiceChips = () => VOICES.map(V => `<button type="button" data-inst="${V.id}" aria-pressed="${V === chosenVoice()}">${V.name}</button>`).join('');
 $('instSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-inst]'); if (!b) return;
