@@ -307,6 +307,7 @@ p{margin:0}
 .score-mid{display:flex;flex-direction:column;align-items:center;text-align:center}
 .score-num{font-family:var(--font-num);font-weight:200;font-size:72px;letter-spacing:-.05em;line-height:1}
 .score-num span{font-size:.38em;color:var(--muted);letter-spacing:0}
+.score-num.wide{font-size:54px}
 .score-what{font-size:13px;color:var(--muted);margin-top:4px;max-width:16ch}
 .banner{border-radius:18px;padding:13px 16px;font-weight:600;font-size:14px;text-align:center;background:var(--surface);border:1px solid var(--line)}
 .banner.up{border:1.5px solid transparent;background:linear-gradient(var(--surface),var(--surface)) padding-box,var(--spectrum) border-box}
@@ -390,6 +391,16 @@ p{margin:0}
 .steps button[aria-pressed="true"]{background:var(--cta);border-color:var(--cta);color:var(--cta-ink)}
 .steps button:disabled{opacity:.3;cursor:default}
 .row.tier.locked .lvbadge,.row.tier.locked .row-main{opacity:.4}
+/* Long-term */
+.lt-when{font-family:var(--font-num);font-size:13px;color:var(--muted);white-space:nowrap}
+.lt-when.now,.lt-in.now{color:var(--teal)}
+.lt-next{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 0 4px}
+.lt-tone{font-family:var(--font-num);font-weight:300;font-size:64px;line-height:1}
+.lt-in{font-family:var(--font-num);font-size:15px;color:var(--muted)}
+#ltChart{height:190px}
+.chart .hit{fill:var(--good)}
+.chart .miss{fill:var(--bad)}
+.chart .tol{stroke:var(--faint);stroke-width:1.2;stroke-dasharray:4 4}
 /* Piano */
 .piano{display:flex;flex-direction:column;gap:8px}
 .prow{display:grid;grid-template-columns:26px minmax(0,1fr);gap:6px;align-items:center}
@@ -653,6 +664,7 @@ img{max-width:100%}
     </div>
 
     <nav class="list" aria-label="More">
+      <button class="row" type="button" id="ltRow" hidden><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></span><span class="row-main"><b>Long-term</b></span><span class="lt-when" id="ltWhen"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="levels"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4v-4h4v-4h4V8h4V4"/></svg></span><span class="row-main"><b>Levels</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="echo"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></span><span class="row-main"><b>Echo</b></span><span class="streak" id="homeStreak" hidden></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="progress"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg></span><span class="row-main"><b>Progress</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
@@ -835,6 +847,33 @@ img{max-width:100%}
       <svg id="scatter" role="img" aria-label="Answer versus actual frequency"></svg>
     </div>
     <div class="confirm" id="clearWrap"></div>
+    </div></div>
+  </section>
+
+  <!-- ============ LONG-TERM ============ -->
+  <section class="screen" id="scr-lt" aria-label="Long-term" hidden>
+    <header class="topbar">
+      <button class="icon" data-go="home" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span class="title">Long-term</span>
+      <span class="spacer"></span>
+    </header>
+    <div class="halves"><div class="half">
+    <div class="lt-next">
+      <span class="label">Next check</span>
+      <span class="lt-tone" id="ltTone"></span>
+      <span class="lt-in" id="ltIn"></span>
+    </div>
+    <button class="cta" id="ltCheck" type="button">Check</button>
+    <div class="tiles" id="ltTiles"></div>
+    <div class="list" id="ltExactRow" hidden>
+      <div class="row"><span class="row-main"><b>Exact timing</b></span><button class="ghost" id="ltExact" type="button">Allow</button></div>
+    </div>
+    </div><div class="half">
+    <div class="card chart">
+      <div class="card-head"><span class="label">Checks</span><span></span></div>
+      <svg id="ltChart" role="img" aria-label="How far off each check was, over time"></svg>
+    </div>
+    <div class="confirm" id="ltStopWrap"></div>
     </div></div>
   </section>
 
@@ -1692,7 +1731,8 @@ function go(name){
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + name; });
   window.scrollTo(0, 0);
   if (name === 'progress') { progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
-  ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, levels: renderLevels, lab: renderLab, echo: renderEcho})[name]?.();
+  if (name === 'lt') ltStopping = false;
+  ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, levels: renderLevels, lt: renderLT, lab: renderLab, echo: renderEcho})[name]?.();
   placeBand();
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
@@ -1703,20 +1743,21 @@ let phase = 'idle', trial = null, last = null;
 const input = $('guessInput');
 const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'scramble' && (!trial.echo || trial.heard);
 
-function startRound(echo){
-  const V = roundVoice(echo ? ECHO_L : LEVELS[settings.level - 1]);
+function startRound(echo, extra){            // extra: {lv, lt: tone} for a long-term check, {lv, practice: true} for the practice after a miss
+  const lv = extra && extra.lv || settings.level;
+  const V = roundVoice(echo ? ECHO_L : LEVELS[lv - 1]);
   const begin = v => {
-    round = {id: Date.now(), lv: settings.level, items: [], voice: v, echo: echo || null};
+    round = Object.assign({id: Date.now(), lv, items: [], voice: v, echo: echo || null}, extra);
     $('quitConfirm').hidden = true;
     go('train');
     nextQuestion();
   };
   if (V === SINE || voiceReady(V)) return begin(V);
-  const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily'].map($);
+  const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily', 'ltCheck'].map($);
   btns.forEach(b => { b.disabled = true; });                             // the instrument loads first (once)
   prepareVoice(V).then(() => V, () => SINE).then(v => {
     btns.forEach(b => { b.disabled = false; });
-    if (screen === 'home' || screen === 'summary' || screen === 'echo') begin(v);
+    if (['home', 'summary', 'echo', 'lt'].includes(screen)) begin(v);
   });
 }
 function nextQuestion(){
@@ -1729,8 +1770,8 @@ function nextQuestion(){
     const w = makeStops(target, voiceRange(voice));
     trial = {task, f: target, lv: round.lv, w, x: Math.floor(Math.random() * w.n), rove: settings.rove ? Math.random()*6 - 3 : 0, mv: 0, voice, off, echo: !!round.echo};   // start on any stop, the target included
     render();
-    if (round.echo) startEchoTone(); else startAdj(settings.scramble);
-    if (!settings.hideFindTip && !round.tipShown) { round.tipShown = true; showTip(true); }
+    if (round.echo) startEchoTone(); else startAdj(settings.scramble && !round.lt);   // a long-term check is cold: no scramble
+    if (!settings.hideFindTip && !round.tipShown && !round.lt) { round.tipShown = true; showTip(true); }
   } else {
     const style = CHOICE_TASKS.includes(task) && settings.answer !== 'buttons' ? 'roll' : 'classic';   // the full keyboard, or buttons
     trial = {task, f: target, lv: round.lv, rp: 0, style, voice, off};
@@ -1748,7 +1789,7 @@ function record(rec){
     rec.c = round.id - lastHeard >= COLD_GAP ? 1 : 0;
   }
   noteAnchor(modeOf(rec) === 'match' ? rec.g : rec.f);                   // the tone you heard now has a known number
-  if (!round.echo) {                                                     // Echo stays out of training's history
+  if (!round.echo && !round.lt) {                                        // Echo and long-term checks stay out of training's history
     history.push(rec);
     if (history.length > 5000) history = history.slice(-5000);
     store.set('hbe3.history', history);
@@ -1783,19 +1824,21 @@ function lockIn(){
     const cents = 1200 * oct(P, trial.f);
     return record({task: 'find', m: 'match', echo: 1, f: trial.f, g: P, t: Date.now(), mv: trial.mv, cents: Math.round(cents * 10) / 10, pts: echoPts(cents), ok: ok ? 1 : 0, exact: exact ? 1 : 0});
   }
+  if (round.lt) return record({task: 'find', m: 'match', lt: 1, f: trial.f, g: P, t: Date.now(), mv: trial.mv, cents: Math.round(12000 * oct(P, trial.f)) / 10, ok: ok ? 1 : 0, exact: exact ? 1 : 0});
   record({task: 'find', m: 'match', f: trial.f, g: P, t: Date.now(), lv: trial.lv, mv: trial.mv, ok: ok ? 1 : 0, exact: exact ? 1 : 0});
 }
 function finishRound(){
   stopAll();
-  const lv = round.lv, score = round.items.filter(r => r.ok).length;
+  const lv = round.lv, score = round.items.filter(r => r.ok).length, practice = !!round.practice;
   let change = null;
-  if (settings.auto) {
+  if (settings.auto && !practice) {                                      // a practice round (5 after a missed check) moves nothing
     if (score >= UP && lv < LEVELS.length) change = {how: 'up', n: lv + 1};
     else if (score <= DOWN && lv > 1) change = {how: 'down', n: lv - 1};
     if (change) { settings.level = change.n; saveSettings(); }
   }
-  if (score >= UP && lv + 1 > settings.top && lv < LEVELS.length) { settings.top = lv + 1; saveSettings(); }   // opens the next level, auto or not
+  if (!practice && score >= UP && lv + 1 > settings.top && lv < LEVELS.length) { settings.top = lv + 1; saveSettings(); }   // opens the next level, auto or not
   const sum = {id: round.id, lv, score, n: round.items.length, t: Date.now(), ch: change ? change.how : null};
+  if (practice) sum.p = 1;
   rounds.push(sum);
   if (rounds.length > 2000) rounds = rounds.slice(-2000);
   store.set('hbe3.rounds', rounds);
@@ -1803,8 +1846,8 @@ function finishRound(){
   round = null; phase = 'idle'; trial = null; last = null;
   go('summary');
   sfx('whoosh');
-  if (score === ROUND && !reduceMotion.matches) confetti();              // a perfect round
-  if (score === ROUND && !lt.unlocked && isFindC6(LEVELS[lv - 1])) {    // the first perfect Find C6 opens long-term training
+  if (score === sum.n && !reduceMotion.matches) confetti();              // a perfect round
+  if (score === ROUND && !practice && !lt.unlocked && isFindC6(LEVELS[lv - 1])) {   // the first perfect Find C6 opens long-term training
     lt.unlocked = true; saveLT();
     setTimeout(openLTSheet, 1400);
   }
@@ -1817,7 +1860,7 @@ const ECHO_N = 5, ECHO_TONE = 2, ECHO_GAP = 0.6;
 const ECHO_L = {name: 'Echo', short: 'Echo', task: 'find', choices: null, wrap: 'both', tier: -1, div: DIVISIONS.length};
 let echoStats = Object.assign({best: null, days: {}, games: []}, store.get('hbe3.echo', {}) || {});
 const levelOf = () => round && round.echo ? ECHO_L : LEVELS[(round ? round.lv : settings.level) - 1];
-const roundLen = () => round && round.echo ? ECHO_N : ROUND;
+const roundLen = () => !round ? ROUND : round.echo ? ECHO_N : round.lt ? 1 : round.practice ? LT_PRACTICE : ROUND;
 const echoPts = cents => Math.max(0, Math.round((10 - Math.abs(cents) / 10) * 10) / 10);
 const centsTxt = c => `${c > 0.5 ? '+' : c < -0.5 ? '−' : '±'}${Math.abs(Math.round(c))}¢`;
 const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1880,15 +1923,169 @@ function renderEcho(){
 $('echoPlay').addEventListener('click', () => startRound(newEcho(false)));
 $('echoScramble').addEventListener('change', () => { settings.echoScramble = $('echoScramble').checked; saveSettings(); });
 $('echoDaily').addEventListener('click', () => startRound(newEcho(true)));
-const nextRound = () => startRound(lastRound && lastRound.echo ? newEcho(false) : undefined);
+function nextRound(){                      // the results screen's main button
+  if (lastRound && lastRound.lt) return lastRound.lt.ok ? go('lt') : startRound(undefined, {lv: findOneLv(lastRound.lt.f), practice: true});
+  if (lastRound && lastRound.sum && lastRound.sum.p) return startRound(undefined, {lv: lastRound.sum.lv, practice: true});
+  startRound(lastRound && lastRound.echo ? newEcho(false) : undefined);
+}
 
-/* ---------- long-term training: the invitation ----------
-   The first 20/20 round of Find C6 opens it: a forgetting curve, a plain explanation, and Start, which needs
-   notifications. The training itself (spaced checks on C6, delivered as notifications) is for the native app;
-   here, Start only records that you opted in (hbe3.lt). */
-let lt = Object.assign({unlocked: false, on: false}, store.get('hbe3.lt', {}) || {});
+/* ---------- long-term training ----------
+   The first 20/20 round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
+   begin: one cold Find of the tone, scored in cents. Cold means nothing plays first, not even the scramble: no pitch
+   was heard, so there is no short-term memory to wipe. The first comes 2 minutes after Start; after a hit the wait
+   grows 2.5× (2, 5, 12, 31, 78 min, 3 h, 8 h, 20 h, 2 days, …), after a miss it shrinks to 40%, never under
+   2 minutes. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
+   hours, and tapping one opens straight into the check. A miss offers a quick 5-question Find practice. The next tone (C5, then C7) joins once every tone in
+   training has held for LT_HOLD and its own Find step in the ladder is passed. Checks stay out of training's
+   history; they live in hbe3.lt. Only the app can remind: the website shows a due check while it is open. */
+const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
+const LT_FIRST = 2 * MIN, LT_GROW = 2.5, LT_SHRINK = 0.4;
+const LT_GAP = 5 * MIN;            // another tone's check never follows one sooner: two known tones in a row would be a reference
+const LT_HOLD = 4 * DAY;           // a tone holds once it is found after this long, and then the next tone can join
+const LT_WAKE = [8, 22], LT_AGAIN = HOUR;   // waking hours; an unanswered reminder comes back after an hour
+const LT_PRACTICE = 5, LT_TONES = [C6, C5, C7], LT_NOTE = 1;  // LT_NOTE: the id of the one pending reminder
+let lt = Object.assign({unlocked: false, on: false, tones: [], checks: []}, store.get('hbe3.lt', {}) || {});
 const saveLT = () => store.set('hbe3.lt', lt);
 const isFindC6 = L => L && L.task === 'find' && L.choices && L.choices.length === 1 && L.choices[0] === C6;
+const findOneLv = f => LEVELS.findIndex(L => L.narrow && L.wrap === 'note' && L.choices[0] === f) + 1;   // ♪ Find C6 / C5 / C7
+const newTone = f => ({f, wait: LT_FIRST, due: Date.now() + LT_FIRST});
+if (lt.on && !lt.tones.length) { lt.tones = [newTone(C6)]; saveLT(); }   // opted in before the checks existed
+const nextTone = () => lt.on ? [...lt.tones].sort((a, b) => a.due - b.due)[0] || null : null;
+const dueTone = () => { const t = nextTone(); return t && t.due <= Date.now() ? t : null; };
+const fmtSpan = ms => ms < HOUR ? `${Math.max(1, Math.round(ms / MIN))} min` : ms < DAY ? `${Math.round(ms / HOUR)} h` : ms < 14 * DAY ? `${Math.round(ms / DAY)} d` : `${Math.round(ms / (7 * DAY))} wk`;
+const fmtIn = t => `in ${fmtSpan(t - Date.now())}`;
+function ltBegin(){
+  lt.on = true; lt.started = lt.started || Date.now();
+  if (!lt.tones.length) lt.tones = [newTone(C6)];
+  else lt.tones.forEach(t => { t.due = Math.max(t.due, Date.now() + LT_FIRST); });   // back after a stop
+  saveLT(); ltSchedule();
+}
+function ltGrow(){                         // the next tone joins once every tone holds and its ladder step is passed
+  const f = LT_TONES.find(x => !lt.tones.some(t => t.f === x));
+  if (!lt.on || !f || !lt.tones.every(t => t.held) || settings.top <= findOneLv(f)) return null;
+  lt.tones.push(newTone(f));
+  return f;
+}
+function startCheck(){
+  const t = dueTone();
+  if (!t) return go(lt.on ? 'lt' : 'home');
+  startRound(undefined, {lv: findOneLv(t.f), lt: t.f});
+}
+function finishCheck(){
+  stopAll();
+  const rec = round.items[0], now = Date.now(), t = lt.tones.find(x => x.f === round.lt), ok = !!rec.ok;
+  if (!t) return quitRound();
+  const gap = now - (t.last || lt.started || now);                     // how long the tone had to be remembered
+  t.wait = ok ? t.wait * LT_GROW : Math.max(LT_FIRST, t.wait * LT_SHRINK);
+  t.due = now + t.wait; t.last = now;
+  if (ok && gap >= LT_HOLD) t.held = true;
+  const added = ltGrow();
+  lt.tones.forEach(x => { if (x !== t) x.due = Math.max(x.due, now + LT_GAP); });
+  const chk = {t: now, f: t.f, g: rec.g, cents: rec.cents, ok: ok ? 1 : 0, gap, c: rec.c, mv: rec.mv};
+  lt.checks.push(chk);
+  if (lt.checks.length > 3000) lt.checks = lt.checks.slice(-3000);
+  saveLT(); ltSchedule();
+  lastRound = {lt: chk, tone: t, added};
+  round = null; phase = 'idle'; trial = null; last = null;
+  go('summary');
+  sfx('whoosh');
+}
+function remindAt(due){                     // moved into waking hours
+  const t = new Date(Math.max(due, Date.now())), morning = d => { d.setHours(LT_WAKE[0], 0, 0, 0); return d; };
+  if (t.getHours() < LT_WAKE[0]) return morning(t).getTime();
+  if (t.getHours() >= LT_WAKE[1]) { t.setDate(t.getDate() + 1); return morning(t).getTime(); }
+  return t.getTime();
+}
+async function ltSchedule(){                // the app keeps one pending reminder: the next check's
+  const LN = CAP?.LocalNotifications;
+  if (!LN) return;
+  try {
+    await LN.cancel({notifications: [{id: LT_NOTE}]});                   // cancel leaves a delivered one in the shade, so that goes too
+    await LN.removeDeliveredNotificationsById({ids: [LT_NOTE]});
+    const t = nextTone();
+    if (!t) return;
+    const at = remindAt(Math.max(t.due, t.due <= Date.now() ? Date.now() + LT_AGAIN : 0));   // already due: again in an hour
+    // Exact only once "Alarms & reminders" is allowed (the Exact timing row): asking for exact without it makes the
+    // plugin open that settings page on every schedule.
+    const exact = (await LN.checkExactNotificationSetting()).exact_alarm === 'granted';
+    await LN.schedule({notifications: [{id: LT_NOTE, title: 'My Ear Hertz', body: `Find ${noteName(t.f)}`, channelId: 'checks', smallIcon: 'ic_stat_check',
+      schedule: {at: new Date(at), allowWhileIdle: true}, isExactNotification: exact, extra: {lt: 1}}]});
+  } catch (e) {}
+}
+let webNoted = 0;
+function ltTick(){                          // keeps "in 12 min" current; on the website, a silent notification while the tab is hidden
+  if (screen === 'home') renderLTRow();
+  if (screen === 'lt') renderLTNext();
+  const t = dueTone();
+  if (CAP || !t || !document.hidden || webNoted === t.due || remindAt(t.due) > Date.now()) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  webNoted = t.due;
+  try { const n = new Notification('My Ear Hertz', {body: `Find ${noteName(t.f)}`, silent: true, tag: 'lt'}); n.onclick = () => { window.focus(); n.close(); if (!round) startCheck(); }; } catch (e) {}
+}
+setInterval(ltTick, 15000);
+function ltRefresh(){                       // on start and whenever the app comes back
+  if (ltGrow()) saveLT();
+  ltSchedule();
+  if (screen === 'home') renderLTRow();
+  if (screen === 'lt') renderLT();
+}
+
+/* the Long-term screen: the next check, and every check so far */
+function renderLTRow(){
+  $('ltRow').hidden = !lt.unlocked;
+  const t = nextTone(), due = !!t && t.due <= Date.now();
+  $('ltWhen').textContent = !t ? '' : due ? 'Now' : fmtIn(t.due);
+  $('ltWhen').classList.toggle('now', due);
+}
+function renderLTNext(){
+  const t = nextTone(), due = !!t && t.due <= Date.now();
+  $('ltTone').textContent = t ? noteName(t.f) : '';
+  $('ltIn').textContent = !t ? '' : due ? 'Now' : fmtIn(t.due);
+  $('ltIn').classList.toggle('now', due);
+  $('ltCheck').disabled = !due;
+}
+function renderLT(){
+  if (!lt.on) return go('home');
+  renderLTNext();
+  const n = lt.checks.length, hits = lt.checks.filter(c => c.ok), held = Math.max(0, ...hits.map(c => c.gap || 0));
+  $('ltTiles').innerHTML = [['Checks', n, ''], ['Hits', n ? Math.round(100 * hits.length / n) + '%' : '–', ''], ['Longest', held ? fmtSpan(held) : '–', 'held']].map(tileHtml).join('');
+  drawLTChart();
+  renderLTStop();
+  $('ltExactRow').hidden = true;                                  // the app needs "Alarms & reminders" for checks on the minute
+  CAP?.LocalNotifications?.checkExactNotificationSetting().then(r => { $('ltExactRow').hidden = r.exact_alarm === 'granted'; }, () => {});
+}
+function drawLTChart(){                     // how far off each check was, over time since Start (log scale, like the forgetting curve)
+  const svg = $('ltChart'), W = Math.max(260, Math.round(svg.clientWidth || 340)), H = 190, L = 34, R = 10, T = 12, B = 24;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const t0 = lt.started || (lt.checks[0] ? lt.checks[0].t : Date.now()), span = Math.max(7 * DAY, Date.now() - t0);
+  const X = t => L + Math.log1p(Math.max(0, t - t0) / MIN) / Math.log1p(span / MIN) * (W - L - R);
+  const cap = Math.min(600, Math.max(100, Math.ceil(Math.max(0, ...lt.checks.map(c => Math.abs(c.cents))) / 50) * 50));
+  const Y = c => T + (1 - Math.min(Math.abs(c), cap) / cap) * (H - T - B);
+  let s = `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(0)}" y2="${Y(0)}"/><line class="tol" x1="${L}" x2="${W - R}" y1="${Y(50)}" y2="${Y(50)}"/>`;
+  s += [0, 50, cap].map(c => `<text x="${L - 6}" y="${Y(c) + 4}" text-anchor="end">${c}</text>`).join('');
+  s += [[HOUR, '1 h'], [DAY, '1 d'], [7 * DAY, '1 wk'], [30 * DAY, '1 mo']].filter(([d]) => d <= span)
+    .map(([d, l]) => `<line class="grid" x1="${X(t0 + d)}" x2="${X(t0 + d)}" y1="${T}" y2="${Y(0)}"/><text x="${X(t0 + d)}" y="${H - 6}" text-anchor="${X(t0 + d) > W - R - 16 ? 'end' : 'middle'}">${l}</text>`).join('');
+  s += lt.checks.map(c => `<circle class="${c.ok ? 'hit' : 'miss'}" cx="${X(c.t).toFixed(1)}" cy="${Y(c.cents).toFixed(1)}" r="4"/>`).join('');
+  s += `<text class="axl" x="${L + 4}" y="${T + 10}">¢ off ↑</text>`;
+  svg.innerHTML = s;
+}
+let ltStopping = false;
+function renderLTStop(){
+  const w = $('ltStopWrap');
+  if (ltStopping) {
+    w.innerHTML = `<span>Stop the checks?</span><button class="ghost" id="ltStopYes" type="button">Stop</button><button class="cta" style="width:auto;padding:11px 18px;font-size:14px" id="ltStopNo" type="button">Keep</button>`;
+    $('ltStopYes').onclick = () => { lt.on = false; ltStopping = false; saveLT(); ltSchedule(); go('home'); };
+    $('ltStopNo').onclick = () => { ltStopping = false; renderLTStop(); };
+  } else {
+    w.innerHTML = `<button class="textbtn" id="ltStopBtn" type="button">Stop</button>`;
+    $('ltStopBtn').onclick = () => { ltStopping = true; renderLTStop(); $('ltStopNo').focus(); };
+  }
+}
+$('ltRow').addEventListener('click', () => lt.on ? go('lt') : openLTSheet());
+$('ltCheck').addEventListener('click', startCheck);
+$('ltExact').addEventListener('click', () => { CAP?.LocalNotifications?.changeExactNotificationSetting().then(() => { renderLT(); ltSchedule(); }, () => {}); });
+
+/* the invitation */
 function drawCurve(){                                            // the classic picture: memory fading on its own, and kept up by spaced checks
   const W = 320, H = 150, L = 10, R = 8, T = 16, B = 24, X = x => L + x / 10 * (W - L - R), Y = y => T + (1 - y) * (H - T - B);
   const path = f => { let d = ''; for (let i = 0; i <= 120; i++) { const x = i / 12; d += `${i ? 'L' : 'M'}${X(x).toFixed(1)} ${Y(f(x)).toFixed(1)}`; } return d; };
@@ -1913,12 +2110,20 @@ $('ltLater').addEventListener('click', closeLTSheet);
 $('ltSheet').addEventListener('click', e => { if (e.target === $('ltSheet')) closeLTSheet(); });
 $('ltStart').addEventListener('click', async () => {             // starting needs notifications, so the checks can find you
   const say = msg => { $('ltMsg').textContent = msg; $('ltMsg').hidden = false; $('ltStart').textContent = 'Try again'; };
-  if (!('Notification' in window)) return say('Checks arrive as notifications. On iPhone: tap Share, then Add to Home Screen, open My Ear Hertz from there, and start again.');
-  let perm = Notification.permission;
-  if (perm !== 'granted') { try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; } }
-  if (perm !== 'granted') return say('Notifications are off. Turn them on for My Ear Hertz in Settings, then try again.');
-  lt.on = true; lt.started = Date.now(); saveLT();                 // the checks themselves: TBD, in the native app
+  const LN = CAP?.LocalNotifications;
+  if (LN) {                                                      // the app: Android's own permission (asked at runtime from Android 13)
+    let perm = 'denied';
+    try { perm = (await LN.checkPermissions()).display; if (perm !== 'granted') perm = (await LN.requestPermissions()).display; } catch (e) {}
+    if (perm !== 'granted') return say('Notifications are off. Turn them on for My Ear Hertz in your phone’s Settings, then try again.');
+  } else {
+    if (!('Notification' in window)) return say(IOS ? 'Checks arrive as notifications. On iPhone: tap Share, then Add to Home Screen, open My Ear Hertz from there, and start again.' : 'Checks arrive as notifications, and this browser can’t show them.');
+    let perm = Notification.permission;
+    if (perm !== 'granted') { try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; } }
+    if (perm !== 'granted') return say('Notifications are off. Turn them on for My Ear Hertz in Settings, then try again.');
+  }
+  ltBegin();
   closeLTSheet();
+  go('lt');
 });
 
 /* Sharing the daily, Wordle style: a square per tone and the score, never the tones themselves. Only the day's
@@ -2031,7 +2236,7 @@ $('viewToggle').addEventListener('click', () => {               // buttons ⇄ k
 });
 $('piano').addEventListener('click', onKey);
 $('roll').addEventListener('click', onKey);
-const advance = () => { if (!round) return; round.items.length >= roundLen() ? (round.echo ? finishEcho() : finishRound()) : nextQuestion(); };
+const advance = () => { if (!round) return; round.items.length >= roundLen() ? (round.echo ? finishEcho() : round.lt ? finishCheck() : finishRound()) : nextQuestion(); };
 $('nextBtn').addEventListener('click', advance);
 function hearOne(which){                           // a tap on Actual or My guess plays just that one, and stops the back and forth
   if (!last) return;
@@ -2150,11 +2355,11 @@ function renderHome(){
   $('homeLvNum').textContent = L.tier + 1;
   $('homeLvName').textContent = L.name;
   $('homeStage').textContent = L.short;
-  drawLevelRing(); renderWeek();
+  drawLevelRing(); renderWeek(); renderLTRow();
 }
 function drawLevelRing(){                          // one arc per stage (Cs, C·F♯, …, last), filled by how far along it you are
   const svg = $('levelRing'), S = 300, c = S/2, r = 136, groups = DIVISIONS.length + 1, per = 360 / groups, gap = 7;
-  const lr = [...rounds].reverse().find(x => x.lv === settings.level);
+  const lr = [...rounds].reverse().find(x => x.lv === settings.level && !x.p);
   const within = clamp((lr ? lr.score : 0) / UP, 0, 1);                 // how close the last round came to moving up
   let s = '';
   for (let g = 0; g < groups; g++) {
@@ -2217,6 +2422,7 @@ function render(){
     $('guessVal').textContent = notes ? (find && last.g !== last.f ? noteCents(last.g) : noteName(last.g)) : fmtFreq(last.g);   // your answer, under the target
     fitNum($('bigVal'), 50); fitNum($('guessVal'), 40);
     sub.innerHTML = last.echo ? `<span class="ratio">${centsTxt(last.cents)}</span><span class="pts">${last.pts}<small>pts</small></span>`
+      : last.lt ? `<span class="ratio">${centsTxt(last.cents)}</span>`
       : `<span class="ratio">×${(last.g / last.f).toFixed(2)}</span>`;
   } else {
     const shown = find && !trial.echo;                                   // Echo never shows the number before the answer
@@ -2437,6 +2643,7 @@ function renderEchoSummary(){
   $('sumSub').textContent = (e.daily ? `Echo · Daily #${dailyNo(e.date)}` : 'Echo') + (e.scramble ? ' · Scrambled' : '');
   $('sumNext').textContent = lastRound.share ? 'Share' : 'Next round';
   $('sumScore').innerHTML = `${score}<span>/${ECHO_N * 10}</span>`;
+  $('sumScore').classList.remove('wide');
   $('sumScore').classList.toggle('gold', !!lastRound.newBest);
   const svg = $('scoreRing'), c = 120, r = 108, n = ECHO_N, gap = 4.5, span = 360/n - gap;
   let s = '';
@@ -2450,15 +2657,31 @@ function renderEchoSummary(){
     return `<li><span class="hd" style="--h:${hueOf(x.f)}"></span><span>${fmtFreq(x.f)}</span><span class="you">${fmtFreq(x.g)}</span><span class="ratio">${centsTxt(x.cents)}</span><span class="mark ${cls}">${MARK[cls]}</span></li>`;
   }).join('');
 }
+function renderCheckSummary(){              // one long-term check: how far off, and when the next one comes
+  const {lt: k, tone, added} = lastRound, cls = grade(k);
+  $('sumSub').textContent = `Long-term · ${noteName(k.f)}`;
+  $('sumNext').textContent = k.ok ? 'Done' : 'Practice';
+  const num = centsTxt(k.cents).slice(0, -1);                            // "+12", the ¢ goes small like "/20"
+  $('sumScore').innerHTML = `${num}<span>¢</span>`;
+  $('sumScore').classList.remove('gold');
+  $('sumScore').classList.toggle('wide', num.length > 3);
+  $('scoreRing').innerHTML = `<path class="sr ${cls[2]}" d="${arcPath(120, 120, 108, -87.75, 267.75)}"/>`;
+  $('sumBanner').hidden = !added;                                        // a new tone joining is an achievement
+  if (added) { $('sumBanner').className = 'banner gold'; $('sumBanner').textContent = `${noteName(added)} joins`; }
+  $('sumTiles').innerHTML = [['Since last', fmtSpan(k.gap), ''], ['Next', fmtIn(tone.due).replace('in ', ''), '']].map(tileHtml).join('');
+  $('sumList').innerHTML = `<li><span class="hd" style="--h:${hueOf(k.f)}"></span><span>${noteName(k.f)}</span><span class="you">${k.g === k.f ? '' : noteCents(k.g)}</span><span class="ratio">${centsTxt(k.cents)}</span><span class="mark ${cls[0]}">${MARK[cls[0]]}</span></li>`;
+}
 function renderSummary(){
   if (!lastRound) return go('home');
   if (lastRound.echo) return renderEchoSummary();
+  if (lastRound.lt) return renderCheckSummary();
   $('sumNext').textContent = 'Next round';
   const {sum, items, change} = lastRound, L = LEVELS[sum.lv-1];
   $('sumSub').textContent = levelTitle(sum.lv);
   $('sumScore').innerHTML = `${sum.score}<span>/${sum.n}</span>`;
+  $('sumScore').classList.remove('wide');
 
-  const svg = $('scoreRing'), c = 120, r = 108, n = ROUND, gap = 4.5, span = 360/n - gap, perfect = sum.score === ROUND;
+  const svg = $('scoreRing'), c = 120, r = 108, n = sum.n, gap = 4.5, span = 360/n - gap, perfect = sum.score === n;
   $('sumScore').classList.toggle('gold', perfect);
   let s = '';
   for (let i = 0; i < n; i++) {
@@ -3202,11 +3425,17 @@ CAP?.App?.addListener('backButton', () => {
   const back = document.querySelector(`#scr-${screen} .topbar > [data-go]:first-child`);
   if (back) back.click(); else CAP.App.exitApp();
 });
+CAP?.App?.addListener('resume', ltRefresh);                       // a due check shows; ladder progress may let a new tone join
+CAP?.App?.addListener('pause', ltSchedule);                       // an ignored check is reminded again later
+CAP?.LocalNotifications?.addListener('localNotificationActionPerformed', e => {   // tapping a reminder opens straight into the check
+  if (e.notification?.extra?.lt && !round) startCheck();
+});
 
 /* ---------- boot ---------- */
 applyTheme();
 renderHome();
 if (!settings.name) go('phones');
+ltRefresh();
 let raf = 0;
 const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => {
   if (screen === 'train' && round && phase === 'revealed') drawStrip(levelOf());
