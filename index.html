@@ -1246,8 +1246,12 @@ function norm(){
   return normCache.v;
 }
 const PEAK = 0.5;
+// Vary loudness: a random level within ±ROVE dB, new for every tone that sounds (every note of Find's record too), so
+// loudness can't tell octaves apart: what's left of the curve above is about 2 dB per octave, which this drowns.
+const ROVE = 5;
+const newRove = () => settings.rove ? (Math.random() * 2 - 1) * ROVE : 0;
 function ampFor(f, roveDb){
-  const db = (settings.match ? compDb(f) + tilt(f) + hiCut(f) - norm() : -12 + tilt(f) + hiCut(f)) - (settings.rove ? 3 : 0) + roveDb;
+  const db = (settings.match ? compDb(f) + tilt(f) + hiCut(f) - norm() : -12 + tilt(f) + hiCut(f)) - (settings.rove ? ROVE : 0) + roveDb;
   return Math.min(PEAK, PEAK * Math.pow(10, db/20));
 }
 
@@ -1441,7 +1445,7 @@ function play(f, opts = {}){
   const now = ctx.currentTime;
   let t = now + 0.08;
   if (opts.scramble) t = scramble(t);
-  const rove = (settings.rove && opts.rove !== false) ? Math.random()*6 - 3 : 0;
+  const rove = opts.rove !== false ? newRove() : 0;
   let dur = opts.dur || settings.dur;
   if (opts.voice) dur = voiceNote(f, t, {rove, dur: opts.dur});         // the question's instrument
   else tone(f, t, dur, ampFor(f, rove), 0.06);
@@ -1710,7 +1714,7 @@ function pulseNote(t){                                           // sound the re
     prepareVoice(tr.voice).then(resume, () => { tr.voice = SINE; resume(); });   // can't decode: a sine, rather than silence
     return;
   }
-  if (loud) strike(trial.voice, f, t, {off: trial.off, rove: trial.rove, gain: p.g});
+  if (loud) strike(trial.voice, f, t, {off: trial.off, rove: newRove(), gain: p.g});   // every note at its own level
   pulseTimer = setTimeout(() => pulseNote(ctx.currentTime + 0.02), Math.max(0, t - ctx.currentTime + PULSE) * 1000);
 }
 const sineFind = () => !!trial && trial.task === 'find' && trial.voice === SINE;
@@ -1797,7 +1801,7 @@ function nextQuestion(){
   const voice = round.voice || SINE, off = Math.random();               // off: this question's shift of the recordings' grid
   if (task === 'find') {
     const w = makeStops(target, voiceRange(voice));
-    trial = {task, f: target, lv: round.lv, w, x: Math.floor(Math.random() * w.n), rove: settings.rove ? Math.random()*6 - 3 : 0, mv: 0, voice, off, echo: !!round.echo};   // start on any stop, the target included
+    trial = {task, f: target, lv: round.lv, w, x: Math.floor(Math.random() * w.n), rove: newRove(), mv: 0, voice, off, echo: !!round.echo};   // start on any stop, the target included; rove: a sine's level
     render();
     if (round.echo) startEchoTone(); else startAdj(settings.scramble && !round.lt);   // a long-term check is cold: no scramble
     if (!settings.hideFindTip && !round.tipShown && !round.lt) { round.tipShown = true; showTip(true); }
