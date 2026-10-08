@@ -13,11 +13,11 @@ from scipy.signal import butter, sosfilt
 
 SR = 44100
 SRC = 'https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/{}-mp3.js'
-# app id: (soundfont name, lowest MIDI, highest MIDI, clip seconds). Ranges are the real instrument's within C3–C8,
+# app id: (soundfont name, lowest MIDI, highest MIDI, clip seconds). Ranges are the real instrument's, from A1 up,
 # cut where these recordings go bad: the violin warbles above A6 and the organ is silent above C7.
-INST = {'piano': ('acoustic_grand_piano', 48, 108, 2.6), 'guitar': ('acoustic_guitar_nylon', 48, 83, 2.6),
-        'violin': ('violin', 55, 93, 2.0), 'flute': ('flute', 60, 98, 2.0), 'marimba': ('marimba', 48, 96, 2.6),
-        'bells': ('glockenspiel', 79, 108, 2.6), 'organ': ('church_organ', 48, 96, 2.0)}
+INST = {'piano': ('acoustic_grand_piano', 33, 108, 2.6), 'guitar': ('acoustic_guitar_nylon', 40, 88, 2.6),
+        'violin': ('violin', 55, 93, 2.0), 'flute': ('flute', 60, 98, 2.0), 'marimba': ('marimba', 36, 96, 2.6),
+        'bells': ('glockenspiel', 79, 108, 2.6), 'organ': ('church_organ', 36, 96, 2.0)}
 PC = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
 HP = butter(2, 200, 'hp', fs=SR, output='sos')
 
