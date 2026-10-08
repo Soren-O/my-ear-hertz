@@ -863,12 +863,12 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
-      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After a miss, or after any typed or tuned answer, your tone and the right one take turns, a second each, until you go on. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After a miss, or after any typed or tuned answer, your tone and the right one take turns on the same four-and-a-half-second beat until you go on. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
       <h2>Find the tone</h2>
-      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every five seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
+      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
@@ -1353,10 +1353,10 @@ function sfx(kind){
   src.start(t, Math.random() * 0.5); src.stop(t + S.dur + 0.05);
 }
 
-/* ---------- compare: after an answer, your tone and the right one, a second each, back and forth ----------
+/* ---------- compare: after an answer, your tone and the right one, back and forth on Find's 4.5 s beat ----------
    After Find and typed answers (unless exactly right); after naming only when the answer was wrong. Whichever is playing lights up: its number
    in the orb, its listen button, and its key, pressed down. It runs until you move on, or for 30 seconds. */
-const CMP_TONE = 1, CMP_GAP = 0.12, CMP_MAX = 30;
+const CMP_MAX = 36;                                                     // seconds: four turns each, then it stops
 const CMP_BOXES = ['choices', 'piano', 'roll'];
 function startCompare(g, f){
   if (!audio()) return;
@@ -1367,11 +1367,12 @@ function startCompare(g, f){
     if (cmp !== c) return;
     if (Date.now() - c.t0 > CMP_MAX * 1000) { endCompare(); setAudio('idle'); return; }
     const which = c.i++ % 2 ? 'true' : 'you', freq = which === 'you' ? c.g : c.f;
-    voiceNote(freq, ctx.currentTime + 0.02, {dur: CMP_TONE});
+    const sine = !voiceReady(trial.voice);                               // an instrument plays its whole note; a sine holds until the next
+    const len = voiceNote(freq, ctx.currentTime + 0.02, {dur: sine ? PULSE - 0.15 : undefined});
     noteAnchor(freq);
     showCompare(which);
-    timers.push(setTimeout(() => { if (cmp === c) showCompare(null); }, CMP_TONE * 1000));
-    timers.push(setTimeout(step, (CMP_TONE + CMP_GAP) * 1000));
+    timers.push(setTimeout(() => { if (cmp === c) showCompare(null); }, Math.min(len, PULSE - 0.15) * 1000));
+    timers.push(setTimeout(step, PULSE * 1000));
   };
   setAudio('tone');
   timers.push(setTimeout(step, 350));                             // after the answer's sound effect
@@ -1556,11 +1557,11 @@ function startOsc(f, t, a){
   o.start(t);
   return track(o, g);
 }
-/* Find's sound. On an instrument: the record's pitch as one note every 5 seconds. Turning the record or holding an
+/* Find's sound. On an instrument: the record's pitch as one note every 4.5 seconds. Turning the record or holding an
    arrow cuts it off at once; letting go of the record sounds the new pitch right away, and after an arrow tap or key it
    sounds after a short pause, so the pitch is never heard sliding or stepping. A pure sine is one continuous tone
    that glides with the record. */
-const PULSE = 5, SETTLE = 0.45, IDLE_INST = 30, IDLE_SINE = 8;          // seconds; rest after the idle time untouched
+const PULSE = 4.5, SETTLE = 0.45, IDLE_INST = 30, IDLE_SINE = 8;        // seconds; rest after the idle time untouched
 function pulseNote(t){                                           // sound the record's pitch at time t, and line up the next note
   clearTimeout(pulseTimer);
   if (!ctx || !trial || trial.task !== 'find' || phase !== 'listening') return;
