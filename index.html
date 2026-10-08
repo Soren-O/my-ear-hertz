@@ -1396,11 +1396,15 @@ function pipFreq(targets, spread){
   if (f < 60 || f > 12000) f = a * Math.pow(2, cents / 1200);
   return f;
 }
-function pips(t, total, targets, spread){
-  const end = t + total;
+function pips(t, total, targets, spread, V){   // V: the question's instrument, its notes decoded; else sine pips
+  const end = t + total, lo = V ? hzOf(V.lo) : 0, hi = V ? hzOf(V.hi + (V.top || 0)) : Infinity;
   while (t + 0.07 <= end + 1e-6) {
-    const pf = pipFreq(targets, spread);
-    tone(pf, t, 0.07, ampFor(pf, 0) * 0.8, 0.008);
+    let pf = pipFreq(targets, spread);
+    if (V) {                                     // a short note on the instrument, moved by octaves into what it plays
+      while (pf < lo) pf *= 2;
+      while (pf > hi) pf /= 2;
+      strike(V, pf, t, {off: Math.random(), rove: newRove(), dur: 0.07, gain: 0.8});
+    } else tone(pf, t, 0.07, ampFor(pf, 0) * 0.8, 0.008);
     t += 0.08;
   }
   return end;
@@ -1409,8 +1413,9 @@ function scramble(t){                      // pitches and white noise, alternati
   const L = LEVELS[(round ? round.lv : settings.level) - 1];
   const spread = Math.max(100, L.denom ? 600 / L.denom : 100);           // half a level step: what a comparison must resolve
   const targets = recentAnchors();
+  const V = trial && voiceReady(trial.voice) ? trial.voice : null;        // the pitches on the question's own instrument
   for (let i = 0; i < 4; i++) {
-    t = pips(t, 0.4, targets, spread);
+    t = pips(t, 0.4, targets, spread, V);
     noise(t, 0.25, 0.06); t += 0.25;
   }
   return t + 0.4;
