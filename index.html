@@ -783,7 +783,7 @@ img{max-width:100%}
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
       <h2>Find the tone</h2>
-      <p>Spin the record until the tone sounds like the number; within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
+      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every five seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
@@ -1038,7 +1038,7 @@ function ampFor(f, roveDb){
 
 /* ---------- audio ---------- */
 let ctx = null, out = null, voices = [], timers = [], audioState = 'idle', noiseBuf = null, cmp = null;
-let adj = null, adjIdle = null, adjI = null;   // the continuous tone in Find the tone: a sine, or an instrument
+let adjIdle = null, pulseTimer = null, sineTone = null;   // Find: the rest after a quiet spell, the next note, a sine's tone
 // Browsers, Safari above all (iPhone and Mac), can leave the audio engine silent after an interruption:
 // the screen locking, switching apps, a call or notification, the Mac sleeping, AirPods hopping between
 // devices. Sometimes it even reports "running" while its clock has stopped. When the engine looks dead we
@@ -1091,7 +1091,7 @@ navigator.audioSession?.addEventListener?.('statechange', () => { if (navigator.
 function resetAudio(){
   try { stopAll(); } catch(e) {}
   const old = ctx;
-  ctx = null; out = null; noiseBuf = null; mixBus = null; adj = null; adjI = null; voices = []; audioStale = false; clockCheck = null;
+  ctx = null; out = null; noiseBuf = null; mixBus = null; voices = []; audioStale = false; clockCheck = null; sineTone = null;
   noteBufs = {}; noteReady = {}; voiceOk = {};
   for (const k in noiseBufs) delete noiseBufs[k];                         // buffers belong to the old engine's sample rate
   try { old.close(); } catch(e) {}
@@ -1209,8 +1209,7 @@ function stopAll(){
   instToken++;
   clearTimeout(adjIdle);
   silence();
-  if (adj) adj.dead = true;
-  if (adjI) { adjI.dead = true; clearTimeout(adjI.timer); adjI = null; }
+  clearTimeout(pulseTimer); sineTone = null;
   endCompare();
   setAudio('idle');
   if (labActive) { labActive = null; labButtons(); }
@@ -1282,7 +1281,7 @@ function showCompare(which){                       // light up 'you' (my guess),
    closeness (equal power). The grid of recordings is shifted by a random fraction of a half step every question, so
    neither a blend nor a single clean recording marks where the notes are. A round uses your instrument only if it
    can play every tone that round may ask for; otherwise the whole round is on piano, so the sound never hints at the
-   answer. Struck instruments ring out (in Find they sound again every second); held ones loop their steady middle. */
+   answer. */
 const SINE = {id: 'sine', name: 'Pure Sine Wave'};
 const INSTRUMENTS = [                                                    // lo–hi: the recordings (MIDI); top: half steps the highest may be raised, to reach C9
   {id: 'piano',   name: 'Piano',   lo: 33, hi: 108, top: 12, demo: 72},
@@ -1295,8 +1294,6 @@ const INSTRUMENTS = [                                                    // lo�
 ];
 const VOICES = [SINE, ...INSTRUMENTS];
 const INST_LEVEL = 0.06;                                                 // loudness of a note, about that of a mid-range test tone
-const LOOP_A = 0.7, LOOP_B = 1.6, LOOP_X = 0.25;                         // held notes loop 0.7–1.6 s of the recording, crossfaded over 0.25 s
-const RESTRIKE = 1;                                                      // in Find, a struck instrument sounds again every second
 const chosenVoice = () => VOICES.find(V => V.id === settings.instrument) || SINE;
 const midiOf = f => 69 + 12 * Math.log2(f / 440);
 const playsAll = (V, lo, hi) => midiOf(lo) >= V.lo - 0.5 && midiOf(hi) <= V.hi + (V.top || 0) + 0.5;
@@ -1321,27 +1318,13 @@ function loadSounds(id){
   });
   return soundFiles[id];
 }
-function loopOf(b){                                                      // the note's attack, then a stretch of its middle that loops without a seam
-  const sr = b.sampleRate, A = Math.round(LOOP_A * sr), B = Math.round(LOOP_B * sr), X = Math.round(LOOP_X * sr), P = B - A;
-  if (b.length < B) return null;
-  const o = ctx.createBuffer(b.numberOfChannels, B, sr);
-  for (let c = 0; c < b.numberOfChannels; c++) {
-    const src = b.getChannelData(c), dst = o.getChannelData(c);
-    dst.set(src.subarray(0, B));
-    for (let i = 0; i < X; i++) {                                        // the tail fades into what comes just before the loop start
-      const j = B - X + i, u = (i + 1) / X;
-      dst[j] = src[j] * Math.cos(u * Math.PI / 2) + src[j - P] * Math.sin(u * Math.PI / 2);
-    }
-  }
-  return o;
-}
 function noteBuffer(V, m){
   const key = V.id + m;
   if (!noteBufs[key]) noteBufs[key] = loadSounds(V.id).then(S => {
     const b = atob(S[m][2]), u = new Uint8Array(b.length);
     for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
     return new Promise((res, rej) => ctx.decodeAudioData(u.buffer, res, rej));
-  }).then(b => (noteReady[key] = {clip: b, loop: V.held ? loopOf(b) : null}))
+  }).then(b => (noteReady[key] = b))
     .catch(e => { delete noteBufs[key]; throw e; });
   return noteBufs[key];
 }
@@ -1360,21 +1343,20 @@ function blend(V, f, off){                                               // the 
   return [{m: n, w: Math.cos(t * Math.PI / 2)}, {m: n + 1, w: Math.sin(t * Math.PI / 2)}];
 }
 const noteGain = (V, m, f, roveDb) => Math.min(1.05, INST_LEVEL * Math.pow(10, (tilt(f) + hiCut(f) + (roveDb || 0)) / 20) / MEH_SOUNDS[V.id][m][1]);
-function strike(V, f, t, o = {}){                                        // f at time t. o: off, rove, dur (cut short), loop, gain, offset, fadeIn, only
+function strike(V, f, t, o = {}){                                        // one note of f at time t. o: off, rove, dur (cut short), gain
   const S = MEH_SOUNDS[V.id], parts = [];
   for (const {m, w} of blend(V, f, o.off || 0)) {
-    const r = noteReady[V.id + m];
-    if (!r || w < 1e-3 || (o.only != null && m !== o.only)) continue;
-    const looped = !!(o.loop && r.loop), src = ctx.createBufferSource(), g = ctx.createGain(), rate = f / S[m][0];
-    src.buffer = looped ? r.loop : r.clip; src.playbackRate.value = rate;
-    if (looped) { src.loop = true; src.loopStart = LOOP_A; src.loopEnd = LOOP_B; }
+    const b = noteReady[V.id + m];
+    if (!b || w < 1e-3) continue;
+    const src = ctx.createBufferSource(), g = ctx.createGain(), rate = f / S[m][0];
+    src.buffer = b; src.playbackRate.value = rate;
     const k = noteGain(V, m, f, o.rove) * w * (o.gain == null ? 1 : o.gain);
-    if (o.fadeIn) { g.gain.setValueAtTime(0, t); g.gain.setTargetAtTime(k, t, 0.03); } else g.gain.setValueAtTime(k, t);
+    g.gain.setValueAtTime(k, t);
     if (o.dur != null) { g.gain.setValueAtTime(k, t + Math.max(0.02, o.dur - 0.08)); g.gain.linearRampToValueAtTime(0, t + o.dur); }
-    src.connect(g); g.connect(out); src.start(t, o.offset || 0);
+    src.connect(g); g.connect(out); src.start(t);
     if (o.dur != null) src.stop(t + o.dur + 0.03);
     track(src, g);
-    parts.push({m, src, g, len: looped ? Infinity : (src.buffer.duration - (o.offset || 0)) / rate});
+    parts.push({m, src, g, len: b.duration / rate});
   }
   return parts;
 }
@@ -1458,61 +1440,44 @@ function startOsc(f, t, a){
   o.start(t);
   return track(o, g);
 }
-function armIdle(){
-  clearTimeout(adjIdle);
-  adjIdle = setTimeout(() => {                                   // rest the ears after 8 s without input
-    const now = ctx.currentTime;
-    if (adj && !adj.dead) adj.g.gain.setTargetAtTime(0, now, 0.08);
-    if (adjI && !adjI.dead) {
-      adjI.paused = true; clearTimeout(adjI.timer);
-      adjI.parts.forEach(p => { try { p.g.gain.setTargetAtTime(0, now, 0.08); p.src.stop(now + 0.6); } catch(e) {} });
-      adjI.parts = [];
-    }
-    setAudio('paused');
-  }, 8000);
+/* Find's sound. On an instrument: the record's pitch as one note every 5 seconds. Turning the record or holding an
+   arrow cuts it off at once; letting go of the record sounds the new pitch right away, and after an arrow tap or key it
+   sounds after a short pause, so the pitch is never heard sliding or stepping. A pure sine is one continuous tone
+   that glides with the record. */
+const PULSE = 5, SETTLE = 0.45, IDLE_INST = 30, IDLE_SINE = 8;          // seconds; rest after the idle time untouched
+function pulseNote(t){                                           // sound the record's pitch at time t, and line up the next note
+  clearTimeout(pulseTimer);
+  if (!ctx || !trial || trial.task !== 'find' || phase !== 'listening') return;
+  const p = deckPos(trial), f = Math.pow(2, trial.w.pts[p.i]), loud = p.g > 0.002;   // past either end of the record it fades, then is silent
+  if (!voiceReady(trial.voice)) { sineTone = startOsc(f, t, ampFor(f, trial.rove) * p.g); return; }   // a sine just keeps sounding
+  if (loud) strike(trial.voice, f, t, {off: trial.off, rove: trial.rove, gain: p.g});
+  pulseTimer = setTimeout(() => pulseNote(ctx.currentTime + 0.02), Math.max(0, t - ctx.currentTime + PULSE) * 1000);
 }
-function adjStrike(t){                                           // sound the record's pitch on the instrument; a struck one again every second
-  const a = adjI, V = trial.voice;
-  if (!a || a.dead) return;
-  a.parts.forEach(p => { try { p.g.gain.setTargetAtTime(0, t, 0.05); p.src.stop(t + 0.4); } catch(e) {} });   // the last strike lets go
-  a.parts = a.k > 0.002 ? strike(V, a.f, t, {off: trial.off, rove: trial.rove, loop: true, gain: a.k}) : [];
-  clearTimeout(a.timer);
-  if (!V.held) a.timer = setTimeout(() => { if (adjI === a && !a.paused) adjStrike(ctx.currentTime + 0.01); }, Math.max(0, t - ctx.currentTime + RESTRIKE) * 1000);
-}
-function adjRetune(){                                            // follow the record: retune and reweight what is sounding
-  const a = adjI, V = trial.voice, S = MEH_SOUNDS[V.id], now = ctx.currentTime, want = blend(V, a.f, trial.off);
-  a.parts = a.parts.filter(p => {
-    const x = want.find(x => x.m === p.m);
-    p.src.playbackRate.setTargetAtTime(a.f / S[p.m][0], now, 0.012);
-    p.g.gain.setTargetAtTime(x ? noteGain(V, p.m, a.f, trial.rove) * x.w * a.k : 0, now, 0.03);
-    if (!x) { try { p.src.stop(now + 0.3); } catch(e) {} }           // a recording that left the pair fades out
-    return !!x;
-  });
-  if (V.held && a.k > 0.002) want.forEach(x => {                  // a held note joins already sounding; a struck one waits for the next strike
-    if (x.w > 1e-3 && !a.parts.some(p => p.m === x.m))
-      a.parts.push(...strike(V, a.f, now + 0.01, {off: trial.off, rove: trial.rove, loop: true, gain: a.k, offset: LOOP_A, fadeIn: true, only: x.m}));
-  });
-}
-function soundAdj(){
-  if (!audio()) return;
-  const p = deckPos(trial), f = Math.pow(2, trial.w.pts[p.i]), now = ctx.currentTime;
-  if (voiceReady(trial.voice)) {
-    if (!adjI || adjI.dead) { adjI = {f, k: p.g, parts: []}; adjStrike(now + 0.02); }
-    else {
-      adjI.f = f; adjI.k = p.g;
-      if (adjI.paused) { adjI.paused = false; adjStrike(now + 0.02); }
-      else adjRetune();
-    }
-  } else {
-    const a = ampFor(f, trial.rove) * p.g;
-    if (!adj || adj.dead) adj = startOsc(f, now + 0.02, a);
-    else {
-      adj.o.frequency.setTargetAtTime(f, now, 0.012);
-      adj.g.gain.setTargetAtTime(a, now, 0.03);
-    }
-  }
+const sineFind = () => !!trial && trial.task === 'find' && !voiceReady(trial.voice);
+function sineFollow(){                                           // a pure sine glides with the record and never waits for the hand
+  if (!canAdjust() || !audio()) return;
+  const p = deckPos(trial), f = Math.pow(2, trial.w.pts[p.i]), a = ampFor(f, trial.rove) * p.g, now = ctx.currentTime;
+  if (!sineTone || sineTone.dead) sineTone = startOsc(f, now + 0.02, a);
+  else { sineTone.o.frequency.setTargetAtTime(f, now, 0.012); sineTone.g.gain.setTargetAtTime(a, now, 0.03); }
   if (audioState !== 'adjust') setAudio('adjust');
   armIdle();
+}
+function hush(){ if (sineFind()) return; clearTimeout(pulseTimer); silence(); }   // cut an instrument's note off now
+function soundSoon(delay){                                       // once the hand settles, a fresh note at the new pitch
+  if (sineFind()) return sineFollow();
+  if (!canAdjust() || !audio()) return;
+  hush();
+  pulseTimer = setTimeout(() => pulseNote(ctx.currentTime + 0.02), delay * 1000);
+  if (audioState !== 'adjust') setAudio('adjust');
+  armIdle();
+}
+function armIdle(){
+  clearTimeout(adjIdle);
+  const idle = trial && voiceReady(trial.voice) ? IDLE_INST : IDLE_SINE;
+  adjIdle = setTimeout(() => {                                   // rest the ears; tap the orb or move the record to resume
+    if (sineTone && !sineTone.dead) sineTone.g.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
+    hush(); setAudio('paused');
+  }, idle * 1000);
 }
 function startAdj(withScramble){
   if (!audio()) { showError('This browser cannot play audio.'); return; }
@@ -1520,9 +1485,7 @@ function startAdj(withScramble){
   const now = ctx.currentTime;
   let t = now + 0.08;
   if (withScramble) t = scramble(t);
-  const p = deckPos(trial), f = Math.pow(2, trial.w.pts[p.i]);
-  if (voiceReady(trial.voice)) { adjI = {f, k: p.g, parts: []}; adjStrike(t); }
-  else adj = startOsc(f, t, ampFor(f, trial.rove) * p.g);
+  pulseNote(t);
   if (withScramble) { setAudio('scramble'); timers.push(setTimeout(() => { setAudio('adjust'); armIdle(); }, (t - now) * 1000)); }
   else { setAudio('adjust'); armIdle(); }
 }
@@ -1654,7 +1617,8 @@ function nudge(du){
   trial.x = ((trial.x + du) % C + C) % C;
   const after = deckPos(trial);
   if (after.i !== before.i) trial.mv++;
-  if (after.i !== before.i || Math.abs(after.g - before.g) > 0.01) soundAdj();
+  if (sineFind() && (after.i !== before.i || Math.abs(after.g - before.g) > 0.01)) sineFollow();
+  armIdle();
 }
 // The record turns at 33⅓ rpm while the tone plays. That spin is decoration; only your hand changes the pitch.
 function deckLoop(now){
@@ -1680,7 +1644,7 @@ $('progModes').addEventListener('click', e => {
 $('playBtn').addEventListener('click', () => {
   if (!round || !trial) return;
   if (phase === 'revealed') return play(last.f, {dur: 2, rove: false, labeled: true, voice: true});
-  if (trial.task === 'find') { if (audioState !== 'scramble') soundAdj(); return; }
+  if (trial.task === 'find') { soundSoon(0); return; }
   trial.rp++;
   play(trial.f, {scramble: settings.scramble, voice: true});
 });
@@ -1733,15 +1697,15 @@ document.querySelectorAll('#adjust .arr').forEach(b => {
     if (e.button !== 0) return;
     e.preventDefault();
     try { b.setPointerCapture(e.pointerId); } catch(err) {}
-    if (canAdjust()) spin(kick);
+    if (canAdjust()) { hush(); spin(kick); }                               // the note stops at once
     nudge(d);
     stopHold();
     let n = 0;
     const rep = delay => { holdTimer = setTimeout(() => { n++; const m = n > 25 ? 4 : n > 10 ? 2 : 1; if (canAdjust()) spin(kick); nudge(d * m); rep(70); }, delay); };
     rep(320);                                                             // hold to keep moving, speeding up
   });
-  ['pointerup','pointercancel','lostpointercapture'].forEach(ev => b.addEventListener(ev, stopHold));
-  b.addEventListener('click', e => { if (e.detail === 0) { if (canAdjust()) spin(kick); nudge(d); } });   // keyboard activation
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev => b.addEventListener(ev, () => { if (holdTimer) { stopHold(); soundSoon(SETTLE); } }));   // a new note after a short pause
+  b.addEventListener('click', e => { if (e.detail === 0 && canAdjust()) { spin(kick); nudge(d); soundSoon(SETTLE); } });   // keyboard activation
 });
 // Turntable input, shared by Find and the Lab: drag in circles (clockwise is up) or scroll on it.
 function bindDeck(deck, record, h){
@@ -1776,11 +1740,13 @@ function bindDeck(deck, record, h){
     h.wheel(e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1));
   }, {passive: false});
 }
+let turned = false;                                              // the record has moved since the finger came down
 bindDeck($('pad'), $('record'), {
   can: canAdjust,
-  grab: () => showTip(false),
-  turn: da => { spin(da * 180 / Math.PI); nudge(da * 40 * (1 + Math.min(3, Math.abs(da) * 12))); },
-  wheel: px => { spin(-px * 0.15); nudge(-px * 0.06); },
+  grab: () => { showTip(false); turned = false; },
+  turn: da => { if (!turned) { turned = true; hush(); } spin(da * 180 / Math.PI); nudge(da * 40 * (1 + Math.min(3, Math.abs(da) * 12))); },
+  release: () => { if (turned) soundSoon(0.05); turned = false; },
+  wheel: px => { spin(-px * 0.15); nudge(-px * 0.06); soundSoon(SETTLE); },
 });
 
 document.addEventListener('keydown', e => {
@@ -1792,7 +1758,7 @@ document.addEventListener('keydown', e => {
   if (trial.task === 'find' && phase === 'listening' && !inField) {
     const step = e.shiftKey ? COARSE : 1;
     const map = {ArrowUp: step, ArrowDown: -step, PageUp: COARSE, PageDown: -COARSE};
-    if (e.key in map) { e.preventDefault(); if (canAdjust()) spin(Math.sign(map[e.key]) * (Math.abs(map[e.key]) > 1 ? 24 : 6)); nudge(map[e.key]); return; }
+    if (e.key in map) { e.preventDefault(); if (canAdjust()) spin(Math.sign(map[e.key]) * (Math.abs(map[e.key]) > 1 ? 24 : 6)); nudge(map[e.key]); soundSoon(SETTLE); return; }
     if (e.key === 'Enter' && !onButton) { e.preventDefault(); lockIn(); return; }
   }
   if (trial.task === 'type' && phase === 'listening' && !inField) {
