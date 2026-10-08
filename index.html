@@ -517,6 +517,10 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .best-list .num{font-family:var(--font-num);font-weight:400;font-size:17px}
 .best-list .top .num{color:var(--gold)}
 .best-list small{color:var(--muted);font-size:12.5px}
+/* the record's step size: small (one chevron) or big (two) */
+.steps-switch{position:absolute;left:10px;top:10px;z-index:3;display:flex;padding:2px;gap:1px;border-radius:999px;border:1px solid var(--line-hi);background:color-mix(in oklab,var(--surface) 88%,transparent);cursor:pointer;touch-action:manipulation}
+.steps-switch svg{width:28px;height:22px;padding:3px 6px;border-radius:999px;color:var(--faint);transition:background .15s ease,color .15s ease}
+.steps-switch[aria-checked="false"] .fine,.steps-switch[aria-checked="true"] .coarse{background:var(--sel-bg);color:var(--teal)}
 /* training: one line on what to do, and the buttons/keyboard switch */
 .howto{margin:-6px 0 0;min-height:1.4em;text-align:center;font-size:13px;color:var(--muted)}
 .howto.off{visibility:hidden}
@@ -741,6 +745,7 @@ img{max-width:100%}
     </form>
     <div class="adjust" id="adjust" hidden>
       <div class="deck" id="pad" aria-label="Turntable: drag in circles or scroll to change the pitch">
+        <button class="steps-switch" id="stepSwitch" type="button" role="switch" aria-checked="true" aria-label="Big steps"><svg class="fine" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 7l4 5-4 5"/></svg><svg class="coarse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 7l4 5-4 5M13 7l4 5-4 5"/></svg></button>
         <div class="platter"><div class="record" id="record"><div class="label"></div></div><div class="sheen"></div></div>
         <div class="tonearm"></div>
       </div>
@@ -1986,6 +1991,9 @@ function onKey(e){                                 // buttons and piano keys: an
   b.classList.add('on');
 }
 $('choices').addEventListener('click', onKey);
+function renderSteps(){ const big = settings.bigSteps !== false; $('stepSwitch').setAttribute('aria-checked', String(big)); $('stepSwitch').setAttribute('aria-label', big ? 'Big steps' : 'Small steps'); }
+$('stepSwitch').addEventListener('click', () => { settings.bigSteps = settings.bigSteps === false; saveSettings(); renderSteps(); });
+renderSteps();
 $('viewToggle').addEventListener('click', () => {               // buttons ⇄ keyboard, for this question and from now on
   if (!trial || !CHOICE_TASKS.includes(trial.task)) return;
   const keys = trial.style !== 'roll';
@@ -2032,7 +2040,7 @@ document.querySelectorAll('#adjust .arr').forEach(b => {
 function bindDeck(deck, record, h){
   let drag = null;
   deck.addEventListener('pointerdown', e => {
-    if (!h.can()) return;
+    if (!h.can() || e.target.closest('button')) return;          // a control sitting on the deck is not the record
     e.preventDefault();
     const r = record.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
     const dx = e.clientX - cx, dy = e.clientY - cy, near = Math.hypot(dx, dy) < r.width / 2 * 0.15;
@@ -2065,9 +2073,9 @@ let turned = false, turnAcc = 0;                                 // the record h
 bindDeck($('pad'), $('record'), {
   can: canAdjust,
   grab: () => { showTip(false); turned = false; },
-  turn: da => { if (!turned) { turned = true; hush(); } spin(da * 180 / Math.PI); nudge(da * 40 * (1 + Math.min(3, Math.abs(da) * 12))); if ((turnAcc += Math.abs(da)) > 0.52) { turnAcc = 0; sfx('tick'); } },
+  turn: da => { if (!turned) { turned = true; hush(); } spin(da * 180 / Math.PI); nudge(settings.bigSteps === false ? da * 9 : da * 40 * (1 + Math.min(3, Math.abs(da) * 12))); if ((turnAcc += Math.abs(da)) > 0.52) { turnAcc = 0; sfx('tick'); } },   // small steps: a quarter as far, no speed-up
   release: () => { if (turned) soundSoon(0.05); turned = false; },
-  wheel: px => { spin(-px * 0.15); nudge(-px * 0.06); soundSoon(SETTLE); sfx('tick'); },
+  wheel: px => { spin(-px * 0.15); nudge(-px * (settings.bigSteps === false ? 0.015 : 0.06)); soundSoon(SETTLE); sfx('tick'); },
 });
 
 document.addEventListener('keydown', e => {
