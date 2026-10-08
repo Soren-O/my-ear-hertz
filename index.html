@@ -1,13 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="My Ear Hertz">
-<meta name="theme-color" content="#090B10" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#F1F3F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#06080B" id="themeColor">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23090B10'/%3E%3Cpath d='M8 32c6-14 10-14 16 0s10 14 16 0 10-14 16 0' fill='none' stroke='%237DADF6' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
 <title>My Ear Hertz</title>
@@ -18,8 +17,12 @@
 /* Layout: one phone-width column, one screen at a time. Training is built around a central orb that doubles as the play button.
    Color: every frequency owns a hue, red at 125 Hz through violet at 8 kHz, like light. Hue appears only on labeled things. */
 :root{
-  --bg:#090B10; --bg-glow:oklch(0.33 0.07 275 / .5);
-  --surface:#11141B; --surface-2:#181C26; --line:#242936; --line-hi:#353C4C; --hi:rgba(255,255,255,.05);
+  --bg:#06080B; --bg-glow:oklch(0.33 0.07 275 / .5);
+  --glow-teal:oklch(0.45 0.09 205 / .42); --glow-indigo:oklch(0.40 0.12 280 / .38);
+  --mint:oklch(0.83 0.13 168); --mint-ink:#03130D; --mint-glow:oklch(0.83 0.13 168 / .45);
+  --teal:oklch(0.82 0.10 205); --sel-bg:oklch(0.82 0.10 205 / .13); --sel-line:oklch(0.82 0.10 205 / .45);
+  --gold:oklch(0.86 0.14 88); --gold-bg:oklch(0.86 0.14 88 / .14);
+  --surface:#0D1015; --surface-2:#141921; --line:#1D232D; --line-hi:#2D3541; --hi:rgba(255,255,255,.05);
   --ink:#EEF1F6; --muted:#8A93A6; --faint:#5A6376;
   --cta:#F1F3F8; --cta-ink:#0A0C11; --knob:#FFFFFF;
   --you:#F2B04E;
@@ -39,6 +42,10 @@
 @media (prefers-color-scheme: light){
   :root:not([data-theme="dark"]){
     --bg:#F1F3F7; --bg-glow:oklch(0.93 0.035 275 / .95);
+    --glow-teal:oklch(0.88 0.06 205 / .9); --glow-indigo:oklch(0.88 0.06 280 / .8);
+    --mint:oklch(0.62 0.13 168); --mint-ink:#FFFFFF; --mint-glow:oklch(0.62 0.13 168 / .35);
+    --teal:oklch(0.52 0.10 215); --sel-bg:oklch(0.62 0.10 205 / .12); --sel-line:oklch(0.55 0.10 205 / .45);
+    --gold:oklch(0.62 0.14 75); --gold-bg:oklch(0.75 0.14 85 / .16);
     --surface:#FFFFFF; --surface-2:#F7F8FB; --line:#DDE2EA; --line-hi:#C6CDD9; --hi:rgba(255,255,255,.9);
     --ink:#0D1118; --muted:#5A6375; --faint:#98A1B2;
     --cta:#0D1118; --cta-ink:#FFFFFF; --knob:#FFFFFF;
@@ -55,6 +62,10 @@
 }
 :root[data-theme="light"]{
   --bg:#F1F3F7; --bg-glow:oklch(0.93 0.035 275 / .95);
+  --glow-teal:oklch(0.88 0.06 205 / .9); --glow-indigo:oklch(0.88 0.06 280 / .8);
+  --mint:oklch(0.62 0.13 168); --mint-ink:#FFFFFF; --mint-glow:oklch(0.62 0.13 168 / .35);
+  --teal:oklch(0.52 0.10 215); --sel-bg:oklch(0.62 0.10 205 / .12); --sel-line:oklch(0.55 0.10 205 / .45);
+  --gold:oklch(0.62 0.14 75); --gold-bg:oklch(0.75 0.14 85 / .16);
   --surface:#FFFFFF; --surface-2:#F7F8FB; --line:#DDE2EA; --line-hi:#C6CDD9; --hi:rgba(255,255,255,.9);
   --ink:#0D1118; --muted:#5A6375; --faint:#98A1B2;
   --cta:#0D1118; --cta-ink:#FFFFFF; --knob:#FFFFFF;
@@ -473,6 +484,45 @@ label.lab-row{cursor:pointer;justify-content:space-between}
 .key.pressed.wrong{background:var(--bad);border-color:var(--bad);color:#fff}
 .cmp .actual:not(.pressed),.cmp .wrong:not(.pressed){opacity:.45}
 .key,.rk,.wk,.bk{transition:transform .08s ease,opacity .15s ease,background .15s ease}
+/* ---------- Studio look: near-black lit by soft teal and indigo glows, hairline outlines, uppercase labels, one mint
+   button per screen for the main action, and gold kept for achievements ---------- */
+body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),transparent 70%) no-repeat,radial-gradient(560px 480px at 95% 6%,var(--glow-indigo),transparent 72%) no-repeat,var(--bg)}
+.card,.list,.tile,.seg,.confirm-bar{background:color-mix(in oklab,var(--surface) 82%,transparent)}
+.cta{border-radius:14px;background:linear-gradient(180deg,color-mix(in oklab,var(--mint) 86%,white),var(--mint));color:var(--mint-ink);text-transform:uppercase;letter-spacing:.14em;font-size:13.5px;box-shadow:0 0 0 1px color-mix(in oklab,var(--mint) 55%,transparent),0 12px 34px -12px var(--mint-glow)}
+.cta small{text-transform:none;letter-spacing:0}
+.ghost{border-radius:14px;text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:var(--ink);background:transparent}
+.ghost.lit{background:var(--teal);border-color:var(--teal);color:var(--mint-ink)}
+.field button{background:var(--mint);color:var(--mint-ink);text-transform:uppercase;letter-spacing:.12em;font-size:12px;border-radius:12px}
+.lab .cta{background:transparent;color:var(--ink);box-shadow:none;border:1px solid var(--line-hi)}   /* the Lab has no single main action */
+.chips button[aria-pressed="true"],.steps button[aria-pressed="true"]{background:var(--sel-bg);border-color:var(--sel-line);color:var(--teal)}
+.seg button[aria-pressed="true"]{background:var(--sel-bg);color:var(--teal);box-shadow:0 0 0 1px var(--sel-line)}
+.switch:checked{background:var(--mint)}
+.icon{background:transparent;border-color:var(--line-hi)}
+.title{font-weight:500;letter-spacing:.01em}
+/* glows behind the level ring, the orb and the record */
+.stage,.hero,.echo-hero{position:relative;isolation:isolate}
+.stage::before,.hero::before{content:"";position:absolute;left:50%;top:50%;width:150%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:-2;border-radius:50%;background:radial-gradient(closest-side,var(--glow-teal),transparent);pointer-events:none}
+.adjust .deck{filter:drop-shadow(0 0 38px var(--glow-indigo))}
+/* the wave band: slow layered waves edge to edge behind the ring, the orb and Echo */
+.band{position:absolute;top:50%;height:220px;transform:translateY(-50%);z-index:-1;pointer-events:none}
+/* gold: achievements only */
+.tile.gold .v{color:var(--gold)}
+.sr.gold{stroke:var(--gold)}
+.score-num.gold{color:var(--gold);text-shadow:0 0 34px var(--gold-bg)}
+.banner.gold{color:var(--gold);background:var(--gold-bg);border-color:transparent}
+.streak{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 7px;margin-left:8px;border-radius:999px;background:var(--gold-bg);color:var(--gold);border:1px solid color-mix(in oklab,var(--gold) 45%,transparent);font-family:var(--font-num);font-size:12px;font-weight:600;letter-spacing:0;vertical-align:middle}
+.echo-actions{display:flex;flex-direction:column;gap:10px}
+.best-list .row{cursor:default}
+.best-list .rank{font-family:var(--font-num);color:var(--faint);width:16px}
+.best-list .num{font-family:var(--font-num);font-weight:400;font-size:17px}
+.best-list .top .num{color:var(--gold)}
+.best-list small{color:var(--muted);font-size:12.5px}
+/* first launch: headphones */
+.phones{min-height:78vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+.phones svg{width:58px;height:58px;color:var(--muted)}
+.phones h1{margin:0;font-size:21px;font-weight:600}
+.phones p{margin:0;color:var(--muted);font-size:14px;max-width:30ch}
+.phones .cta{max-width:340px;margin-top:12px}
 /* ---------- Landscape: the main layout, on phones held sideways, tablets and desktop windows ----------
    Screens split into two columns. Training puts the orb in the middle, the result to its left and the
    listen buttons to its right, with the answer controls across the bottom of the screen. */
@@ -565,11 +615,21 @@ img{max-width:100%}
     </div>
 
     <nav class="list" aria-label="More">
-      <button class="row" type="button" data-go="echo"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></span><span class="row-main"><b>Echo</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      <button class="row" type="button" data-go="echo"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></span><span class="row-main"><b>Echo</b></span><span class="streak" id="homeStreak" hidden></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="progress"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg></span><span class="row-main"><b>Progress</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="lab"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"/></svg></span><span class="row-main"><b>Lab</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </nav>
     </div></div>
+  </section>
+
+  <!-- ============ HEADPHONES (first launch) ============ -->
+  <section class="screen" id="scr-phones" aria-label="Headphones" hidden>
+    <div class="phones">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 15a2 2 0 0 1 2-2h1v7H6a2 2 0 0 1-2-2zM20 15a2 2 0 0 0-2-2h-1v7h1a2 2 0 0 0 2-2z"/></svg>
+      <h1>Best with headphones</h1>
+      <p>Earbuds work too. On an iPhone, turn off silent mode.</p>
+      <button class="cta" id="phonesOk" type="button">Continue</button>
+    </div>
   </section>
 
   <!-- ============ PROFILE (first launch) ============ -->
@@ -598,8 +658,12 @@ img{max-width:100%}
     </header>
     <div class="echo-hero" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></div>
     <div class="tiles two" id="echoTiles"></div>
-    <button class="cta" id="echoPlay" type="button">Play</button>
-    <button class="ghost" id="echoDaily" type="button">Daily</button>
+    <div class="echo-actions">
+      <button class="cta" id="echoDaily" type="button">Daily</button>
+      <button class="ghost" id="echoPlay" type="button">Play</button>
+    </div>
+    <p class="label group-label" id="echoBestLabel" hidden>Best</p>
+    <div class="list best-list" id="echoBest" hidden></div>
   </section>
 
   <!-- ============ TRAINING ============ -->
@@ -748,6 +812,7 @@ img{max-width:100%}
         <span class="row-main"><b>Answer with</b></span>
         <div class="seg" id="answerSeg" style="--n:2" role="group" aria-label="Answer with"><button type="button" data-answer="keys">Keyboard</button><button type="button" data-answer="buttons">Buttons</button></div>
       </div>
+      <label class="row"><span class="row-main"><b>Light theme</b></span><input type="checkbox" class="switch" id="optLight"></label>
     </div>
     <p class="label group-label">Level</p>
     <div class="list" id="levelSeg"></div>
@@ -762,6 +827,7 @@ img{max-width:100%}
       <label class="row"><span class="row-main"><b>Scramble</b></span><input type="checkbox" class="switch" id="optScramble"></label>
       <label class="row"><span class="row-main"><b>Match loudness</b></span><input type="checkbox" class="switch" id="optMatch"></label>
       <label class="row"><span class="row-main"><b>Vary loudness</b></span><input type="checkbox" class="switch" id="optRove"></label>
+      <label class="row"><span class="row-main"><b>Sound effects</b></span><input type="checkbox" class="switch" id="optSfx"></label>
       <div class="row"><span class="row-main"><b>Sound check</b><small class="snd" id="sndStatus"></small></span><button class="ghost" type="button" id="sndTest">Test</button></div>
       <div class="row col">
         <span class="row-main"><b>Tone length</b></span>
@@ -881,6 +947,7 @@ img{max-width:100%}
   </section>
 
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
+  <canvas class="band" id="band" aria-hidden="true" hidden></canvas>
 </div>
 
 <script>
@@ -942,7 +1009,7 @@ const levelTitle = lv => `${LEVELS[lv-1].name} · ${LEVELS[lv-1].short}`;
 const divHue = di => (25 + 275 * di / DIVISIONS.length).toFixed(1);
 
 // Progress restarted under new keys when this level ladder arrived (2026-10-03); sound settings carry over.
-const DEFAULTS = {dur:5, match:true, rove:true, scramble:true, auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:''};
+const DEFAULTS = {dur:5, match:true, rove:true, scramble:true, auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false};
 const carried = store.get('hbe2.settings', {}) || {};
 let settings = Object.assign({}, DEFAULTS,
   Object.fromEntries(['dur','match','rove','scramble','auto','hiTrim'].filter(k => k in carried).map(k => [k, carried[k]])),
@@ -1058,7 +1125,7 @@ function ampFor(f, roveDb){
 }
 
 /* ---------- audio ---------- */
-let ctx = null, out = null, voices = [], timers = [], audioState = 'idle', noiseBuf = null, cmp = null;
+let ctx = null, out = null, voices = [], timers = [], audioState = 'idle', noiseBuf = null, cmp = null, sfxBuf = null;
 let adjIdle = null, pulseTimer = null, sineTone = null;   // Find: the rest after a quiet spell, the next note, a sine's tone
 // Browsers, Safari above all (iPhone and Mac), can leave the audio engine silent after an interruption:
 // the screen locking, switching apps, a call or notification, the Mac sleeping, AirPods hopping between
@@ -1112,7 +1179,7 @@ navigator.audioSession?.addEventListener?.('statechange', () => { if (navigator.
 function resetAudio(){
   try { stopAll(); } catch(e) {}
   const old = ctx;
-  ctx = null; out = null; noiseBuf = null; mixBus = null; voices = []; audioStale = false; clockCheck = null; sineTone = null;
+  ctx = null; out = null; noiseBuf = null; mixBus = null; voices = []; audioStale = false; clockCheck = null; sineTone = null; sfxBuf = null;
   noteBufs = {}; noteReady = {}; voiceOk = {};
   for (const k in noiseBufs) delete noiseBufs[k];                         // buffers belong to the old engine's sample rate
   try { old.close(); } catch(e) {}
@@ -1258,6 +1325,34 @@ function setAudio(s){
   startWave();
 }
 
+/* ---------- sound effects: unpitched noise whose filter moves at random every time, so none can serve as a
+   reference tone; they play on answers, results and the record, never while a question is sounding ---------- */
+const SFX = {
+  pop:    {dur: 0.08, type: 'bandpass', f: 2400, q: 0.6, amp: 0.11, tau: 0.02},     // right
+  thud:   {dur: 0.26, type: 'lowpass',  f: 420,  q: 0.5, amp: 0.32, tau: 0.06},     // wrong
+  tick:   {dur: 0.03, type: 'highpass', f: 3000, q: 0.5, amp: 0.035, tau: 0.006},   // the record and the arrows
+  whoosh: {dur: 0.8,  type: 'bandpass', f: 500,  f2: 4500, q: 0.8, amp: 0.07},      // results
+};
+let tickAt = 0;
+function sfx(kind){
+  if (!settings.sfx || !ctx || ctx.state !== 'running') return;
+  if (kind === 'tick') { const n = performance.now(); if (n - tickAt < 45) return; tickAt = n; }
+  const S = SFX[kind], t = ctx.currentTime + 0.005, jit = 0.75 + 0.5 * Math.random();
+  if (!sfxBuf) {
+    sfxBuf = ctx.createBuffer(1, Math.round(ctx.sampleRate * 1.5), ctx.sampleRate);
+    const d = sfxBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const src = ctx.createBufferSource(), flt = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = sfxBuf;
+  flt.type = S.type; flt.Q.value = S.q; flt.frequency.setValueAtTime(S.f * jit, t);
+  if (S.f2) flt.frequency.exponentialRampToValueAtTime(S.f2 * jit, t + S.dur);
+  if (S.tau) { g.gain.setValueAtTime(S.amp, t); g.gain.setTargetAtTime(0, t + 0.003, S.tau); }
+  else { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(S.amp, t + S.dur * 0.45); g.gain.linearRampToValueAtTime(0, t + S.dur); }
+  src.connect(flt); flt.connect(g); g.connect(out);                      // not tracked: a stop never cuts an effect short
+  src.start(t, Math.random() * 0.5); src.stop(t + S.dur + 0.05);
+}
+
 /* ---------- compare: after an answer, your tone and the right one, a second each, back and forth ----------
    After Find and typed answers (unless exactly right); after naming only when the answer was wrong. Whichever is playing lights up: its number
    in the orb, its listen button, and its key, pressed down. It runs until you move on, or for 30 seconds. */
@@ -1279,7 +1374,7 @@ function startCompare(g, f){
     timers.push(setTimeout(step, (CMP_TONE + CMP_GAP) * 1000));
   };
   setAudio('tone');
-  step();
+  timers.push(setTimeout(step, 350));                             // after the answer's sound effect
 }
 function endCompare(){
   cmp = null;
@@ -1522,6 +1617,7 @@ function go(name){
   window.scrollTo(0, 0);
   if (name === 'progress') { progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
   ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, lab: renderLab, echo: renderEcho})[name]?.();
+  placeBand();
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
 
@@ -1585,6 +1681,7 @@ function record(rec){
   last = rec; phase = 'revealed';
   input.blur();
   render();
+  sfx(rec.ok ? 'pop' : 'thud');
   const numeric = rec.task === 'find' || rec.task === 'type';             // tuned or typed: always, unless it was spot on; named: after a miss
   if (numeric ? rec.g !== rec.f : !rec.ok) startCompare(rec.g, rec.f);
   const orb = $('playBtn');                                              // pop for right, shake for wrong
@@ -1628,6 +1725,8 @@ function finishRound(){
   lastRound = {sum, items: round.items, change};
   round = null; phase = 'idle'; trial = null; last = null;
   go('summary');
+  sfx('whoosh');
+  if (score === ROUND && !reduceMotion.matches) confetti();              // a perfect round
 }
 /* ---------- Echo: hear a tone, then find it again ----------
    A minigame of short-term pitch memory, kept apart from training and its stats. Five random tones from C3 to C9:
@@ -1640,7 +1739,15 @@ const levelOf = () => round && round.echo ? ECHO_L : LEVELS[(round ? round.lv : 
 const roundLen = () => round && round.echo ? ECHO_N : ROUND;
 const echoPts = cents => Math.max(0, Math.round((10 - Math.abs(cents) / 10) * 10) / 10);
 const centsTxt = c => `${c > 0.5 ? '+' : c < -0.5 ? '−' : '±'}${Math.abs(Math.round(c))}¢`;
-const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const todayKey = () => dayKey(new Date());
+function echoStreak(){                                           // days in a row with the daily played, through today (or yesterday)
+  const d = new Date();
+  if (echoStats.days[dayKey(d)] == null) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (echoStats.days[dayKey(d)] != null) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
 function newEcho(daily){
   const date = todayKey(), rnd = daily ? mulberry32(+date.replace(/-/g, '')) : Math.random;
   return {daily, date, tones: Array.from({length: ECHO_N}, () => Math.round(FMIN * Math.pow(FMAX / FMIN, rnd())))};
@@ -1658,18 +1765,28 @@ function startEchoTone(){                                        // the tone onc
 function finishEcho(){
   stopAll();
   const e = round.echo, items = round.items, score = Math.round(items.reduce((t, x) => t + x.pts, 0) * 10) / 10;
+  const newBest = echoStats.best != null && score > echoStats.best;
   echoStats.games.push({t: Date.now(), daily: e.daily ? e.date : null, score, cents: items.map(x => x.cents)});
   if (echoStats.games.length > 500) echoStats.games = echoStats.games.slice(-500);
   if (echoStats.best == null || score > echoStats.best) echoStats.best = score;
   if (e.daily && echoStats.days[e.date] == null) echoStats.days[e.date] = score;   // the day's first try is the one that counts
   store.set('hbe3.echo', echoStats);
-  lastRound = {echo: e, items, score};
+  lastRound = {echo: e, items, score, newBest};
   round = null; phase = 'idle'; trial = null; last = null;
   go('summary');
+  sfx('whoosh');
+  if (newBest && !reduceMotion.matches) confetti();
 }
 function renderEcho(){
-  const today = echoStats.days[todayKey()];
-  $('echoTiles').innerHTML = [['Best', echoStats.best == null ? '–' : echoStats.best, '/ 50'], ['Today', today == null ? '–' : today, '/ 50']].map(tileHtml).join('');
+  const today = echoStats.days[todayKey()], done = today != null, streak = echoStreak(), best = echoStats.best;
+  $('echoTiles').innerHTML = [['Best', best == null ? '–' : best, '/ 50', best > 0 ? 'gold' : ''], ['Today', done ? today : '–', '/ 50']].map(tileHtml).join('');
+  $('echoDaily').className = done ? 'ghost' : 'cta';                    // the main button: today's five, until they're played
+  $('echoPlay').className = done ? 'cta' : 'ghost';
+  $('echoDaily').style.order = done ? 1 : 0;
+  $('echoDaily').innerHTML = `Daily${streak ? `<span class="streak">${streak}</span>` : ''}`;
+  const top = [...echoStats.games].sort((a, b) => b.score - a.score || a.t - b.t).slice(0, 5);
+  $('echoBest').hidden = $('echoBestLabel').hidden = !top.length;
+  $('echoBest').innerHTML = top.map((g, i) => `<div class="row${i || !g.score ? '' : ' top'}"><span class="rank">${i + 1}</span><span class="row-main"><b class="num">${g.score}</b></span><small>${new Date(g.t).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}${g.daily ? ' · Daily' : ''}</small></div>`).join('');
 }
 $('echoPlay').addEventListener('click', () => startRound(newEcho(false)));
 $('echoDaily').addEventListener('click', () => startRound(newEcho(true)));
@@ -1769,11 +1886,11 @@ document.querySelectorAll('#adjust .arr').forEach(b => {
     if (e.button !== 0) return;
     e.preventDefault();
     try { b.setPointerCapture(e.pointerId); } catch(err) {}
-    if (canAdjust()) { hush(); spin(kick); }                               // the note stops at once
+    if (canAdjust()) { hush(); spin(kick); sfx('tick'); }                  // the note stops at once
     nudge(d);
     stopHold();
     let n = 0;
-    const rep = delay => { holdTimer = setTimeout(() => { n++; const m = n > 25 ? 4 : n > 10 ? 2 : 1; if (canAdjust()) spin(kick); nudge(d * m); rep(70); }, delay); };
+    const rep = delay => { holdTimer = setTimeout(() => { n++; const m = n > 25 ? 4 : n > 10 ? 2 : 1; if (canAdjust()) { spin(kick); sfx('tick'); } nudge(d * m); rep(70); }, delay); };
     rep(320);                                                             // hold to keep moving, speeding up
   });
   ['pointerup','pointercancel','lostpointercapture'].forEach(ev => b.addEventListener(ev, () => { if (holdTimer) { stopHold(); soundSoon(SETTLE); } }));   // a new note after a short pause
@@ -1812,13 +1929,13 @@ function bindDeck(deck, record, h){
     h.wheel(e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1));
   }, {passive: false});
 }
-let turned = false;                                              // the record has moved since the finger came down
+let turned = false, turnAcc = 0;                                 // the record has moved since the finger came down; turn since the last tick
 bindDeck($('pad'), $('record'), {
   can: canAdjust,
   grab: () => { showTip(false); turned = false; },
-  turn: da => { if (!turned) { turned = true; hush(); } spin(da * 180 / Math.PI); nudge(da * 40 * (1 + Math.min(3, Math.abs(da) * 12))); },
+  turn: da => { if (!turned) { turned = true; hush(); } spin(da * 180 / Math.PI); nudge(da * 40 * (1 + Math.min(3, Math.abs(da) * 12))); if ((turnAcc += Math.abs(da)) > 0.52) { turnAcc = 0; sfx('tick'); } },
   release: () => { if (turned) soundSoon(0.05); turned = false; },
-  wheel: px => { spin(-px * 0.15); nudge(-px * 0.06); soundSoon(SETTLE); },
+  wheel: px => { spin(-px * 0.15); nudge(-px * 0.06); soundSoon(SETTLE); sfx('tick'); },
 });
 
 document.addEventListener('keydown', e => {
@@ -1830,7 +1947,7 @@ document.addEventListener('keydown', e => {
   if (trial.task === 'find' && phase === 'listening' && !inField) {
     const step = e.shiftKey ? COARSE : 1;
     const map = {ArrowUp: step, ArrowDown: -step, PageUp: COARSE, PageDown: -COARSE};
-    if (e.key in map) { e.preventDefault(); if (canAdjust()) spin(Math.sign(map[e.key]) * (Math.abs(map[e.key]) > 1 ? 24 : 6)); nudge(map[e.key]); soundSoon(SETTLE); return; }
+    if (e.key in map) { e.preventDefault(); if (canAdjust()) { spin(Math.sign(map[e.key]) * (Math.abs(map[e.key]) > 1 ? 24 : 6)); sfx('tick'); } nudge(map[e.key]); soundSoon(SETTLE); return; }
     if (e.key === 'Enter' && !onButton) { e.preventDefault(); lockIn(); return; }
   }
   if (trial.task === 'type' && phase === 'listening' && !inField) {
@@ -1860,6 +1977,8 @@ function specGradient(id, x1, x2){
 function renderHome(){
   const L = LEVELS[settings.level-1];
   $('homeWho').textContent = settings.name || '';
+  const streak = echoStreak();
+  $('homeStreak').hidden = !streak; $('homeStreak').textContent = streak;
   $('homeLvNum').textContent = L.tier + 1;
   $('homeLvName').textContent = L.name;
   $('homeStage').textContent = L.short;
@@ -2137,11 +2256,13 @@ function renderEchoSummary(){
   const {echo: e, items, score} = lastRound;
   $('sumSub').textContent = e.daily ? 'Echo · Daily' : 'Echo';
   $('sumScore').innerHTML = `${score}<span>/${ECHO_N * 10}</span>`;
+  $('sumScore').classList.toggle('gold', !!lastRound.newBest);
   const svg = $('scoreRing'), c = 120, r = 108, n = ECHO_N, gap = 4.5, span = 360/n - gap;
   let s = '';
   for (let i = 0; i < n; i++) { const a0 = -90 + i * 360/n + gap/2; s += `<path class="sr ${items[i] ? grade(items[i])[2] : 'e'}" d="${arcPath(c, c, r, a0, a0 + span)}"/>`; }
   svg.innerHTML = s;
-  $('sumBanner').hidden = true;
+  $('sumBanner').hidden = !lastRound.newBest;
+  if (lastRound.newBest) { $('sumBanner').className = 'banner gold'; $('sumBanner').textContent = 'New best'; }
   $('sumTiles').innerHTML = [['Miss', centsTxt(median(items.map(x => Math.abs(x.cents)))).replace(/^[+±]/, ''), 'typical'], ['Best', echoStats.best, '/ 50']].map(tileHtml).join('');
   $('sumList').innerHTML = items.map(x => {
     const cls = grade(x)[0];
@@ -2155,11 +2276,12 @@ function renderSummary(){
   $('sumSub').textContent = levelTitle(sum.lv);
   $('sumScore').innerHTML = `${sum.score}<span>/${sum.n}</span>`;
 
-  const svg = $('scoreRing'), c = 120, r = 108, n = ROUND, gap = 4.5, span = 360/n - gap;
+  const svg = $('scoreRing'), c = 120, r = 108, n = ROUND, gap = 4.5, span = 360/n - gap, perfect = sum.score === ROUND;
+  $('sumScore').classList.toggle('gold', perfect);
   let s = '';
   for (let i = 0; i < n; i++) {
     const a0 = -90 + i * 360/n + gap/2;
-    s += `<path class="sr ${items[i] ? grade(items[i])[2] : 'e'}" d="${arcPath(c, c, r, a0, a0 + span)}"/>`;
+    s += `<path class="sr ${perfect ? 'gold' : items[i] ? grade(items[i])[2] : 'e'}" d="${arcPath(c, c, r, a0, a0 + span)}"/>`;
   }
   svg.innerHTML = s;
 
@@ -2394,7 +2516,7 @@ function renderSettings(){
     const cur = LEVELS[settings.level-1].tier === ti;
     return `<div class="row tier${cur ? ' sel' : ''}"><span class="lvbadge" style="--h:${divHue(T.div)}">${ti + 1}</span><span class="row-main"><b>${T.name}</b></span><span class="steps">${steps.map(([L, n]) => `<button type="button" data-lv="${n}" aria-pressed="${n === settings.level}">${L.short}</button>`).join('')}</span></div>`;
   }).join('');
-  [['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
+  [['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
   if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
   $('instSeg').innerHTML = voiceChips();
@@ -2424,9 +2546,14 @@ $('durSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-dur]'); if (!b) return;
   settings.dur = +b.dataset.dur; saveSettings(); renderSettings();
 });
-[['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto']].forEach(([id, key]) => {
-  $(id).addEventListener('change', () => { settings[key] = $(id).checked; saveSettings(); });
+[['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => {
+  $(id).addEventListener('change', () => { settings[key] = $(id).checked; saveSettings(); if (key === 'light') applyTheme(); });
 });
+function applyTheme(){                                           // dark unless the light theme is switched on
+  document.documentElement.dataset.theme = settings.light ? 'light' : 'dark';
+  $('themeColor').content = settings.light ? '#F1F3F7' : '#06080B';
+  placeBand();
+}
 $('optTrim').addEventListener('input', () => { settings.hiTrim = +$('optTrim').value; $('trimOut').textContent = fmtDb(settings.hiTrim); });
 $('optTrim').addEventListener('change', saveSettings);
 $('trimCheck').addEventListener('click', () => {
@@ -2800,6 +2927,47 @@ $('shDir').addEventListener('click', e => {
   document.querySelectorAll('#shDir [data-dir]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.dir === lab.shDir)));
 });
 
+/* ---------- the wave band: slow layered waves running edge to edge behind the level ring, the orb and Echo.
+   Decoration only: it never follows the pitch being played. ---------- */
+const band = $('band'), BAND_HOST = {home: '.hero', train: '.stage', echo: '.echo-hero'};
+const STRANDS = Array.from({length: 6}, (_, k) => ({f: 1.1 + 0.37 * k + Math.random() * 0.2, s: (k % 2 ? -1 : 1) * (0.025 + 0.012 * k), ph: Math.random() * 6.3, a: 0.35 + 0.6 * Math.random(), c: k % 3}));
+let bandRaf = 0, bandLast = 0;
+function placeBand(){
+  const sel = BAND_HOST[screen], host = sel && document.querySelector(`#scr-${screen} ${sel}`);
+  if (!host) { band.hidden = true; return; }
+  if (band.parentNode !== host) host.prepend(band);
+  band.hidden = false;
+  const w = document.documentElement.clientWidth, dpr = Math.min(2, window.devicePixelRatio || 1);
+  band.style.left = `${-host.getBoundingClientRect().left}px`; band.style.width = `${w}px`;
+  band.width = Math.round(w * dpr); band.height = Math.round(band.clientHeight * dpr);
+  drawBand(performance.now());
+  if (!bandRaf && !reduceMotion.matches) bandRaf = requestAnimationFrame(bandLoop);
+}
+function bandLoop(now){
+  bandRaf = 0;
+  if (band.hidden || document.hidden) return;
+  if (now - bandLast > 33) { bandLast = now; drawBand(now); }           // about 30 frames a second is plenty
+  bandRaf = requestAnimationFrame(bandLoop);
+}
+function drawBand(now){
+  const c = band.getContext('2d'), W = band.width, H = band.height, t = now / 1000;
+  const cols = settings.light ? ['20,130,140', '80,70,200', '20,150,110'] : ['70,205,200', '125,115,255', '110,230,170'];
+  c.clearRect(0, 0, W, H);
+  c.lineWidth = Math.max(1, W / 900);
+  STRANDS.forEach((S, k) => {
+    c.beginPath();
+    for (let i = 0; i <= 160; i++) {
+      const x = i / 160, env = Math.pow(Math.sin(Math.PI * x), 0.8);  // tapering off at the screen's edges
+      const y = H / 2 + H * 0.36 * S.a * env * (0.75 + 0.25 * Math.sin(t * 0.3 + k)) * Math.sin(2 * Math.PI * (S.f * x + S.s * t) + S.ph);
+      i ? c.lineTo(x * W, y) : c.moveTo(x * W, y);
+    }
+    c.strokeStyle = `rgba(${cols[S.c]},${(settings.light ? 0.16 : 0.2) * (0.5 + 0.5 * S.a)})`;
+    c.stroke();
+  });
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !band.hidden && !bandRaf && !reduceMotion.matches) bandRaf = requestAnimationFrame(bandLoop); });
+$('phonesOk').addEventListener('click', () => { renderProfile(); go('profile'); });
+
 /* ---------- profile: asked once, on first launch ---------- */
 function renderProfile(){
   $('profInst').innerHTML = voiceChips();
@@ -2820,12 +2988,14 @@ $('profDone').addEventListener('click', () => {
 });
 
 /* ---------- boot ---------- */
+applyTheme();
 renderHome();
-if (!settings.name) { renderProfile(); go('profile'); }
+if (!settings.name) go('phones');
 let raf = 0;
 const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => {
   if (screen === 'train' && round && phase === 'revealed') drawStrip(levelOf());
   if (screen === 'progress') renderProgress();
+  placeBand();
 }); };
 if (window.ResizeObserver) new ResizeObserver(redraw).observe($('app')); else window.addEventListener('resize', redraw);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(redraw);
