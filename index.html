@@ -661,6 +661,7 @@ img{max-width:100%}
     <div class="echo-actions">
       <button class="cta" id="echoDaily" type="button">Daily</button>
       <button class="ghost" id="echoPlay" type="button">Play</button>
+      <button class="ghost" id="echoShare" type="button" hidden>Share today</button>
     </div>
     <p class="label group-label" id="echoBestLabel" hidden>Best</p>
     <div class="list best-list" id="echoBest" hidden></div>
@@ -873,7 +874,7 @@ img{max-width:100%}
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
       <h2>Echo</h2>
-      <p>A minigame: a tone plays once, then you tune the record back to it. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone.</p>
+      <p>A minigame: a tone plays once, then you tune the record back to it. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone; share your first try as a row of squares.</p>
       <h2>Memory</h2>
       <p>Pull is how far your answers lean toward the tone before them. Cold is the first answer of a round after 10 quiet minutes.</p>
     </div>
@@ -1770,9 +1771,10 @@ function finishEcho(){
   echoStats.games.push({t: Date.now(), daily: e.daily ? e.date : null, score, cents: items.map(x => x.cents)});
   if (echoStats.games.length > 500) echoStats.games = echoStats.games.slice(-500);
   if (echoStats.best == null || score > echoStats.best) echoStats.best = score;
-  if (e.daily && echoStats.days[e.date] == null) echoStats.days[e.date] = score;   // the day's first try is the one that counts
+  const counted = e.daily && echoStats.days[e.date] == null;
+  if (counted) echoStats.days[e.date] = score;                            // the day's first try is the one that counts
   store.set('hbe3.echo', echoStats);
-  lastRound = {echo: e, items, score, newBest};
+  lastRound = {echo: e, items, score, newBest, share: counted ? echoStats.games[echoStats.games.length - 1] : null};
   round = null; phase = 'idle'; trial = null; last = null;
   go('summary');
   sfx('whoosh');
@@ -1785,6 +1787,7 @@ function renderEcho(){
   $('echoPlay').className = done ? 'cta' : 'ghost';
   $('echoDaily').style.order = done ? 1 : 0;
   $('echoDaily').innerHTML = `Daily${streak ? `<span class="streak">${streak}</span>` : ''}`;
+  $('echoShare').hidden = !countedDaily(todayKey());
   const top = [...echoStats.games].sort((a, b) => b.score - a.score || a.t - b.t).slice(0, 5);
   $('echoBest').hidden = $('echoBestLabel').hidden = !top.length;
   $('echoBest').innerHTML = top.map((g, i) => `<div class="row${i || !g.score ? '' : ' top'}"><span class="rank">${i + 1}</span><span class="row-main"><b class="num">${g.score}</b></span><small>${new Date(g.t).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}${g.daily ? ' · Daily' : ''}</small></div>`).join('');
@@ -1792,6 +1795,33 @@ function renderEcho(){
 $('echoPlay').addEventListener('click', () => startRound(newEcho(false)));
 $('echoDaily').addEventListener('click', () => startRound(newEcho(true)));
 const nextRound = () => startRound(lastRound && lastRound.echo ? newEcho(false) : undefined);
+
+/* Sharing the daily, Wordle style: a square per tone and the score, never the tones themselves. Only the day's
+   first try counts, so that is the one shared. */
+const SITE = 'https://soren-o.github.io/my-ear-hertz/';
+const dailyNo = key => { const [y, m, d] = key.split('-').map(Number); return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(2026, 9, 7)) / 864e5) + 1; };   // 2026-10-07 is #1
+const square = c => Math.abs(c) <= 25 ? '🟩' : Math.abs(c) <= 50 ? '🟨' : Math.abs(c) <= 100 ? '🟧' : '🟥';
+const countedDaily = key => echoStats.games.find(g => g.daily === key);
+function shareText(game){
+  const streak = echoStreak();
+  return `My Ear Hertz · Daily #${dailyNo(game.daily)}\n${game.cents.map(square).join('')}  ${game.score}/50${streak > 1 ? `  🔥${streak}` : ''}\n${SITE}`;
+}
+async function shareDaily(game, btn){
+  const text = shareText(game), label = btn.textContent;
+  const flash = msg => { btn.textContent = msg; setTimeout(() => { btn.textContent = label; }, 1600); };
+  if (navigator.share) {
+    try { await navigator.share({text}); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }                // closing the share sheet is not an error
+  }
+  try { await navigator.clipboard.writeText(text); return flash('Copied'); } catch (e) {}
+  const ta = document.createElement('textarea');                         // older browsers
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  ta.remove();
+  flash(ok ? 'Copied' : 'Couldn’t copy');
+}
+$('echoShare').addEventListener('click', () => { const g = countedDaily(todayKey()); if (g) shareDaily(g, $('echoShare')); });
 function quitRound(){
   stopAll();
   round = null; phase = 'idle'; trial = null; last = null;
@@ -1822,7 +1852,7 @@ function startDeck(){ if (!deckRaf && !reduceMotion.matches) { deckLast = perfor
 
 /* ---------- controls ---------- */
 $('startBtn').addEventListener('click', () => startRound());
-$('sumNext').addEventListener('click', nextRound);
+$('sumNext').addEventListener('click', () => lastRound && lastRound.share ? shareDaily(lastRound.share, $('sumNext')) : nextRound());   // after the day's first daily: share
 $('quitBtn').addEventListener('click', () => { $('quitConfirm').hidden = !$('quitConfirm').hidden; if (!$('quitConfirm').hidden) $('quitNo').focus(); });
 $('quitNo').addEventListener('click', () => { $('quitConfirm').hidden = true; });
 $('quitYes').addEventListener('click', quitRound);
@@ -2255,7 +2285,8 @@ const MARK = {good: '✓', ok: '≈', fair: '~', bad: '✕'};
 /* ---------- results ---------- */
 function renderEchoSummary(){
   const {echo: e, items, score} = lastRound;
-  $('sumSub').textContent = e.daily ? 'Echo · Daily' : 'Echo';
+  $('sumSub').textContent = e.daily ? `Echo · Daily #${dailyNo(e.date)}` : 'Echo';
+  $('sumNext').textContent = lastRound.share ? 'Share' : 'Next round';
   $('sumScore').innerHTML = `${score}<span>/${ECHO_N * 10}</span>`;
   $('sumScore').classList.toggle('gold', !!lastRound.newBest);
   const svg = $('scoreRing'), c = 120, r = 108, n = ECHO_N, gap = 4.5, span = 360/n - gap;
@@ -2273,6 +2304,7 @@ function renderEchoSummary(){
 function renderSummary(){
   if (!lastRound) return go('home');
   if (lastRound.echo) return renderEchoSummary();
+  $('sumNext').textContent = 'Next round';
   const {sum, items, change} = lastRound, L = LEVELS[sum.lv-1];
   $('sumSub').textContent = levelTitle(sum.lv);
   $('sumScore').innerHTML = `${sum.score}<span>/${sum.n}</span>`;
