@@ -90,6 +90,11 @@ p{margin:0}
 .spacer{flex:none;width:40px}
 #scr-home > .topbar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
 #scr-home > .topbar .icon{justify-self:end}
+.echo-hero{display:grid;place-items:center;margin:8px auto 4px;width:min(40vw,150px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 50% 40%,var(--surface),var(--surface-2));border:1px solid var(--line);color:var(--muted)}
+.echo-hero svg{width:46%;height:46%}
+#echoDaily{width:100%;padding-block:14px}
+.verdict .pts{font-family:var(--font-num);font-size:18px;color:var(--ink)}
+.verdict .pts small{font-size:12px;color:var(--muted);margin-left:2px}
 .who{font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .name-in{flex:1;min-width:0;border:none;background:transparent;text-align:right;font:inherit;font-size:16px;color:var(--ink);outline:none;padding:4px 0}
 .name-in::placeholder{color:var(--faint)}
@@ -560,6 +565,7 @@ img{max-width:100%}
     </div>
 
     <nav class="list" aria-label="More">
+      <button class="row" type="button" data-go="echo"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></span><span class="row-main"><b>Echo</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="progress"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg></span><span class="row-main"><b>Progress</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="lab"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"/></svg></span><span class="row-main"><b>Lab</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </nav>
@@ -581,6 +587,19 @@ img{max-width:100%}
     </div>
     <button class="cta" id="profDone" type="button" disabled>Start</button>
     </div></div>
+  </section>
+
+  <!-- ============ ECHO ============ -->
+  <section class="screen" id="scr-echo" aria-label="Echo" hidden>
+    <header class="topbar">
+      <button class="icon" data-go="home" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span class="title">Echo</span>
+      <span class="spacer"></span>
+    </header>
+    <div class="echo-hero" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></div>
+    <div class="tiles two" id="echoTiles"></div>
+    <button class="cta" id="echoPlay" type="button">Play</button>
+    <button class="ghost" id="echoDaily" type="button">Daily</button>
   </section>
 
   <!-- ============ TRAINING ============ -->
@@ -787,6 +806,8 @@ img{max-width:100%}
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
+      <h2>Echo</h2>
+      <p>A minigame: a tone plays once, then you tune the record back to it. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone.</p>
       <h2>Memory</h2>
       <p>Pull is how far your answers lean toward the tone before them. Cold is the first answer of a round after 10 quiet minutes.</p>
     </div>
@@ -1500,7 +1521,7 @@ function go(name){
   document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + name; });
   window.scrollTo(0, 0);
   if (name === 'progress') { progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
-  ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, lab: renderLab})[name]?.();
+  ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, lab: renderLab, echo: renderEcho})[name]?.();
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
 
@@ -1508,35 +1529,35 @@ document.addEventListener('click', e => { const g = e.target.closest('[data-go]'
 let round = null, lastRound = null;
 let phase = 'idle', trial = null, last = null;
 const input = $('guessInput');
-const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'scramble';
+const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'scramble' && (!trial.echo || trial.heard);
 
-function startRound(){
-  const V = roundVoice(LEVELS[settings.level - 1]);
+function startRound(echo){
+  const V = roundVoice(echo ? ECHO_L : LEVELS[settings.level - 1]);
   const begin = v => {
-    round = {id: Date.now(), lv: settings.level, items: [], voice: v};
+    round = {id: Date.now(), lv: settings.level, items: [], voice: v, echo: echo || null};
     $('quitConfirm').hidden = true;
     go('train');
     nextQuestion();
   };
   if (V === SINE || voiceReady(V)) return begin(V);
-  const btns = ['startBtn', 'sumNext'].map($);
+  const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily'].map($);
   btns.forEach(b => { b.disabled = true; });                             // the instrument loads first (once)
   prepareVoice(V).then(() => V, () => SINE).then(v => {
     btns.forEach(b => { b.disabled = false; });
-    if (screen === 'home' || screen === 'summary') begin(v);
+    if (screen === 'home' || screen === 'summary' || screen === 'echo') begin(v);
   });
 }
 function nextQuestion(){
-  const L = LEVELS[round.lv-1];
+  const L = levelOf();
   const task = L.task === 'mixed' ? (Math.random() < 0.5 ? 'type' : 'find') : L.task;
-  const target = L.choices ? L.choices[Math.floor(Math.random() * L.choices.length)] : Math.round(logUniform());
+  const target = round.echo ? round.echo.tones[round.items.length] : L.choices ? L.choices[Math.floor(Math.random() * L.choices.length)] : Math.round(logUniform());
   phase = 'listening'; last = null; showError('');
   const voice = round.voice || SINE, off = Math.random();               // off: this question's shift of the recordings' grid
   if (task === 'find') {
     const w = makeStops(target, voiceRange(voice));
-    trial = {task, f: target, lv: round.lv, w, x: Math.floor(Math.random() * w.n), rove: settings.rove ? Math.random()*6 - 3 : 0, mv: 0, voice, off};   // start on any stop, the target included
+    trial = {task, f: target, lv: round.lv, w, x: Math.floor(Math.random() * w.n), rove: settings.rove ? Math.random()*6 - 3 : 0, mv: 0, voice, off, echo: !!round.echo};   // start on any stop, the target included
     render();
-    startAdj(settings.scramble);
+    if (round.echo) startEchoTone(); else startAdj(settings.scramble);
     if (!settings.hideFindTip && !round.tipShown) { round.tipShown = true; showTip(true); }
   } else {
     const style = CHOICE_TASKS.includes(task) && settings.answer !== 'buttons' ? 'roll' : 'classic';   // the full keyboard, or buttons
@@ -1550,14 +1571,16 @@ function nextQuestion(){
 function record(rec){
   rec.rd = round.id;
   rec.k = round.items.length;                                            // position in the round
-  if (rec.k === 0) {                                                     // cold: nothing labeled heard for 10+ minutes
+  if (rec.k === 0 && !round.echo) {                                      // cold: nothing labeled heard for 10+ minutes
     const lastHeard = Math.max(history.length ? history[history.length-1].t : 0, anchors.length ? anchors[anchors.length-1].t : 0);
     rec.c = round.id - lastHeard >= COLD_GAP ? 1 : 0;
   }
   noteAnchor(modeOf(rec) === 'match' ? rec.g : rec.f);                   // the tone you heard now has a known number
-  history.push(rec);
-  if (history.length > 5000) history = history.slice(-5000);
-  store.set('hbe3.history', history);
+  if (!round.echo) {                                                     // Echo stays out of training's history
+    history.push(rec);
+    if (history.length > 5000) history = history.slice(-5000);
+    store.set('hbe3.history', history);
+  }
   round.items.push(rec);
   last = rec; phase = 'revealed';
   input.blur();
@@ -1583,6 +1606,10 @@ function lockIn(){
   const P = exact ? trial.f : Math.round(deckHz(trial) * 10) / 10;
   stopAll();
   const ok = Math.abs(oct(P, trial.f)) <= TOL;
+  if (trial.echo) {
+    const cents = 1200 * oct(P, trial.f);
+    return record({task: 'find', m: 'match', echo: 1, f: trial.f, g: P, t: Date.now(), mv: trial.mv, cents: Math.round(cents * 10) / 10, pts: echoPts(cents), ok: ok ? 1 : 0, exact: exact ? 1 : 0});
+  }
   record({task: 'find', m: 'match', f: trial.f, g: P, t: Date.now(), lv: trial.lv, mv: trial.mv, ok: ok ? 1 : 0, exact: exact ? 1 : 0});
 }
 function finishRound(){
@@ -1602,6 +1629,51 @@ function finishRound(){
   round = null; phase = 'idle'; trial = null; last = null;
   go('summary');
 }
+/* ---------- Echo: hear a tone, then find it again ----------
+   A minigame of short-term pitch memory, kept apart from training and its stats. Five random tones from C3 to C9:
+   each plays once (no scramble, no number), then the record comes up and you tune back to it. Each tone scores
+   10 points, one less for every 10 cents off. The daily five come from the date, so they are the same for everyone. */
+const ECHO_N = 5, ECHO_TONE = 2, ECHO_GAP = 0.6;
+const ECHO_L = {name: 'Echo', short: 'Echo', task: 'find', choices: null, wrap: 'both', tier: -1, div: DIVISIONS.length};
+let echoStats = Object.assign({best: null, days: {}, games: []}, store.get('hbe3.echo', {}) || {});
+const levelOf = () => round && round.echo ? ECHO_L : LEVELS[(round ? round.lv : settings.level) - 1];
+const roundLen = () => round && round.echo ? ECHO_N : ROUND;
+const echoPts = cents => Math.max(0, Math.round((10 - Math.abs(cents) / 10) * 10) / 10);
+const centsTxt = c => `${c > 0.5 ? '+' : c < -0.5 ? '−' : '±'}${Math.abs(Math.round(c))}¢`;
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+function newEcho(daily){
+  const date = todayKey(), rnd = daily ? mulberry32(+date.replace(/-/g, '')) : Math.random;
+  return {daily, date, tones: Array.from({length: ECHO_N}, () => Math.round(FMIN * Math.pow(FMAX / FMIN, rnd())))};
+}
+function startEchoTone(){                                        // the tone once, a short pause, then the record
+  if (!audio()) { showError('This browser cannot play audio.'); return; }
+  stopAll();
+  const now = ctx.currentTime, t = now + 0.15, len = voiceNote(trial.f, t, {dur: ECHO_TONE}), tr = trial;
+  setAudio('tone');
+  timers.push(setTimeout(() => {
+    if (trial !== tr || phase !== 'listening') return;
+    tr.heard = true; setAudio('adjust'); pulseNote(ctx.currentTime + 0.02); armIdle();
+  }, (t + len + ECHO_GAP - now) * 1000));
+}
+function finishEcho(){
+  stopAll();
+  const e = round.echo, items = round.items, score = Math.round(items.reduce((t, x) => t + x.pts, 0) * 10) / 10;
+  echoStats.games.push({t: Date.now(), daily: e.daily ? e.date : null, score, cents: items.map(x => x.cents)});
+  if (echoStats.games.length > 500) echoStats.games = echoStats.games.slice(-500);
+  if (echoStats.best == null || score > echoStats.best) echoStats.best = score;
+  if (e.daily && echoStats.days[e.date] == null) echoStats.days[e.date] = score;   // the day's first try is the one that counts
+  store.set('hbe3.echo', echoStats);
+  lastRound = {echo: e, items, score};
+  round = null; phase = 'idle'; trial = null; last = null;
+  go('summary');
+}
+function renderEcho(){
+  const today = echoStats.days[todayKey()];
+  $('echoTiles').innerHTML = [['Best', echoStats.best == null ? '–' : echoStats.best, '/ 50'], ['Today', today == null ? '–' : today, '/ 50']].map(tileHtml).join('');
+}
+$('echoPlay').addEventListener('click', () => startRound(newEcho(false)));
+$('echoDaily').addEventListener('click', () => startRound(newEcho(true)));
+const nextRound = () => startRound(lastRound && lastRound.echo ? newEcho(false) : undefined);
 function quitRound(){
   stopAll();
   round = null; phase = 'idle'; trial = null; last = null;
@@ -1631,8 +1703,8 @@ function deckLoop(now){
 function startDeck(){ if (!deckRaf && !reduceMotion.matches) { deckLast = performance.now(); deckRaf = requestAnimationFrame(deckLoop); } }
 
 /* ---------- controls ---------- */
-$('startBtn').addEventListener('click', startRound);
-$('sumNext').addEventListener('click', startRound);
+$('startBtn').addEventListener('click', () => startRound());
+$('sumNext').addEventListener('click', nextRound);
 $('quitBtn').addEventListener('click', () => { $('quitConfirm').hidden = !$('quitConfirm').hidden; if (!$('quitConfirm').hidden) $('quitNo').focus(); });
 $('quitNo').addEventListener('click', () => { $('quitConfirm').hidden = true; });
 $('quitYes').addEventListener('click', quitRound);
@@ -1675,7 +1747,7 @@ function onKey(e){                                 // buttons and piano keys: an
 $('choices').addEventListener('click', onKey);
 $('piano').addEventListener('click', onKey);
 $('roll').addEventListener('click', onKey);
-const advance = () => { if (!round) return; round.items.length >= ROUND ? finishRound() : nextQuestion(); };
+const advance = () => { if (!round) return; round.items.length >= roundLen() ? (round.echo ? finishEcho() : finishRound()) : nextQuestion(); };
 $('nextBtn').addEventListener('click', advance);
 function hearOne(which){                           // a tap on Actual or My guess plays just that one, and stops the back and forth
   if (!last) return;
@@ -1752,7 +1824,7 @@ bindDeck($('pad'), $('record'), {
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const inField = e.target.closest('input, select, textarea'), onButton = e.target.closest('button');
-  if (screen === 'summary' && e.key === 'Enter' && !onButton) { e.preventDefault(); startRound(); return; }
+  if (screen === 'summary' && e.key === 'Enter' && !onButton) { e.preventDefault(); nextRound(); return; }
   if (screen !== 'train' || !round || !trial) return;
   if (e.key === 'Escape') { if (!$('findTip').hidden) showTip(false); else $('quitBtn').click(); return; }
   if (trial.task === 'find' && phase === 'listening' && !inField) {
@@ -1828,11 +1900,12 @@ function renderStatus(){
 }
 function render(){
   if (!round || !trial) return;
-  const L = LEVELS[round.lv-1], task = trial.task, find = task === 'find', notes = noteOnly(L, task), both = L.wrap === 'both';
-  const done = round.items.length, k = Math.min(ROUND, done + (phase === 'revealed' ? 0 : 1));
-  $('trCount').textContent = `${k}/${ROUND}`;
+  const L = levelOf(), task = trial.task, find = task === 'find', notes = noteOnly(L, task), both = L.wrap === 'both', n = roundLen();
+  const done = round.items.length, k = Math.min(n, done + (phase === 'revealed' ? 0 : 1));
+  $('trCount').textContent = `${k}/${n}`;
+  $('dots').style.gridTemplateColumns = `repeat(${n},minmax(0,1fr))`;
   let dots = '';
-  for (let i = 0; i < ROUND; i++) {
+  for (let i = 0; i < n; i++) {
     const r = round.items[i];
     dots += `<i class="${r ? grade(r)[2] : (i === done && phase !== 'revealed' ? 'cur' : '')}"></i>`;
   }
@@ -1846,12 +1919,14 @@ function render(){
     $('bigUnit').textContent = notes ? '' : both ? `Hz · ${noteName(last.f)}` : 'Hz';
     $('guessVal').textContent = notes ? (find && last.g !== last.f ? noteCents(last.g) : noteName(last.g)) : fmtFreq(last.g);   // your answer, under the target
     fitNum($('bigVal'), 50); fitNum($('guessVal'), 40);
-    sub.innerHTML = `<span class="ratio">×${(last.g / last.f).toFixed(2)}</span>`;
+    sub.innerHTML = last.echo ? `<span class="ratio">${centsTxt(last.cents)}</span><span class="pts">${last.pts}<small>pts</small></span>`
+      : `<span class="ratio">×${(last.g / last.f).toFixed(2)}</span>`;
   } else {
-    orb.dataset.revealed = '0'; orb.dataset.hidden = find ? '0' : '1';
+    const shown = find && !trial.echo;                                   // Echo never shows the number before the answer
+    orb.dataset.revealed = '0'; orb.dataset.hidden = shown ? '0' : '1';
     delete orb.dataset.result;
-    $('bigVal').textContent = !find ? '' : notes ? noteName(trial.f) : fmtFreq(trial.f);
-    $('bigUnit').textContent = !find ? 'Hz' : notes ? '' : both ? `Hz · ${noteName(trial.f)}` : 'Hz';
+    $('bigVal').textContent = !shown ? '' : notes ? noteName(trial.f) : fmtFreq(trial.f);
+    $('bigUnit').textContent = trial.echo ? '' : !find ? 'Hz' : notes ? '' : both ? `Hz · ${noteName(trial.f)}` : 'Hz';
     $('guessVal').textContent = '';
     fitNum($('bigVal'), 50);
     sub.innerHTML = '';
@@ -2058,8 +2133,24 @@ const tileHtml = ([k, v, s, cls]) => `<div class="tile${cls ? ' ' + cls : ''}"><
 const MARK = {good: '✓', ok: '≈', fair: '~', bad: '✕'};
 
 /* ---------- results ---------- */
+function renderEchoSummary(){
+  const {echo: e, items, score} = lastRound;
+  $('sumSub').textContent = e.daily ? 'Echo · Daily' : 'Echo';
+  $('sumScore').innerHTML = `${score}<span>/${ECHO_N * 10}</span>`;
+  const svg = $('scoreRing'), c = 120, r = 108, n = ECHO_N, gap = 4.5, span = 360/n - gap;
+  let s = '';
+  for (let i = 0; i < n; i++) { const a0 = -90 + i * 360/n + gap/2; s += `<path class="sr ${items[i] ? grade(items[i])[2] : 'e'}" d="${arcPath(c, c, r, a0, a0 + span)}"/>`; }
+  svg.innerHTML = s;
+  $('sumBanner').hidden = true;
+  $('sumTiles').innerHTML = [['Miss', centsTxt(median(items.map(x => Math.abs(x.cents)))).replace(/^[+±]/, ''), 'typical'], ['Best', echoStats.best, '/ 50']].map(tileHtml).join('');
+  $('sumList').innerHTML = items.map(x => {
+    const cls = grade(x)[0];
+    return `<li><span class="hd" style="--h:${hueOf(x.f)}"></span><span>${fmtFreq(x.f)}</span><span class="you">${fmtFreq(x.g)}</span><span class="ratio">${centsTxt(x.cents)}</span><span class="mark ${cls}">${MARK[cls]}</span></li>`;
+  }).join('');
+}
 function renderSummary(){
   if (!lastRound) return go('home');
+  if (lastRound.echo) return renderEchoSummary();
   const {sum, items, change} = lastRound, L = LEVELS[sum.lv-1];
   $('sumSub').textContent = levelTitle(sum.lv);
   $('sumScore').innerHTML = `${sum.score}<span>/${sum.n}</span>`;
@@ -2733,7 +2824,7 @@ renderHome();
 if (!settings.name) { renderProfile(); go('profile'); }
 let raf = 0;
 const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => {
-  if (screen === 'train' && round && phase === 'revealed') drawStrip(LEVELS[round.lv-1]);
+  if (screen === 'train' && round && phase === 'revealed') drawStrip(levelOf());
   if (screen === 'progress') renderProgress();
 }); };
 if (window.ResizeObserver) new ResizeObserver(redraw).observe($('app')); else window.addEventListener('resize', redraw);
