@@ -865,6 +865,9 @@ img{max-width:100%}
     </div>
     <button class="cta" id="ltCheck" type="button">Check</button>
     <div class="tiles" id="ltTiles"></div>
+    <div class="list" id="ltAddRow" hidden>
+      <button class="row" type="button" id="ltAdd"><span class="row-main"><b id="ltAddName"></b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
     <div class="list" id="ltExactRow" hidden>
       <div class="row"><span class="row-main"><b>Exact timing</b></span><button class="ghost" id="ltExact" type="button">Allow</button></div>
     </div>
@@ -1055,6 +1058,15 @@ img{max-width:100%}
       <p class="lt-msg" id="ltMsg" hidden></p>
       <button class="cta" id="ltStart" type="button">Start</button>
       <button class="ghost" id="ltLater" type="button">Not now</button>
+    </div>
+  </div>
+  <div class="sheet" id="toneSheet" role="dialog" aria-modal="true" aria-labelledby="toneTitle" hidden>
+    <div class="sheet-card">
+      <p class="label unlocked">Unlocked</p>
+      <h2 id="toneTitle"></h2>
+      <div class="lt-copy"><p id="toneCopy"></p></div>
+      <button class="cta" id="toneAdd" type="button">Add</button>
+      <button class="ghost" id="toneLater" type="button">Not now</button>
     </div>
   </div>
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
@@ -1851,6 +1863,7 @@ function finishRound(){
     lt.unlocked = true; saveLT();
     setTimeout(openLTSheet, 1400);
   }
+  if (!practice) ltOfferOnce();                                          // passing ♪ Find C5 may be the last step to C5's offer
 }
 /* ---------- Echo: hear a tone, then find it again ----------
    A minigame of short-term pitch memory, kept apart from training and its stats. Five random tones from C3 to C9:
@@ -1935,13 +1948,14 @@ function nextRound(){                      // the results screen's main button
    was heard, so there is no short-term memory to wipe. The first comes 2 minutes after Start; after a hit the wait
    grows 2.5× (2, 5, 12, 31, 78 min, 3 h, 8 h, 20 h, 2 days, …), after a miss it shrinks to 40%, never under
    2 minutes. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
-   hours, and tapping one opens straight into the check. A miss offers a quick 5-question Find practice. The next tone (C5, then C7) joins once every tone in
-   training has held for LT_HOLD and its own Find step in the ladder is passed. Checks stay out of training's
-   history; they live in hbe3.lt. Only the app can remind: the website shows a due check while it is open. */
+   hours, and tapping one opens straight into the check. A miss offers a quick 5-question Find practice. The next tone
+   (C5, then C7) is offered once every tone in training has reached a wait of a day (LT_READY) and its own Find step in
+   the ladder is passed; the player chooses whether to add it. Checks stay out of training's history; they live in
+   hbe3.lt. Only the app can remind: the website shows a due check while it is open. */
 const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LT_FIRST = 2 * MIN, LT_GROW = 2.5, LT_SHRINK = 0.4;
 const LT_GAP = 5 * MIN;            // another tone's check never follows one sooner: two known tones in a row would be a reference
-const LT_HOLD = 4 * DAY;           // a tone holds once it is found after this long, and then the next tone can join
+const LT_READY = DAY;              // once a tone's wait between checks reaches a day, the next tone can be offered
 const LT_WAKE = [8, 22], LT_AGAIN = HOUR;   // waking hours; an unanswered reminder comes back after an hour
 const LT_PRACTICE = 5, LT_TONES = [C6, C5, C7], LT_NOTE = 1;  // LT_NOTE: the id of the one pending reminder
 let lt = Object.assign({unlocked: false, on: false, tones: [], checks: []}, store.get('hbe3.lt', {}) || {});
@@ -1960,11 +1974,20 @@ function ltBegin(){
   else lt.tones.forEach(t => { t.due = Math.max(t.due, Date.now() + LT_FIRST); });   // back after a stop
   saveLT(); ltSchedule();
 }
-function ltGrow(){                         // the next tone joins once every tone holds and its ladder step is passed
+function ltOffer(){                        // the tone that may join now: every tone has reached a day's wait, and its ladder step is passed
   const f = LT_TONES.find(x => !lt.tones.some(t => t.f === x));
-  if (!lt.on || !f || !lt.tones.every(t => t.held) || settings.top <= findOneLv(f)) return null;
-  lt.tones.push(newTone(f));
-  return f;
+  return lt.on && f && lt.tones.every(t => t.ready) && settings.top > findOneLv(f) ? f : null;
+}
+function ltOfferOnce(){                    // the sheet comes once, when the offer first opens (after a check, or a ladder round)
+  const f = ltOffer();
+  if (!f || (lt.offered || []).includes(f)) return;
+  lt.offered = [...(lt.offered || []), f]; saveLT();
+  setTimeout(() => openToneSheet(f), 1400);
+}
+function ltAdd(f){
+  const now = Date.now(), lastCheck = lt.checks.length ? lt.checks[lt.checks.length - 1].t : 0;
+  lt.tones.push({f, wait: LT_FIRST, due: Math.max(now + LT_FIRST, lastCheck + LT_GAP)});   // not right after another tone's check
+  saveLT(); ltSchedule();
 }
 function startCheck(){
   const t = dueTone();
@@ -1978,17 +2001,17 @@ function finishCheck(){
   const gap = now - (t.last || lt.started || now);                     // how long the tone had to be remembered
   t.wait = ok ? t.wait * LT_GROW : Math.max(LT_FIRST, t.wait * LT_SHRINK);
   t.due = now + t.wait; t.last = now;
-  if (ok && gap >= LT_HOLD) t.held = true;
-  const added = ltGrow();
+  if (t.wait >= LT_READY) t.ready = true;                              // stays, even if a later miss shortens the wait
   lt.tones.forEach(x => { if (x !== t) x.due = Math.max(x.due, now + LT_GAP); });
   const chk = {t: now, f: t.f, g: rec.g, cents: rec.cents, ok: ok ? 1 : 0, gap, c: rec.c, mv: rec.mv};
   lt.checks.push(chk);
   if (lt.checks.length > 3000) lt.checks = lt.checks.slice(-3000);
   saveLT(); ltSchedule();
-  lastRound = {lt: chk, tone: t, added};
+  lastRound = {lt: chk, tone: t};
   round = null; phase = 'idle'; trial = null; last = null;
   go('summary');
   sfx('whoosh');
+  ltOfferOnce();
 }
 function remindAt(due){                     // moved into waking hours
   const t = new Date(Math.max(due, Date.now())), morning = d => { d.setHours(LT_WAKE[0], 0, 0, 0); return d; };
@@ -2024,7 +2047,6 @@ function ltTick(){                          // keeps "in 12 min" current; on the
 }
 setInterval(ltTick, 15000);
 function ltRefresh(){                       // on start and whenever the app comes back
-  if (ltGrow()) saveLT();
   ltSchedule();
   if (screen === 'home') renderLTRow();
   if (screen === 'lt') renderLT();
@@ -2051,6 +2073,9 @@ function renderLT(){
   $('ltTiles').innerHTML = [['Checks', n, ''], ['Hits', n ? Math.round(100 * hits.length / n) + '%' : '–', ''], ['Longest', held ? fmtSpan(held) : '–', 'held']].map(tileHtml).join('');
   drawLTChart();
   renderLTStop();
+  const offer = ltOffer();                                        // "Not now" on the offer leaves it here
+  $('ltAddRow').hidden = !offer;
+  if (offer) $('ltAddName').textContent = `Add ${noteName(offer)}`;
   $('ltExactRow').hidden = true;                                  // the app needs "Alarms & reminders" for checks on the minute
   CAP?.LocalNotifications?.checkExactNotificationSetting().then(r => { $('ltExactRow').hidden = r.exact_alarm === 'granted'; }, () => {});
 }
@@ -2081,6 +2106,20 @@ function renderLTStop(){
     $('ltStopBtn').onclick = () => { ltStopping = true; renderLTStop(); $('ltStopNo').focus(); };
   }
 }
+function openToneSheet(f){                  // the offer of the next tone
+  if (!ltOffer() || ltOffer() !== f || round) return;
+  const names = lt.tones.map(t => noteName(t.f)), held = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
+  $('toneTitle').textContent = `Add ${noteName(f)}`;
+  $('toneCopy').textContent = `${held} now ${names.length > 1 ? 'last' : 'lasts'} a day between checks. ${noteName(f)} can join: its checks start in a few minutes.`;
+  $('toneSheet').dataset.f = f;
+  $('toneSheet').hidden = false;
+  $('toneAdd').focus({preventScroll: true});
+}
+const closeToneSheet = () => { $('toneSheet').hidden = true; };
+$('toneLater').addEventListener('click', closeToneSheet);
+$('toneSheet').addEventListener('click', e => { if (e.target === $('toneSheet')) closeToneSheet(); });
+$('toneAdd').addEventListener('click', () => { const f = +$('toneSheet').dataset.f; closeToneSheet(); if (ltOffer() === f) ltAdd(f); go('lt'); });
+$('ltAdd').addEventListener('click', () => openToneSheet(ltOffer()));
 $('ltRow').addEventListener('click', () => lt.on ? go('lt') : openLTSheet());
 $('ltCheck').addEventListener('click', startCheck);
 $('ltExact').addEventListener('click', () => { CAP?.LocalNotifications?.changeExactNotificationSetting().then(() => { renderLT(); ltSchedule(); }, () => {}); });
@@ -2314,6 +2353,7 @@ document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const inField = e.target.closest('input, select, textarea'), onButton = e.target.closest('button');
   if (!$('ltSheet').hidden) { if (e.key === 'Escape') closeLTSheet(); return; }
+  if (!$('toneSheet').hidden) { if (e.key === 'Escape') closeToneSheet(); return; }
   if (screen === 'summary' && e.key === 'Enter' && !onButton) { e.preventDefault(); $('sumNext').click(); return; }
   if (screen !== 'train' || !round || !trial) return;
   if (e.key === 'Escape') { if (!$('findTip').hidden) showTip(false); else $('quitBtn').click(); return; }
@@ -2658,7 +2698,7 @@ function renderEchoSummary(){
   }).join('');
 }
 function renderCheckSummary(){              // one long-term check: how far off, and when the next one comes
-  const {lt: k, tone, added} = lastRound, cls = grade(k);
+  const {lt: k, tone} = lastRound, cls = grade(k);
   $('sumSub').textContent = `Long-term · ${noteName(k.f)}`;
   $('sumNext').textContent = k.ok ? 'Done' : 'Practice';
   const num = centsTxt(k.cents).slice(0, -1);                            // "+12", the ¢ goes small like "/20"
@@ -2666,8 +2706,7 @@ function renderCheckSummary(){              // one long-term check: how far off,
   $('sumScore').classList.remove('gold');
   $('sumScore').classList.toggle('wide', num.length > 3);
   $('scoreRing').innerHTML = `<path class="sr ${cls[2]}" d="${arcPath(120, 120, 108, -87.75, 267.75)}"/>`;
-  $('sumBanner').hidden = !added;                                        // a new tone joining is an achievement
-  if (added) { $('sumBanner').className = 'banner gold'; $('sumBanner').textContent = `${noteName(added)} joins`; }
+  $('sumBanner').hidden = true;
   $('sumTiles').innerHTML = [['Since last', fmtSpan(k.gap), ''], ['Next', fmtIn(tone.due).replace('in ', ''), '']].map(tileHtml).join('');
   $('sumList').innerHTML = `<li><span class="hd" style="--h:${hueOf(k.f)}"></span><span>${noteName(k.f)}</span><span class="you">${k.g === k.f ? '' : noteCents(k.g)}</span><span class="ratio">${centsTxt(k.cents)}</span><span class="mark ${cls[0]}">${MARK[cls[0]]}</span></li>`;
 }
@@ -3420,6 +3459,7 @@ function tintBars(){                     // bar icons dark only on the light the
 if (CAP) new MutationObserver(tintBars).observe(document.documentElement, {attributes: true, attributeFilter: ['style', 'data-theme']});   // insets arrive late
 CAP?.App?.addListener('backButton', () => {
   if (!$('ltSheet').hidden) return closeLTSheet();
+  if (!$('toneSheet').hidden) return closeToneSheet();
   if (!$('findTip').hidden) return showTip(false);
   if (screen === 'train') return $('quitBtn').click();
   const back = document.querySelector(`#scr-${screen} .topbar > [data-go]:first-child`);
