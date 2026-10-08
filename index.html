@@ -517,6 +517,23 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .best-list .num{font-family:var(--font-num);font-weight:400;font-size:17px}
 .best-list .top .num{color:var(--gold)}
 .best-list small{color:var(--muted);font-size:12.5px}
+/* the long-term invitation */
+.sheet{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px;background:rgba(2,4,8,.66);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.sheet-card{width:min(100%,430px);max-height:calc(100dvh - 32px);overflow:auto;background:var(--surface);border:1px solid var(--line-hi);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 80px -30px var(--shadow)}
+.sheet-card h2{margin:0;font-size:20px;font-weight:600}
+.sheet-card .unlocked{color:var(--gold)}
+.curve{width:100%;height:auto;display:block}
+.curve .ax{stroke:var(--line-hi);stroke-width:1}
+.curve .fade{fill:none;stroke:var(--muted);stroke-width:1.6;stroke-dasharray:4 4}
+.curve .kept{fill:none;stroke:var(--mint);stroke-width:2}
+.curve .hit{fill:var(--mint)}
+.curve text{font-family:var(--font-body);font-size:9.5px;fill:var(--muted)}
+.curve .tk{font-family:var(--font-label);font-size:7px;letter-spacing:.14em;fill:var(--faint)}
+.lt-copy{display:flex;flex-direction:column;gap:9px}
+.lt-copy p{margin:0;font-size:14.5px;line-height:1.5;color:var(--muted)}
+.lt-copy b{color:var(--ink);font-weight:600}
+.lt-copy .heads-up{color:var(--ink);background:var(--gold-bg);border:1px solid color-mix(in oklab,var(--gold) 35%,transparent);border-radius:14px;padding:10px 12px}
+.lt-msg{margin:0;font-size:14px;line-height:1.45;color:var(--warn)}
 /* first launch: headphones */
 .phones{min-height:78vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
 .phones svg{width:58px;height:58px;color:var(--muted)}
@@ -947,6 +964,22 @@ img{max-width:100%}
     </div></div>
   </section>
 
+  <div class="sheet" id="ltSheet" role="dialog" aria-modal="true" aria-labelledby="ltTitle" hidden>
+    <div class="sheet-card">
+      <p class="label unlocked">Unlocked</p>
+      <h2 id="ltTitle">Long-term memory training</h2>
+      <svg class="curve" id="ltCurve" viewBox="0 0 320 150" role="img" aria-label="Memory fading on its own, and staying up with spaced checks"></svg>
+      <div class="lt-copy">
+        <p>You just found C6 twenty times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
+        <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
+        <p>So we&rsquo;ll check on C6 at the right moments: in a few minutes, then a little longer after every hit, from hours to days to weeks. Miss one, and the next check comes sooner.</p>
+        <p class="heads-up">The first few days are busy: lots of quick checks, about 20 seconds each. It gets much quieter as C6 sticks.</p>
+      </div>
+      <p class="lt-msg" id="ltMsg" hidden></p>
+      <button class="cta" id="ltStart" type="button">Start</button>
+      <button class="ghost" id="ltLater" type="button">Not now</button>
+    </div>
+  </div>
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
   <canvas class="band" id="band" aria-hidden="true" hidden></canvas>
 </div>
@@ -1729,6 +1762,10 @@ function finishRound(){
   go('summary');
   sfx('whoosh');
   if (score === ROUND && !reduceMotion.matches) confetti();              // a perfect round
+  if (score === ROUND && !lt.unlocked && isFindC6(LEVELS[lv - 1])) {    // the first perfect Find C6 opens long-term training
+    lt.unlocked = true; saveLT();
+    setTimeout(openLTSheet, 1400);
+  }
 }
 /* ---------- Echo: hear a tone, then find it again ----------
    A minigame of short-term pitch memory, kept apart from training and its stats. Five random tones from C3 to C9:
@@ -1795,6 +1832,45 @@ function renderEcho(){
 $('echoPlay').addEventListener('click', () => startRound(newEcho(false)));
 $('echoDaily').addEventListener('click', () => startRound(newEcho(true)));
 const nextRound = () => startRound(lastRound && lastRound.echo ? newEcho(false) : undefined);
+
+/* ---------- long-term training: the invitation ----------
+   The first 20/20 round of Find C6 opens it: a forgetting curve, a plain explanation, and Start, which needs
+   notifications. The training itself (spaced checks on C6, delivered as notifications) is for the native app;
+   here, Start only records that you opted in (hbe3.lt). */
+let lt = Object.assign({unlocked: false, on: false}, store.get('hbe3.lt', {}) || {});
+const saveLT = () => store.set('hbe3.lt', lt);
+const isFindC6 = L => L && L.task === 'find' && L.choices && L.choices.length === 1 && L.choices[0] === C6;
+function drawCurve(){                                            // the classic picture: memory fading on its own, and kept up by spaced checks
+  const W = 320, H = 150, L = 10, R = 8, T = 16, B = 24, X = x => L + x / 10 * (W - L - R), Y = y => T + (1 - y) * (H - T - B);
+  const path = f => { let d = ''; for (let i = 0; i <= 120; i++) { const x = i / 12; d += `${i ? 'L' : 'M'}${X(x).toFixed(1)} ${Y(f(x)).toFixed(1)}`; } return d; };
+  const hits = [0, 0.9, 2.1, 3.9, 6.6], taus = [0.55, 1.2, 2.5, 5, 11];
+  let kept = '';
+  hits.forEach((h0, k) => { const h1 = k + 1 < hits.length ? hits[k + 1] : 10;
+    for (let i = 0; i <= 40; i++) { const x = h0 + (h1 - h0) * i / 40; kept += `${kept ? 'L' : 'M'}${X(x).toFixed(1)} ${Y(Math.exp(-(x - h0) / taus[k])).toFixed(1)}`; } });
+  $('ltCurve').innerHTML = `<line class="ax" x1="${L}" y1="${Y(0)}" x2="${W - R}" y2="${Y(0)}"/><line class="ax" x1="${L}" y1="${T}" x2="${L}" y2="${Y(0)}"/>`
+    + `<path class="fade" d="${path(x => Math.exp(-x / 0.55))}"/><path class="kept" d="${kept}"/>`
+    + hits.slice(1).map(h => `<circle class="hit" cx="${X(h).toFixed(1)}" cy="${Y(1)}" r="3.2"/>`).join('')
+    + `<text x="${X(1.3)}" y="${Y(0.12)}">on its own</text><text x="${X(9.9)}" y="${Y(1.04)}" text-anchor="end">with checks</text>`
+    + [['minutes', 0.9], ['hours', 3.4], ['days', 6.6], ['weeks', 9.4]].map(([t, x]) => `<text class="tk" x="${X(x)}" y="${H - 6}" text-anchor="middle">${t.toUpperCase()}</text>`).join('');
+}
+function openLTSheet(){
+  drawCurve();
+  $('ltMsg').hidden = true; $('ltStart').textContent = 'Start';
+  $('ltSheet').hidden = false;
+  $('ltStart').focus({preventScroll: true});
+}
+const closeLTSheet = () => { $('ltSheet').hidden = true; };
+$('ltLater').addEventListener('click', closeLTSheet);
+$('ltSheet').addEventListener('click', e => { if (e.target === $('ltSheet')) closeLTSheet(); });
+$('ltStart').addEventListener('click', async () => {             // starting needs notifications, so the checks can find you
+  const say = msg => { $('ltMsg').textContent = msg; $('ltMsg').hidden = false; $('ltStart').textContent = 'Try again'; };
+  if (!('Notification' in window)) return say('Checks arrive as notifications. On iPhone: tap Share, then Add to Home Screen, open My Ear Hertz from there, and start again.');
+  let perm = Notification.permission;
+  if (perm !== 'granted') { try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; } }
+  if (perm !== 'granted') return say('Notifications are off. Turn them on for My Ear Hertz in Settings, then try again.');
+  lt.on = true; lt.started = Date.now(); saveLT();                 // the checks themselves: TBD, in the native app
+  closeLTSheet();
+});
 
 /* Sharing the daily, Wordle style: a square per tone and the score, never the tones themselves. Only the day's
    first try counts, so that is the one shared. */
@@ -1972,7 +2048,8 @@ bindDeck($('pad'), $('record'), {
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   const inField = e.target.closest('input, select, textarea'), onButton = e.target.closest('button');
-  if (screen === 'summary' && e.key === 'Enter' && !onButton) { e.preventDefault(); nextRound(); return; }
+  if (!$('ltSheet').hidden) { if (e.key === 'Escape') closeLTSheet(); return; }
+  if (screen === 'summary' && e.key === 'Enter' && !onButton) { e.preventDefault(); $('sumNext').click(); return; }
   if (screen !== 'train' || !round || !trial) return;
   if (e.key === 'Escape') { if (!$('findTip').hidden) showTip(false); else $('quitBtn').click(); return; }
   if (trial.task === 'find' && phase === 'listening' && !inField) {
