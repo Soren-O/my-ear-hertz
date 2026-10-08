@@ -208,8 +208,8 @@ p{margin:0}
 .orb[data-hidden="1"] .orb-num,.orb[data-hidden="1"] .orb-unit{display:none}
 .orb[data-state="tone"],.orb[data-state="adjust"]{animation:breathe 1.8s ease-in-out infinite}
 .orb[data-state="tone"]::before,.orb[data-state="adjust"]::before{border-color:var(--line-hi);animation:ripple 1.8s ease-out infinite}
-.orb[data-state="scramble"]::before{border-style:dashed;border-color:var(--line-hi);animation:jitter .09s steps(2) infinite}
-.orb[data-state="scramble"]::after{border-style:dotted;border-color:var(--line-hi);animation:jitter .13s steps(3) infinite reverse}
+.orb[data-state="interfere"]::before{border-style:dashed;border-color:var(--line-hi);animation:jitter .09s steps(2) infinite}
+.orb[data-state="interfere"]::after{border-style:dotted;border-color:var(--line-hi);animation:jitter .13s steps(3) infinite reverse}
 .orb[data-result="good"]{--rc:var(--win)}
 .orb[data-result="bad"]{--rc:var(--lose)}
 .orb[data-result]{background:radial-gradient(circle at 50% 30%,color-mix(in oklab,var(--rc) 62%,transparent),color-mix(in oklab,var(--rc) 18%,var(--surface)) 74%);box-shadow:inset 0 1px 0 var(--hi),0 0 0 2px var(--rc),0 0 120px -2px color-mix(in oklab,var(--rc) 75%,transparent)}
@@ -223,7 +223,7 @@ p{margin:0}
 @keyframes ripple{0%{transform:scale(.97);opacity:.9}100%{transform:scale(1.2);opacity:0}}
 @keyframes jitter{0%{transform:translate(1px,-1px) rotate(1deg)}50%{transform:translate(-2px,1px) rotate(-2deg)}100%{transform:translate(1px,2px) rotate(1deg)}}
 .status{font-family:var(--font-label);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);min-height:14px;text-align:center}
-.status[data-s="scramble"],.status[data-s="tone"],.status[data-s="adjust"]{color:var(--ink)}
+.status[data-s="interfere"],.status[data-s="tone"],.status[data-s="adjust"]{color:var(--ink)}
 
 .verdict{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;text-align:center;min-height:26px;color:var(--muted);font-size:15px}
 .verdict .you{color:var(--you);font-family:var(--font-num);font-weight:500}
@@ -698,9 +698,8 @@ img{max-width:100%}
     <p class="label group-label">Instrument</p>
     <div class="chips" id="profInst" role="group" aria-label="Instrument"></div>
     </div><div class="half">
-    <div class="list">
-      <label class="row"><span class="row-main"><b>Scramble</b></span><input type="checkbox" class="switch" id="profScramble"></label>
-    </div>
+    <p class="label group-label">Interference</p>
+    <div class="chips" id="profItf" role="group" aria-label="Interference"><button type="button" data-itf="noise">White noise</button><button type="button" data-itf="notes">Notes</button></div>
     <button class="cta" id="profDone" type="button" disabled>Start</button>
     </div></div>
   </section>
@@ -715,7 +714,7 @@ img{max-width:100%}
     <div class="echo-hero" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></div>
     <div class="tiles two" id="echoTiles"></div>
     <div class="list">
-      <label class="row"><span class="row-main"><b>Scramble</b></span><input type="checkbox" class="switch" id="echoScramble"></label>
+      <div class="row col"><span class="row-main"><b>Interference</b></span><div class="chips" id="echoItf" role="group" aria-label="Interference"><button type="button" data-itf="noise">White noise</button><button type="button" data-itf="notes">Notes</button></div></div>
     </div>
     <div class="echo-actions">
       <button class="cta" id="echoDaily" type="button">Daily</button>
@@ -928,7 +927,7 @@ img{max-width:100%}
     </div><div class="half">
     <p class="label group-label">Sound</p>
     <div class="list">
-      <label class="row"><span class="row-main"><b>Scramble</b></span><input type="checkbox" class="switch" id="optScramble"></label>
+      <div class="row col"><span class="row-main"><b>Interference</b></span><div class="chips" id="optItf" role="group" aria-label="Interference"><button type="button" data-itf="noise">White noise</button><button type="button" data-itf="notes">Notes</button></div></div>
       <label class="row"><span class="row-main"><b>Match loudness</b></span><input type="checkbox" class="switch" id="optMatch"></label>
       <label class="row"><span class="row-main"><b>Vary loudness</b></span><input type="checkbox" class="switch" id="optRove"></label>
       <label class="row"><span class="row-main"><b>Sound effects</b></span><input type="checkbox" class="switch" id="optSfx"></label>
@@ -969,15 +968,15 @@ img{max-width:100%}
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
       <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After a miss, or after any typed or tuned answer, your tone and the right one take turns every two and a half seconds until you go on. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
-      <h2>Scramble</h2>
-      <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
+      <h2>Interference</h2>
+      <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
       <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
       <h2>Echo</h2>
-      <p>A minigame: a tone plays once, then you tune the record back to it. Turn on Scramble to put the scramble in between, which is much harder. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone; share your first try as a row of squares.</p>
+      <p>A minigame: a tone plays once, then you tune the record back to it. Turn on interference to put it in between, which is much harder. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone; share your first try as a row of squares.</p>
       <h2>Memory</h2>
       <p>Pull is how far your answers lean toward the tone before them. Cold is the first answer of a round after 10 quiet minutes.</p>
     </div>
@@ -1138,10 +1137,10 @@ const levelTitle = lv => `${LEVELS[lv-1].name} · ${LEVELS[lv-1].short}`;
 const divHue = di => (25 + 275 * di / DIVISIONS.length).toFixed(1);
 
 // Progress restarted under new keys when this level ladder arrived (2026-10-03); sound settings carry over.
-const DEFAULTS = {dur:5, match:true, rove:true, scramble:true, auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false};
+const DEFAULTS = {dur:5, match:true, rove:true, noise:true, notes:true, auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false};
 const carried = store.get('hbe2.settings', {}) || {};
 let settings = Object.assign({}, DEFAULTS,
-  Object.fromEntries(['dur','match','rove','scramble','auto','hiTrim'].filter(k => k in carried).map(k => [k, carried[k]])),
+  Object.fromEntries(['dur','match','rove','auto','hiTrim'].filter(k => k in carried).map(k => [k, carried[k]])),
   store.get('hbe3.settings', {}));
 let history = store.get('hbe3.history', []);
 let rounds = store.get('hbe3.rounds', []);
@@ -1185,6 +1184,9 @@ if (settings.ladder < 5) {                 // 2026-10-04: the ♪ Type steps (ty
   store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
 }
 if (!LEVELS[settings.level-1]) settings.level = 1;
+// 2026-10-08: Scramble became Interference, its white noise and notes switched apart; Scramble on carries over as both on
+if ('scramble' in settings) { settings.noise = settings.notes = !!settings.scramble; delete settings.scramble; }
+if ('echoScramble' in settings) { settings.echoNoise = settings.echoNotes = !!settings.echoScramble; delete settings.echoScramble; }
 const saveSettings = () => store.set('hbe3.settings', settings);
 // settings.top: the highest level reached; only levels up to it can be picked. A future ladder change must map it too.
 if (!settings.top) settings.top = Math.max(1, ...rounds.map(r => r.lv && (r.ch === 'up' || r.score >= UP) ? r.lv + 1 : r.lv || 1));   // 2026-10-08: from rounds played so far
@@ -1379,8 +1381,8 @@ function noise(t0, dur, amp){
   track(src, g);
 }
 /* Labeled tones the listener heard recently: revealed answers, reference keys, the "hear" buttons, probes.
-   Pitch memory is disrupted most by tones close to the remembered pitch, so most scramble pips land just off
-   these. Nothing here depends on the upcoming tone, so the scramble carries no information about it. */
+   Pitch memory is disrupted most by tones close to the remembered pitch, so most interference notes land just off
+   these. Nothing here depends on the upcoming tone, so the interference carries no information about it. */
 const COLD_GAP = 10 * 60 * 1000;
 let anchors = [];
 function noteAnchor(f){ anchors.push({f, t: Date.now()}); if (anchors.length > 16) anchors.shift(); }
@@ -1415,14 +1417,32 @@ function pips(t, total, targets, spread, V){   // V: the question's instrument, 
   }
   return end;
 }
-function scramble(t){                      // pitches and white noise, alternating four times, then a short gap
+/* Interference: notes and white noise, alternating four times, then a short gap. Each part switches on its own
+   (Settings, and Echo's own pair); one switched off is left out, not left silent. kind: {noise, notes}, or null. */
+const itfOf = (noise, notes) => noise || notes ? {noise: !!noise, notes: !!notes} : null;
+const trainItf = () => itfOf(settings.noise, settings.notes);
+const itfKey = k => !k ? null : k.noise && k.notes ? 'both' : k.noise ? 'noise' : 'notes';
+const itfLabel = key => ({both: 'Noise + notes', noise: 'Noise', notes: 'Notes'})[key] || '';
+function renderItf(id, noiseKey, notesKey){                     // a pair of chips, White noise and Notes, each on or off
+  $(id).querySelectorAll('[data-itf]').forEach(b => b.setAttribute('aria-pressed', String(!!settings[b.dataset.itf === 'noise' ? noiseKey : notesKey])));
+}
+function bindItf(id, noiseKey, notesKey, save){
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('[data-itf]'); if (!b) return;
+    const k = b.dataset.itf === 'noise' ? noiseKey : notesKey;
+    settings[k] = !settings[k];
+    if (save) saveSettings();
+    renderItf(id, noiseKey, notesKey);
+  });
+}
+function interfere(t, kind){
   const L = LEVELS[(round ? round.lv : settings.level) - 1];
   const spread = Math.max(100, L.denom ? 600 / L.denom : 100);           // half a level step: what a comparison must resolve
   const targets = recentAnchors();
-  const V = trial && voiceReady(trial.voice) ? trial.voice : null;        // the pitches on the question's own instrument
+  const V = trial && voiceReady(trial.voice) ? trial.voice : null;        // the notes on the question's own instrument
   for (let i = 0; i < 4; i++) {
-    t = pips(t, 0.4, targets, spread, V);
-    noise(t, 0.25, 0.06); t += 0.25;
+    if (kind.notes) t = pips(t, 0.4, targets, spread, V);
+    if (kind.noise) { noise(t, 0.25, 0.06); t += 0.25; }
   }
   return t + 0.4;
 }
@@ -1455,12 +1475,12 @@ function play(f, opts = {}){
   if (opts.labeled) noteAnchor(f);
   const now = ctx.currentTime;
   let t = now + 0.08;
-  if (opts.scramble) t = scramble(t);
+  if (opts.interfere) t = interfere(t, opts.interfere);
   const rove = opts.rove !== false ? newRove() : 0;
   let dur = opts.dur || settings.dur;
   if (opts.voice) dur = voiceNote(f, t, {rove, dur: opts.dur});         // the question's instrument
   else tone(f, t, dur, ampFor(f, rove), 0.06);
-  if (opts.scramble) { setAudio('scramble'); timers.push(setTimeout(() => setAudio('tone'), (t - now) * 1000)); }
+  if (opts.interfere) { setAudio('interfere'); timers.push(setTimeout(() => setAudio('tone'), (t - now) * 1000)); }
   else setAudio('tone');
   timers.push(setTimeout(() => setAudio('idle'), (t + dur - now) * 1000 + 60));
 }
@@ -1718,7 +1738,7 @@ function pulseNote(t){                                           // sound the re
     const tr = trial, c0 = ctx;
     if (tr.decoding) return;
     tr.decoding = true;
-    const resume = () => {                                        // at t, or now if that has passed (after a scramble, still after it)
+    const resume = () => {                                        // at t, or now if that has passed (after interference, still after it)
       tr.decoding = false;
       if (trial === tr && phase === 'listening' && audioState !== 'paused' && ctx) pulseNote(ctx === c0 ? Math.max(t, ctx.currentTime + 0.02) : ctx.currentTime + 0.02);
     };
@@ -1754,14 +1774,14 @@ function armIdle(){
     hush(); setAudio('paused');
   }, idle * 1000);
 }
-function startAdj(withScramble){
+function startAdj(kind){                         // kind: the interference first, or null
   if (!audio()) { showError('This browser cannot play audio.'); return; }
   stopAll();
   const now = ctx.currentTime;
   let t = now + 0.08;
-  if (withScramble) t = scramble(t);
+  if (kind) t = interfere(t, kind);
   pulseNote(t);
-  if (withScramble) { setAudio('scramble'); timers.push(setTimeout(() => { setAudio('adjust'); armIdle(); }, (t - now) * 1000)); }
+  if (kind) { setAudio('interfere'); timers.push(setTimeout(() => { setAudio('adjust'); armIdle(); }, (t - now) * 1000)); }
   else { setAudio('adjust'); armIdle(); }
 }
 
@@ -1785,7 +1805,7 @@ document.addEventListener('click', e => { const g = e.target.closest('[data-go]'
 let round = null, lastRound = null;
 let phase = 'idle', trial = null, last = null;
 const input = $('guessInput');
-const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'scramble' && (!trial.echo || trial.heard);
+const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'interfere' && (!trial.echo || trial.heard);
 
 function startRound(echo, extra){            // extra: {lv, lt: tone} for a long-term check, {lv, practice: true} for the practice after a miss
   const lv = extra && extra.lv || settings.level;
@@ -1821,14 +1841,14 @@ function nextQuestion(){
     trial = {task, f: target, lv: round.lv, w, x: Math.floor(Math.random() * w.n), rove: newRove(), mv: 0, voice, off, echo: !!round.echo};   // start on any stop, the target included; rove: a sine's level
     if (round.lt && round.items[0]) trial.show = round.items[0].side;    // the target in the form the card's answer took
     render();
-    if (round.echo) startEchoTone(); else startAdj(settings.scramble && !round.lt);   // a long-term check is cold: no scramble
+    if (round.echo) startEchoTone(); else startAdj(round.lt ? null : trainItf());   // a long-term check is cold: no interference
     if (!settings.hideFindTip && !round.tipShown && !round.lt) { round.tipShown = true; showTip(true); }
   } else {
     const style = CHOICE_TASKS.includes(task) && settings.answer !== 'buttons' ? 'roll' : 'classic';   // the full keyboard, or buttons
     trial = {task, f: target, lv: round.lv, rp: 0, style, voice, off};
     input.value = '';
     render();
-    play(target, {scramble: settings.scramble, voice: true});
+    play(target, {interfere: trainItf(), voice: true});
     if (style === 'roll') centerRoll();
   }
 }
@@ -1906,7 +1926,7 @@ function finishRound(){
 }
 /* ---------- Echo: hear a tone, then find it again ----------
    A minigame of short-term pitch memory, kept apart from training and its stats. Five random tones from C3 to C9:
-   each plays once (no scramble, no number), then the record comes up and you tune back to it. Each tone scores
+   each plays once (no interference, no number), then the record comes up and you tune back to it. Each tone scores
    10 points, one less for every 10 cents off. The daily five come from the date, so they are the same for everyone. */
 const ECHO_N = 5, ECHO_TONE = 2, ECHO_GAP = 0.6;
 const ECHO_L = {name: 'Echo', short: 'Echo', task: 'find', choices: null, wrap: 'both', tier: -1, div: DIVISIONS.length};
@@ -1926,17 +1946,17 @@ function echoStreak(){                                           // days in a ro
 }
 function newEcho(daily){
   const date = todayKey(), rnd = daily ? mulberry32(+date.replace(/-/g, '')) : Math.random;
-  return {daily, date, scramble: !!settings.echoScramble, tones: Array.from({length: ECHO_N}, () => Math.round(FMIN * Math.pow(FMAX / FMIN, rnd())))};
+  return {daily, date, itf: itfOf(settings.echoNoise, settings.echoNotes), tones: Array.from({length: ECHO_N}, () => Math.round(FMIN * Math.pow(FMAX / FMIN, rnd())))};
 }
-function startEchoTone(){                                        // the tone once, then (if chosen) the scramble, then the record
+function startEchoTone(){                                        // the tone once, then (if chosen) the interference, then the record
   if (!audio()) { showError('This browser cannot play audio.'); return; }
   stopAll();
   const now = ctx.currentTime, t = now + 0.15, len = voiceNote(trial.f, t, {dur: ECHO_TONE}), tr = trial;
   let ready = t + len + ECHO_GAP;
   setAudio('tone');
-  if (round.echo.scramble) {                                     // harder: the memory has to survive the interference
-    ready = scramble(t + len + 0.3);
-    timers.push(setTimeout(() => { if (trial === tr && phase === 'listening') setAudio('scramble'); }, (t + len + 0.3 - now) * 1000));
+  if (round.echo.itf) {                                          // harder: the memory has to survive the interference
+    ready = interfere(t + len + 0.3, round.echo.itf);
+    timers.push(setTimeout(() => { if (trial === tr && phase === 'listening') setAudio('interfere'); }, (t + len + 0.3 - now) * 1000));
   }
   timers.push(setTimeout(() => {
     if (trial !== tr || phase !== 'listening') return;
@@ -1947,7 +1967,7 @@ function finishEcho(){
   stopAll();
   const e = round.echo, items = round.items, score = Math.round(items.reduce((t, x) => t + x.pts, 0) * 10) / 10;
   const newBest = echoStats.best != null && score > echoStats.best;
-  echoStats.games.push({t: Date.now(), daily: e.daily ? e.date : null, scr: e.scramble ? 1 : 0, score, cents: items.map(x => x.cents)});
+  echoStats.games.push({t: Date.now(), daily: e.daily ? e.date : null, itf: itfKey(e.itf), score, cents: items.map(x => x.cents)});
   if (echoStats.games.length > 500) echoStats.games = echoStats.games.slice(-500);
   if (echoStats.best == null || score > echoStats.best) echoStats.best = score;
   const counted = e.daily && echoStats.days[e.date] == null;
@@ -1967,13 +1987,14 @@ function renderEcho(){
   $('echoDaily').style.order = done ? 1 : 0;
   $('echoDaily').innerHTML = `Daily${streak ? `<span class="streak">${streak}</span>` : ''}`;
   $('echoShare').hidden = !countedDaily(todayKey());
-  $('echoScramble').checked = !!settings.echoScramble;
+  renderItf('echoItf', 'echoNoise', 'echoNotes');
   const top = [...echoStats.games].sort((a, b) => b.score - a.score || a.t - b.t).slice(0, 5);
   $('echoBest').hidden = $('echoBestLabel').hidden = !top.length;
-  $('echoBest').innerHTML = top.map((g, i) => `<div class="row${i || !g.score ? '' : ' top'}"><span class="rank">${i + 1}</span><span class="row-main"><b class="num">${g.score}</b></span><small>${new Date(g.t).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}${g.daily ? ' · Daily' : ''}${g.scr ? ' · Scrambled' : ''}</small></div>`).join('');
+  $('echoBest').innerHTML = top.map((g, i) => `<div class="row${i || !g.score ? '' : ' top'}"><span class="rank">${i + 1}</span><span class="row-main"><b class="num">${g.score}</b></span><small>${new Date(g.t).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}${g.daily ? ' · Daily' : ''}${gameItf(g) ? ' · ' + itfLabel(gameItf(g)) : ''}</small></div>`).join('');
 }
 $('echoPlay').addEventListener('click', () => startRound(newEcho(false)));
-$('echoScramble').addEventListener('change', () => { settings.echoScramble = $('echoScramble').checked; saveSettings(); });
+bindItf('echoItf', 'echoNoise', 'echoNotes', true);
+const gameItf = g => g.itf || (g.scr ? 'both' : null);                // games from before Interference: Scrambled meant both
 $('echoDaily').addEventListener('click', () => startRound(newEcho(true)));
 function nextRound(){                      // the results screen's main button
   if (lastRound && lastRound.lt) return lastRound.lt.ok ? go('lt') : startRound(undefined, {lv: findOneLv(lastRound.lt.f), practice: true});
@@ -1983,7 +2004,7 @@ function nextRound(){                      // the results screen's main button
 
 /* ---------- long-term training ----------
    The first 20/20 round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
-   begin: a silent flashcard (below), then one cold Find of the tone, scored in cents. Cold means nothing plays first, not even the scramble: no pitch
+   begin: a silent flashcard (below), then one cold Find of the tone, scored in cents. Cold means nothing plays first, no interference either: no pitch
    was heard, so there is no short-term memory to wipe. The first comes 2 minutes after Start; after a hit the wait
    grows 2.5× (2, 5, 12, 31, 78 min, 3 h, 8 h, 20 h, 2 days, …), after a miss it shrinks to 40%, never under
    2 minutes. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
@@ -2240,7 +2261,7 @@ const square = c => Math.abs(c) <= 25 ? '🟩' : Math.abs(c) <= 50 ? '🟨' : Ma
 const countedDaily = key => echoStats.games.find(g => g.daily === key);
 function shareText(game){
   const streak = echoStreak();
-  return `My Ear Hertz · Daily #${dailyNo(game.daily)}${game.scr ? ' · Scrambled' : ''}\n${game.cents.map(square).join('')}  ${game.score}/50${streak > 1 ? `  🔥${streak}` : ''}\n${SITE}`;
+  return `My Ear Hertz · Daily #${dailyNo(game.daily)}${gameItf(game) ? ' · ' + itfLabel(gameItf(game)) : ''}\n${game.cents.map(square).join('')}  ${game.score}/50${streak > 1 ? `  🔥${streak}` : ''}\n${SITE}`;
 }
 async function shareDaily(game, btn){
   const text = shareText(game), label = btn.textContent;
@@ -2302,7 +2323,7 @@ $('playBtn').addEventListener('click', () => {
   if (phase === 'revealed') return play(last.f, {dur: 2, rove: false, labeled: true, voice: true});
   if (trial.task === 'find') { soundSoon(0); return; }
   trial.rp++;
-  play(trial.f, {scramble: settings.scramble, voice: true});
+  play(trial.f, {interfere: trainItf(), voice: true});
 });
 function submitGuess(){
   if (phase !== 'listening') return;
@@ -2635,11 +2656,11 @@ function waveFrame(now){
   if (!waveVisible()) return;
   const dt = Math.min(0.05, (now - waveLast) / 1000); waveLast = now;
   const st = audioState;
-  const target = st === 'tone' ? 1 : st === 'scramble' ? 0.85 : 0.28;
-  const speed = st === 'tone' ? 1.1 : st === 'scramble' ? 2.4 : 0.35;     // phase turns per second
+  const target = st === 'tone' ? 1 : st === 'interfere' ? 0.85 : 0.28;
+  const speed = st === 'tone' ? 1.1 : st === 'interfere' ? 2.4 : 0.35;     // phase turns per second
   waveAmp = reduceMotion.matches ? target : waveAmp + (target - waveAmp) * Math.min(1, dt * 6);
   wavePhase += dt * speed * 2 * Math.PI;
-  drawWave(st === 'scramble');
+  drawWave(st === 'interfere');
   if (!reduceMotion.matches) waveRaf = requestAnimationFrame(waveFrame);
 }
 function drawWave(noisy){
@@ -2782,7 +2803,7 @@ const MARK = {good: '✓', ok: '≈', fair: '~', bad: '✕'};
 /* ---------- results ---------- */
 function renderEchoSummary(){
   const {echo: e, items, score} = lastRound;
-  $('sumSub').textContent = (e.daily ? `Echo · Daily #${dailyNo(e.date)}` : 'Echo') + (e.scramble ? ' · Scrambled' : '');
+  $('sumSub').textContent = (e.daily ? `Echo · Daily #${dailyNo(e.date)}` : 'Echo') + (e.itf ? ' · ' + itfLabel(itfKey(e.itf)) : '');
   $('sumNext').textContent = lastRound.share ? 'Share' : 'Next round';
   $('sumScore').innerHTML = `${score}<span>/${ECHO_N * 10}</span>`;
   $('sumScore').classList.remove('wide');
@@ -3082,8 +3103,9 @@ $('sndTest').addEventListener('click', () => {                          // rebui
 function renderSettings(){
   soundStatus();
   $('levelSeg').innerHTML = levelRows();
-  [['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
+  [['optMatch','match'],['optRove','rove'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
+  renderItf('optItf', 'noise', 'notes');
   if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
   $('instSeg').innerHTML = voiceChips();
   $('answerSeg').querySelectorAll('[data-answer]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.answer === (settings.answer || 'keys'))));
@@ -3109,7 +3131,7 @@ $('durSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-dur]'); if (!b) return;
   settings.dur = +b.dataset.dur; saveSettings(); renderSettings();
 });
-[['optMatch','match'],['optRove','rove'],['optScramble','scramble'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => {
+[['optMatch','match'],['optRove','rove'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => {
   $(id).addEventListener('change', () => { settings[key] = $(id).checked; saveSettings(); if (key === 'light') applyTheme(); });
 });
 function applyTheme(){                                           // dark unless the light theme is switched on
@@ -3173,7 +3195,7 @@ function confetti(){
 }
 
 /* ---------- lab ----------
-   Free play. Tones here show their numbers, so they count as labeled tones for the scramble and the cold-answer check. */
+   Free play. Tones here show their numbers, so they count as labeled tones for the interference and the cold-answer check. */
 const LAB_DEFAULTS = {ttX: 3, len: 0.25, lo: CS[0], hi: CS[CS.length - 1], show: true, rtColor: 'white', swFrom: 125, swTo: 8000, swSec: 10, shDir: 1, nzKind: 'pink', nzVol: 0.5,
                       mix: [{f: 440, v: 0.8, p: 0, on: true}, {f: 443, v: 0.8, p: 0, on: true}]};
 let lab = Object.assign({}, LAB_DEFAULTS, store.get('hbe3.lab', {}));
@@ -3534,11 +3556,13 @@ $('phonesOk').addEventListener('click', () => { renderProfile(); go('profile'); 
 /* ---------- profile: asked once, on first launch ---------- */
 function renderProfile(){
   $('profInst').innerHTML = voiceChips();
-  $('profScramble').checked = !!settings.scramble;
+  renderItf('profItf', 'noise', 'notes');
   $('profDone').disabled = !$('profName').value.trim();
 }
 $('profName').addEventListener('input', () => { $('profDone').disabled = !$('profName').value.trim(); });
 $('profName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('profName').blur(); } });
+bindItf('optItf', 'noise', 'notes', true);
+bindItf('profItf', 'noise', 'notes', false);                            // saved with the rest of the profile
 $('profInst').addEventListener('click', e => {
   const b = e.target.closest('[data-inst]'); if (!b) return;
   settings.instrument = b.dataset.inst; renderProfile();
@@ -3546,7 +3570,7 @@ $('profInst').addEventListener('click', e => {
 });
 $('profDone').addEventListener('click', () => {
   const name = $('profName').value.trim(); if (!name) return;
-  settings.name = name; settings.scramble = $('profScramble').checked; saveSettings();
+  settings.name = name; saveSettings();                                  // the interference chips set theirs as they're tapped
   renderHome(); go('home');
 });
 
