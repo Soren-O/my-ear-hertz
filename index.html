@@ -517,6 +517,12 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .best-list .num{font-family:var(--font-num);font-weight:400;font-size:17px}
 .best-list .top .num{color:var(--gold)}
 .best-list small{color:var(--muted);font-size:12.5px}
+/* training: one line on what to do, and the buttons/keyboard switch */
+.howto{margin:-6px 0 0;min-height:1.4em;text-align:center;font-size:13px;color:var(--muted)}
+.howto.off{visibility:hidden}
+.answer-tools{display:flex;justify-content:flex-end;margin-bottom:-2px}
+.answer-tools .icon svg{width:18px;height:18px}
+#viewToggle[aria-pressed="true"]{background:var(--sel-bg);border-color:var(--sel-line);color:var(--teal)}
 /* the long-term invitation */
 .sheet{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:16px;background:rgba(2,4,8,.66);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 .sheet-card{width:min(100%,430px);max-height:calc(100dvh - 32px);overflow:auto;background:var(--surface);border:1px solid var(--line-hi);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 30px 80px -30px var(--shadow)}
@@ -675,6 +681,9 @@ img{max-width:100%}
     </header>
     <div class="echo-hero" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></div>
     <div class="tiles two" id="echoTiles"></div>
+    <div class="list">
+      <label class="row"><span class="row-main"><b>Scramble</b></span><input type="checkbox" class="switch" id="echoScramble"></label>
+    </div>
     <div class="echo-actions">
       <button class="cta" id="echoDaily" type="button">Daily</button>
       <button class="ghost" id="echoPlay" type="button">Play</button>
@@ -691,6 +700,7 @@ img{max-width:100%}
       <div class="progress" id="dots" aria-hidden="true"></div>
       <span class="count" id="trCount">1/20</span>
     </header>
+    <p class="howto" id="howto" aria-live="polite"></p>
     <div class="confirm-bar" id="quitConfirm" hidden>
       <span>End round?</span>
       <div><button class="ghost" id="quitYes" type="button">End</button><button class="cta" id="quitNo" type="button">Keep going</button></div>
@@ -717,6 +727,7 @@ img{max-width:100%}
     </div>
     </div>
     <div class="train-right">
+    <div class="answer-tools" id="answerTools" hidden><button class="icon sm" id="viewToggle" type="button" aria-label="Piano keyboard" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7.5 13v6M12 13v6M16.5 13v6"/><path fill="currentColor" stroke="none" d="M6.4 5h2.2v8H6.4zM10.9 5h2.2v8h-2.2zM15.4 5h2.2v8h-2.2z"/></svg></button></div>
     <div class="keys" id="choices"></div>
     <div class="piano" id="piano" hidden></div>
     <div class="roll" id="roll" hidden><div class="roll-track" id="rollTrack"></div></div>
@@ -881,7 +892,7 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
-      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After a miss, or after any typed or tuned answer, your tone and the right one take turns on the same four-and-a-half-second beat until you go on. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After a miss, or after any typed or tuned answer, your tone and the right one take turns every two and a half seconds until you go on. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
       <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
       <h2>Scramble</h2>
       <p>Fast bursts of pitches close to what you just heard, alternating with noise, four times over. It erases the last tone so you can't answer by comparison.</p>
@@ -891,7 +902,7 @@ img{max-width:100%}
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
       <h2>Echo</h2>
-      <p>A minigame: a tone plays once, then you tune the record back to it. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone; share your first try as a row of squares.</p>
+      <p>A minigame: a tone plays once, then you tune the record back to it. Turn on Scramble to put the scramble in between, which is much harder. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone; share your first try as a row of squares.</p>
       <h2>Memory</h2>
       <p>Pull is how far your answers lean toward the tone before them. Cold is the first answer of a round after 10 quiet minutes.</p>
     </div>
@@ -1387,10 +1398,10 @@ function sfx(kind){
   src.start(t, Math.random() * 0.5); src.stop(t + S.dur + 0.05);
 }
 
-/* ---------- compare: after an answer, your tone and the right one, back and forth on Find's 4.5 s beat ----------
+/* ---------- compare: after an answer, your tone and the right one, back and forth every 2.5 s ----------
    After Find and typed answers (unless exactly right); after naming only when the answer was wrong. Whichever is playing lights up: its number
    in the orb, its listen button, and its key, pressed down. It runs until you move on, or for 30 seconds. */
-const CMP_MAX = 36;                                                     // seconds: four turns each, then it stops
+const CMP_EVERY = 2.5, CMP_MAX = 30;                                    // seconds: a new tone every 2.5, six turns each, then it stops
 const CMP_BOXES = ['choices', 'piano', 'roll'];
 function startCompare(g, f){
   if (!audio()) return;
@@ -1401,12 +1412,11 @@ function startCompare(g, f){
     if (cmp !== c) return;
     if (Date.now() - c.t0 > CMP_MAX * 1000) { endCompare(); setAudio('idle'); return; }
     const which = c.i++ % 2 ? 'true' : 'you', freq = which === 'you' ? c.g : c.f;
-    const sine = !voiceReady(trial.voice);                               // an instrument plays its whole note; a sine holds until the next
-    const len = voiceNote(freq, ctx.currentTime + 0.02, {dur: sine ? PULSE - 0.15 : undefined});
+    const len = voiceNote(freq, ctx.currentTime + 0.02, {dur: CMP_EVERY - 0.1});   // each tone fades out just before the next
     noteAnchor(freq);
     showCompare(which);
-    timers.push(setTimeout(() => { if (cmp === c) showCompare(null); }, Math.min(len, PULSE - 0.15) * 1000));
-    timers.push(setTimeout(step, PULSE * 1000));
+    timers.push(setTimeout(() => { if (cmp === c) showCompare(null); }, Math.min(len, CMP_EVERY - 0.1) * 1000));
+    timers.push(setTimeout(step, CMP_EVERY * 1000));
   };
   setAudio('tone');
   timers.push(setTimeout(step, 350));                             // after the answer's sound effect
@@ -1789,23 +1799,28 @@ function echoStreak(){                                           // days in a ro
 }
 function newEcho(daily){
   const date = todayKey(), rnd = daily ? mulberry32(+date.replace(/-/g, '')) : Math.random;
-  return {daily, date, tones: Array.from({length: ECHO_N}, () => Math.round(FMIN * Math.pow(FMAX / FMIN, rnd())))};
+  return {daily, date, scramble: !!settings.echoScramble, tones: Array.from({length: ECHO_N}, () => Math.round(FMIN * Math.pow(FMAX / FMIN, rnd())))};
 }
-function startEchoTone(){                                        // the tone once, a short pause, then the record
+function startEchoTone(){                                        // the tone once, then (if chosen) the scramble, then the record
   if (!audio()) { showError('This browser cannot play audio.'); return; }
   stopAll();
   const now = ctx.currentTime, t = now + 0.15, len = voiceNote(trial.f, t, {dur: ECHO_TONE}), tr = trial;
+  let ready = t + len + ECHO_GAP;
   setAudio('tone');
+  if (round.echo.scramble) {                                     // harder: the memory has to survive the interference
+    ready = scramble(t + len + 0.3);
+    timers.push(setTimeout(() => { if (trial === tr && phase === 'listening') setAudio('scramble'); }, (t + len + 0.3 - now) * 1000));
+  }
   timers.push(setTimeout(() => {
     if (trial !== tr || phase !== 'listening') return;
-    tr.heard = true; setAudio('adjust'); pulseNote(ctx.currentTime + 0.02); armIdle();
-  }, (t + len + ECHO_GAP - now) * 1000));
+    tr.heard = true; setAudio('adjust'); pulseNote(ctx.currentTime + 0.02); armIdle(); updateHowto();
+  }, (ready - now) * 1000));
 }
 function finishEcho(){
   stopAll();
   const e = round.echo, items = round.items, score = Math.round(items.reduce((t, x) => t + x.pts, 0) * 10) / 10;
   const newBest = echoStats.best != null && score > echoStats.best;
-  echoStats.games.push({t: Date.now(), daily: e.daily ? e.date : null, score, cents: items.map(x => x.cents)});
+  echoStats.games.push({t: Date.now(), daily: e.daily ? e.date : null, scr: e.scramble ? 1 : 0, score, cents: items.map(x => x.cents)});
   if (echoStats.games.length > 500) echoStats.games = echoStats.games.slice(-500);
   if (echoStats.best == null || score > echoStats.best) echoStats.best = score;
   const counted = e.daily && echoStats.days[e.date] == null;
@@ -1825,11 +1840,13 @@ function renderEcho(){
   $('echoDaily').style.order = done ? 1 : 0;
   $('echoDaily').innerHTML = `Daily${streak ? `<span class="streak">${streak}</span>` : ''}`;
   $('echoShare').hidden = !countedDaily(todayKey());
+  $('echoScramble').checked = !!settings.echoScramble;
   const top = [...echoStats.games].sort((a, b) => b.score - a.score || a.t - b.t).slice(0, 5);
   $('echoBest').hidden = $('echoBestLabel').hidden = !top.length;
-  $('echoBest').innerHTML = top.map((g, i) => `<div class="row${i || !g.score ? '' : ' top'}"><span class="rank">${i + 1}</span><span class="row-main"><b class="num">${g.score}</b></span><small>${new Date(g.t).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}${g.daily ? ' · Daily' : ''}</small></div>`).join('');
+  $('echoBest').innerHTML = top.map((g, i) => `<div class="row${i || !g.score ? '' : ' top'}"><span class="rank">${i + 1}</span><span class="row-main"><b class="num">${g.score}</b></span><small>${new Date(g.t).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}${g.daily ? ' · Daily' : ''}${g.scr ? ' · Scrambled' : ''}</small></div>`).join('');
 }
 $('echoPlay').addEventListener('click', () => startRound(newEcho(false)));
+$('echoScramble').addEventListener('change', () => { settings.echoScramble = $('echoScramble').checked; saveSettings(); });
 $('echoDaily').addEventListener('click', () => startRound(newEcho(true)));
 const nextRound = () => startRound(lastRound && lastRound.echo ? newEcho(false) : undefined);
 
@@ -1880,7 +1897,7 @@ const square = c => Math.abs(c) <= 25 ? '🟩' : Math.abs(c) <= 50 ? '🟨' : Ma
 const countedDaily = key => echoStats.games.find(g => g.daily === key);
 function shareText(game){
   const streak = echoStreak();
-  return `My Ear Hertz · Daily #${dailyNo(game.daily)}\n${game.cents.map(square).join('')}  ${game.score}/50${streak > 1 ? `  🔥${streak}` : ''}\n${SITE}`;
+  return `My Ear Hertz · Daily #${dailyNo(game.daily)}${game.scr ? ' · Scrambled' : ''}\n${game.cents.map(square).join('')}  ${game.score}/50${streak > 1 ? `  🔥${streak}` : ''}\n${SITE}`;
 }
 async function shareDaily(game, btn){
   const text = shareText(game), label = btn.textContent;
@@ -1969,6 +1986,14 @@ function onKey(e){                                 // buttons and piano keys: an
   b.classList.add('on');
 }
 $('choices').addEventListener('click', onKey);
+$('viewToggle').addEventListener('click', () => {               // buttons ⇄ keyboard, for this question and from now on
+  if (!trial || !CHOICE_TASKS.includes(trial.task)) return;
+  const keys = trial.style !== 'roll';
+  trial.style = keys ? 'roll' : 'classic';
+  settings.answer = keys ? 'keys' : 'buttons'; saveSettings();
+  render();
+  if (keys && phase === 'listening') centerRoll();
+});
 $('piano').addEventListener('click', onKey);
 $('roll').addEventListener('click', onKey);
 const advance = () => { if (!round) return; round.items.length >= roundLen() ? (round.echo ? finishEcho() : finishRound()) : nextQuestion(); };
@@ -2125,8 +2150,18 @@ function renderStatus(){
   $('adjust').dataset.off = can ? '0' : '1';
   $('lockBtn').disabled = !can;
 }
+function howto(){                                               // one short line on what to do; none once answered
+  if (!trial || phase !== 'listening') return '';
+  if (trial.echo) return trial.heard ? 'Tune back to the tone you heard' : 'Listen';
+  const notes = noteOnly(levelOf(), trial.task);
+  if (trial.task === 'find') return `Tune until the playing tone matches this target ${notes ? 'note' : 'frequency'}`;
+  if (trial.task === 'type') return 'Type the frequency you hear';
+  return notes ? 'Name the note you hear' : 'Name the frequency you hear';
+}
+function updateHowto(){ const t = howto(); if (t) $('howto').textContent = t; $('howto').classList.toggle('off', !t); }
 function render(){
   if (!round || !trial) return;
+  updateHowto();
   const L = levelOf(), task = trial.task, find = task === 'find', notes = noteOnly(L, task), both = L.wrap === 'both', n = roundLen();
   const done = round.items.length, k = Math.min(n, done + (phase === 'revealed' ? 0 : 1));
   $('trCount').textContent = `${k}/${n}`;
@@ -2161,6 +2196,8 @@ function render(){
   $('strip').style.display = phase === 'revealed' && !notes ? '' : 'none';   // the Hz scale stays hidden on note-name steps
 
   const roll = trial.style === 'roll';
+  $('answerTools').hidden = !CHOICE_TASKS.includes(task);
+  $('viewToggle').setAttribute('aria-pressed', String(roll));
   $('choices').hidden = roll || (task !== 'pick' && task !== 'notes');
   $('piano').hidden = roll || task !== 'piano';
   $('roll').hidden = !roll;
@@ -2362,7 +2399,7 @@ const MARK = {good: '✓', ok: '≈', fair: '~', bad: '✕'};
 /* ---------- results ---------- */
 function renderEchoSummary(){
   const {echo: e, items, score} = lastRound;
-  $('sumSub').textContent = e.daily ? `Echo · Daily #${dailyNo(e.date)}` : 'Echo';
+  $('sumSub').textContent = (e.daily ? `Echo · Daily #${dailyNo(e.date)}` : 'Echo') + (e.scramble ? ' · Scrambled' : '');
   $('sumNext').textContent = lastRound.share ? 'Share' : 'Next round';
   $('sumScore').innerHTML = `${score}<span>/${ECHO_N * 10}</span>`;
   $('sumScore').classList.toggle('gold', !!lastRound.newBest);
