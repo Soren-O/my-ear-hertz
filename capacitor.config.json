@@ -1,0 +1,12 @@
+{
+  "appId": "io.github.soreno.myearhertz",
+  "appName": "My Ear Hertz",
+  "webDir": "www",
+  "backgroundColor": "#06080B",
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK",
+      "initialViewportFitValueHint": "cover"
+    }
+  }
+}

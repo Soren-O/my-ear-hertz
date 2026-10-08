@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's dark background (the bg color in index.html), shown behind the system bars and while starting -->
+    <color name="meh_background">#06080B</color>
+</resources>

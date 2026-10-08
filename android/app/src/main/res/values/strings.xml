@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">My Ear Hertz</string>
+    <string name="title_activity_main">My Ear Hertz</string>
+    <string name="package_name">io.github.soreno.myearhertz</string>
+    <string name="custom_url_scheme">io.github.soreno.myearhertz</string>
+</resources>

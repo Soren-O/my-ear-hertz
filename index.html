@@ -666,7 +666,7 @@ img{max-width:100%}
     <div class="phones">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 15a2 2 0 0 1 2-2h1v7H6a2 2 0 0 1-2-2zM20 15a2 2 0 0 0-2-2h-1v7h1a2 2 0 0 0 2-2z"/></svg>
       <h1>Best with headphones</h1>
-      <p>Earbuds work too. On an iPhone, turn off silent mode.</p>
+      <p>Earbuds work too.<span id="iosNote" hidden> On an iPhone, turn off silent mode.</span></p>
       <button class="cta" id="phonesOk" type="button">Continue</button>
     </div>
   </section>
@@ -3181,6 +3181,26 @@ $('profDone').addEventListener('click', () => {
   const name = $('profName').value.trim(); if (!name) return;
   settings.name = name; settings.scramble = $('profScramble').checked; saveSettings();
   renderHome(); go('home');
+});
+
+/* ---------- the native app (Capacitor) ----------
+   CAP is null on the website. Android's back button steps back the way each screen's own back button does
+   (and asks before ending a round); on the main menu it leaves the app. */
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+$('iosNote').hidden = !IOS;
+const CAP = window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null;
+function tintBars(){                     // bar icons dark only on the light theme, and only where the page draws behind the bars
+  if (!CAP?.SystemBars) return;          // (WebView 140+); older WebViews pad the page, and the padding stays dark
+  const behind = parseFloat(getComputedStyle(document.documentElement).paddingTop) > 0;
+  CAP.SystemBars.setStyle({style: settings.light && behind ? 'LIGHT' : 'DARK'}).catch(() => {});
+}
+if (CAP) new MutationObserver(tintBars).observe(document.documentElement, {attributes: true, attributeFilter: ['style', 'data-theme']});   // insets arrive late
+CAP?.App?.addListener('backButton', () => {
+  if (!$('ltSheet').hidden) return closeLTSheet();
+  if (!$('findTip').hidden) return showTip(false);
+  if (screen === 'train') return $('quitBtn').click();
+  const back = document.querySelector(`#scr-${screen} .topbar > [data-go]:first-child`);
+  if (back) back.click(); else CAP.App.exitApp();
 });
 
 /* ---------- boot ---------- */

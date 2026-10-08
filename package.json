@@ -1,0 +1,22 @@
+{
+  "name": "my-ear-hertz",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "web": "node scripts/copy-web.mjs",
+    "sync": "node scripts/copy-web.mjs && npx cap sync android",
+    "android": "node scripts/copy-web.mjs && npx cap sync android && npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/local-notifications": "^8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource/michroma": "^5.3.0"
+  }
+}
