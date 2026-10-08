@@ -1272,6 +1272,11 @@ function audio(){
     ctx = new AC();
     out = ctx.createGain(); out.gain.value = 1; out.connect(ctx.destination);
     ctx.onstatechange = () => { if (ctx && ctx.state === 'interrupted') audioStale = true; };
+    // Decoded notes are kept when the engine is rebuilt (Safari does that on coming back, sometimes just as a round
+    // starts), so an instrument never drops to a sine. Only a new sample rate, AirPods switching modes for instance,
+    // means decoding again: notes decoded at a low rate have lost their top.
+    if (decodedRate && decodedRate !== ctx.sampleRate) { noteBufs = {}; noteReady = {}; voiceOk = {}; }
+    decodedRate = ctx.sampleRate;
   }
   if (ctx.state !== 'running') { try { const p = ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch(e) {} }
   clockCheck = {wall: performance.now(), ct: ctx.currentTime, running: ctx.state === 'running'};
@@ -1307,7 +1312,7 @@ function resetAudio(){
   try { stopAll(); } catch(e) {}
   const old = ctx;
   ctx = null; out = null; noiseBuf = null; mixBus = null; voices = []; audioStale = false; clockCheck = null; sineTone = null; sfxBuf = null;
-  noteBufs = {}; noteReady = {}; voiceOk = {};
+  for (const k in noteBufs) if (!noteReady[k]) delete noteBufs[k];       // decoded notes stay (see audio()); a decode cut off by the close starts over
   for (const k in noiseBufs) delete noiseBufs[k];                         // buffers belong to the old engine's sample rate
   try { old.close(); } catch(e) {}
 }
@@ -1549,7 +1554,8 @@ function roundVoice(L){                                                  // your
 const voiceRange = V => V === SINE ? [50, 14000]                         // how far Find's record may reach
   : [Math.max(50, hzOf(V.lo) / 2), Math.min(14000, hzOf(V.hi + (V.top || 0)) * 2)];
 const soundFiles = {};
-let noteBufs = {}, noteReady = {}, voiceOk = {}, instToken = 0;           // decoding, decoded notes, fully decoded voices: per audio engine
+let noteBufs = {}, noteReady = {}, voiceOk = {}, instToken = 0;           // decoding, decoded notes, fully decoded voices
+let decodedRate = 0;                       // the sample rate they were decoded at: they outlive a rebuilt engine of the same rate
 function loadSounds(id){
   if (!soundFiles[id]) soundFiles[id] = new Promise((res, rej) => {
     const el = document.createElement('script');
@@ -1692,11 +1698,22 @@ function pulseNote(t){                                           // sound the re
   clearTimeout(pulseTimer);
   if (!ctx || !trial || trial.task !== 'find' || phase !== 'listening') return;
   const p = deckPos(trial), f = Math.pow(2, trial.w.pts[p.i]), loud = p.g > 0.002;   // past either end of the record it fades, then is silent
-  if (!voiceReady(trial.voice)) { sineTone = startOsc(f, t, ampFor(f, trial.rove) * p.g); return; }   // a sine just keeps sounding
+  if (trial.voice === SINE) { sineTone = startOsc(f, t, ampFor(f, trial.rove) * p.g); return; }      // a sine just keeps sounding
+  if (!voiceReady(trial.voice)) {                                // its notes are gone (a new sample rate): decode again, then go on
+    const tr = trial, c0 = ctx;
+    if (tr.decoding) return;
+    tr.decoding = true;
+    const resume = () => {                                        // at t, or now if that has passed (after a scramble, still after it)
+      tr.decoding = false;
+      if (trial === tr && phase === 'listening' && audioState !== 'paused' && ctx) pulseNote(ctx === c0 ? Math.max(t, ctx.currentTime + 0.02) : ctx.currentTime + 0.02);
+    };
+    prepareVoice(tr.voice).then(resume, () => { tr.voice = SINE; resume(); });   // can't decode: a sine, rather than silence
+    return;
+  }
   if (loud) strike(trial.voice, f, t, {off: trial.off, rove: trial.rove, gain: p.g});
   pulseTimer = setTimeout(() => pulseNote(ctx.currentTime + 0.02), Math.max(0, t - ctx.currentTime + PULSE) * 1000);
 }
-const sineFind = () => !!trial && trial.task === 'find' && !voiceReady(trial.voice);
+const sineFind = () => !!trial && trial.task === 'find' && trial.voice === SINE;
 function sineFollow(){                                           // a pure sine glides with the record and never waits for the hand
   if (!canAdjust() || !audio()) return;
   const p = deckPos(trial), f = Math.pow(2, trial.w.pts[p.i]), a = ampFor(f, trial.rove) * p.g, now = ctx.currentTime;
@@ -1716,7 +1733,7 @@ function soundSoon(delay){                                       // once the han
 }
 function armIdle(){
   clearTimeout(adjIdle);
-  const idle = trial && voiceReady(trial.voice) ? IDLE_INST : IDLE_SINE;
+  const idle = trial && trial.voice !== SINE ? IDLE_INST : IDLE_SINE;
   adjIdle = setTimeout(() => {                                   // rest the ears; tap the orb or move the record to resume
     if (sineTone && !sineTone.dead) sineTone.g.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
     hush(); setAudio('paused');
@@ -1767,7 +1784,7 @@ function startRound(echo, extra){            // extra: {lv, lt: tone} for a long
   if (V === SINE || voiceReady(V)) return begin(V);
   const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily', 'ltCheck'].map($);
   btns.forEach(b => { b.disabled = true; });                             // the instrument loads first (once)
-  prepareVoice(V).then(() => V, () => SINE).then(v => {
+  prepareVoice(V).catch(() => prepareVoice(V)).then(() => V, () => SINE).then(v => {   // a decode cut off by a rebuilt engine: once more
     btns.forEach(b => { b.disabled = false; });
     if (['home', 'summary', 'echo', 'lt'].includes(screen)) begin(v);
   });
