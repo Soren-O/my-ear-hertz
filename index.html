@@ -116,6 +116,11 @@ p{margin:0}
 .verdict .pts{font-family:var(--font-num);font-size:18px;color:var(--ink)}
 .verdict .pts small{font-size:12px;color:var(--muted);margin-left:2px}
 .who{font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.sleep{display:flex;align-items:center;gap:6px;min-width:0;color:var(--muted)}
+.sleep input{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:15px;padding:6px 8px;min-width:0;color-scheme:dark}
+.sleep input::-webkit-calendar-picker-indicator{display:none}   /* room for both on a phone; tapping still opens the picker */
+:root[data-theme="light"] .sleep input{color-scheme:light}
+.sleep-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 14px}
 .name-in{flex:1;min-width:0;border:none;background:transparent;text-align:right;font:inherit;font-size:16px;color:var(--ink);outline:none;padding:4px 0}
 .name-in::placeholder{color:var(--faint)}
 .wordmark{font-family:var(--font-label);font-size:12.5px;letter-spacing:.24em}
@@ -919,6 +924,7 @@ img{max-width:100%}
         <div class="seg" id="answerSeg" style="--n:2" role="group" aria-label="Answer with"><button type="button" data-answer="keys">Keyboard</button><button type="button" data-answer="buttons">Buttons</button></div>
       </div>
       <label class="row"><span class="row-main"><b>Light theme</b></span><input type="checkbox" class="switch" id="optLight"></label>
+      <div class="row"><span class="row-main"><b>Asleep</b></span><span class="sleep"><input type="time" id="optBed" aria-label="Bedtime"><span aria-hidden="true">–</span><input type="time" id="optWake" aria-label="Wake-up time"></span></div>
     </div>
     <p class="label group-label">Level</p>
     <div class="list" id="levelSeg"></div>
@@ -1063,8 +1069,9 @@ img{max-width:100%}
         <p>You just found C6 ten times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
         <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
         <p>So we&rsquo;ll check on C6 at the right moments: in a few minutes, then a little longer after every hit, from hours to days to weeks. Miss one, and the next check comes sooner.</p>
-        <p class="heads-up">The first couple of hours are very busy: a quick check every few minutes, under half a minute each. Start when you&rsquo;re free for the next two hours. After that it gets much quieter as C6 sticks.</p>
+        <p class="heads-up">Day one is busy: about ten quick checks, under half a minute each, most of them in the first hour and the last one 45 minutes before bed. Best started in the morning. After two or three days it gets much quieter.</p>
       </div>
+      <div class="sleep-row"><b>Asleep</b><span class="sleep"><input type="time" id="ltBed" aria-label="Bedtime"><span aria-hidden="true">–</span><input type="time" id="ltWake" aria-label="Wake-up time"></span></div>
       <p class="lt-msg" id="ltMsg" hidden></p>
       <button class="cta" id="ltStart" type="button">Start</button>
       <button class="ghost" id="ltLater" type="button">Not now</button>
@@ -1142,7 +1149,7 @@ const levelTitle = lv => `${LEVELS[lv-1].name} · ${LEVELS[lv-1].short}`;
 const divHue = di => (25 + 275 * di / DIVISIONS.length).toFixed(1);
 
 // Progress restarted under new keys when this level ladder arrived (2026-10-03); sound settings carry over.
-const DEFAULTS = {dur:5, match:true, rove:true, noise:true, notes:true, auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false};
+const DEFAULTS = {dur:5, match:true, rove:true, noise:true, notes:true, auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false, wake:'07:00', bed:'22:00'};
 const carried = store.get('hbe2.settings', {}) || {};
 let settings = Object.assign({}, DEFAULTS,
   Object.fromEntries(['dur','match','rove','auto','hiTrim'].filter(k => k in carried).map(k => [k, carried[k]])),
@@ -2020,10 +2027,10 @@ function nextRound(){                      // the results screen's main button
 /* ---------- long-term training ----------
    The first perfect round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
    begin: a silent flashcard (below), then one cold Find of the tone, scored in cents. Cold means nothing plays first, no interference either: no pitch
-   was heard, so there is no short-term memory to wipe. The first comes 2 minutes after Start; after a hit the wait
-   grows 1.5×, after a miss it goes back one step (÷1.5), never under 2 minutes: a staircase that settles where
-   half the checks hit. Tones likely fade faster than the words on ordinary flashcards (whose usual 2.5× is too
-   coarse here), so the wait climbs more gently: about 9 hits (two busy hours) to an hour, 17 (two days) to a day.
+   was heard, so there is no short-term memory to wipe. A new tone's first two or three days run on fixed check-in
+   times (the block, below). After that, a hit grows the wait 1.5× and a miss takes it back one step (÷1.5), never
+   under 2 minutes: a staircase that settles where half the checks hit. Tones likely fade faster than the words on
+   ordinary flashcards (whose usual 2.5× is too coarse here), so the wait climbs more gently.
    Each check keeps the gap it tested and whether it hit, so the factor can be fitted from real data later. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
    hours, and tapping one opens straight into the check. A miss offers a quick 5-question Find practice. The next tone
    (C5, then C7) is offered once every tone in training has reached a wait of a day (LT_READY) and its own Find step in
@@ -2033,7 +2040,66 @@ const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LT_FIRST = 2 * MIN, LT_GROW = 1.5, LT_SHRINK = 1 / LT_GROW;   // a miss undoes one hit
 const LT_GAP = 5 * MIN;            // another tone's check never follows one sooner: two known tones in a row would be a reference
 const LT_READY = DAY;              // once a tone's wait between checks reaches a day, the next tone can be offered
-const LT_WAKE = [8, 22], LT_AGAIN = HOUR;   // waking hours; an unanswered reminder comes back after an hour
+const LT_AGAIN = HOUR;             // an unanswered reminder comes back after an hour
+/* The block (2026-10-09): a new tone's first days run on fixed check-in times, so a late check-in or a night's sleep
+   doesn't upset the schedule. Each day is a ladder of check-ins about 1.8× apart (offsets rounded to nice numbers)
+   from the day's start to 45 min before bed. Day 1 starts when the tone does, its first gap 2 min; each later day
+   starts with the morning check-in (15 min after waking, which tests the night), its first gap 10 min. A late
+   check-in moves nothing; times it overran merge into it. A miss adds a check-in halfway to the next time (halfway
+   to bedtime after the day's last), and again after a second miss. The block ends with the first check-in at least
+   36 h after it began (an early start's day-2 evening one, a later start's day-3 morning one); then the staircase
+   takes over at a day's wait. Nothing comes due in sleep hours (settings.bed to settings.wake). */
+const LT_RATIO = 1.8, LT_DAY1 = 2 * MIN, LT_DAYN = 10 * MIN, LT_EVE = 45 * MIN, LT_MORN = 15 * MIN, LT_BLOCK = 36 * HOUR;
+const clockMin = c => { const [h, m] = String(c || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };   // "22:30" → 1350
+function nextClock(t, c){                   // the first moment at or after t when the clock reads c
+  const d = new Date(t); d.setHours(0, clockMin(c), 0, 0);
+  if (d.getTime() < t) d.setDate(d.getDate() + 1);
+  return d.getTime();
+}
+const asleep = t => nextClock(t, settings.wake) < nextClock(t, settings.bed);   // waking comes round before bedtime
+function ladder(from, first){               // a day's check-in times after `from`, the last 45 min before bed (just before, if that's under an hour off)
+  const bed = nextClock(from, settings.bed);
+  let D = bed - LT_EVE - from;
+  if (D < HOUR) D = bed - 5 * MIN - from;
+  if (D < 2 * first) return [];
+  const N = Math.max(1, Math.round(Math.log(1 + D * (LT_RATIO - 1) / first) / Math.log(LT_RATIO)));
+  let lo = 1.0001, hi = 20;                 // the ratio that makes N gaps, the first of them `first`, add up to D
+  for (let i = 0; i < 60; i++) { const r = (lo + hi) / 2; first * (r ** N - 1) / (r - 1) > D ? hi = r : lo = r; }
+  const nice = o => { const g = o < 15 * MIN ? MIN : o < 2 * HOUR ? 5 * MIN : 15 * MIN; return Math.round(o / g) * g; };
+  const out = [];
+  for (let k = 1; k < N; k++) { const o = nice(first * (lo ** k - 1) / (lo - 1)); if (o > (out[out.length - 1] || 0) && o < D) out.push(o); }
+  return [...out, D].map(o => from + o);
+}
+function blkDay(t, now){                    // a day of the block starts now: its ladder, and the bedtime that ends it
+  const b = t.blk;
+  b.day = (b.day || 0) + 1;
+  if (b.day === 1) b.at = now;
+  b.slots = ladder(now, b.day === 1 ? LT_DAY1 : LT_DAYN); b.k = 0; b.x = 0;
+  b.end = nextClock(now, settings.bed);
+}
+function blockTone(f, now){                 // a new tone: day 1 of its block starts now, or at the morning check-in if it's (nearly) bedtime
+  const t = {f, wait: LT_FIRST, blk: {}};
+  if (!asleep(now) && ladder(now, LT_DAY1).length) { blkDay(t, now); t.due = t.blk.slots[0]; }
+  else { t.blk.end = now; t.due = nextClock(now, settings.wake) + LT_MORN; }
+  return t;
+}
+function blkNext(t, now, ok){               // after a check-in of the block: the next one's time, or null once the block is over
+  const b = t.blk;
+  if (b.at && now - b.at >= LT_BLOCK) return null;
+  const morning = () => { b.slots = []; b.k = 0; b.x = 0; return nextClock(now, settings.wake) + LT_MORN; };
+  if (asleep(now)) { b.end = now; return morning(); }                 // a late one in the night: the morning's next
+  let late = false;
+  if (now >= b.end) blkDay(t, now);                                    // the day's first check-in: its ladder starts here
+  else if (b.x) b.x = 0;                                               // that was a miss's extra one
+  else { b.k++; late = true; }
+  const s = b.slots;                                                   // times passed (or under 2 min off) merge into this one, and so,
+  while (b.k < s.length && (s[b.k] - now < LT_FIRST || late && b.k && s[b.k] - now < (s[b.k] - s[b.k - 1]) / 2)) b.k++;   // after a late one, do times under half their gap off
+  if (!ok) {                                                           // a miss: one more, halfway to the next time (or to bedtime)
+    const mid = Math.round((now + (b.k < s.length ? s[b.k] : b.end)) / 2);
+    if (mid - now >= LT_FIRST) return b.x = mid;
+  }
+  return b.k < s.length ? s[b.k] : morning();
+}
 const LT_PRACTICE = 5, LT_NOTE = 1;                                // LT_NOTE: the id of the one pending reminder
 let lt = Object.assign({unlocked: false, on: false, tones: [], checks: []}, store.get('hbe3.lt', {}) || {});
 const saveLT = () => store.set('hbe3.lt', lt);
@@ -2057,15 +2123,14 @@ const LT_TONES = LT_NOTES.map(n => n.f);
 const gateLv = f => (LT_NOTES.find(n => n.f === f) || {lv: LEVELS.length}).lv;
 const ltLevel = f => ({name: noteName(f), short: 'Find', task: 'find', choices: [f], wrap: 'note', narrow: true, tier: -1, div: 0});   // a one-note Find, for checks and practice
 const practiceLv = f => findOneLv(f) || gateLv(f);                 // the ladder level a practice round is filed under
-const newTone = f => ({f, wait: LT_FIRST, due: Date.now() + LT_FIRST});
-if (lt.on && !lt.tones.length) { lt.tones = [newTone(C6)]; saveLT(); }   // opted in before the checks existed
+if (lt.on && !lt.tones.length) { lt.tones = [blockTone(C6, Date.now())]; saveLT(); }   // opted in before the checks existed
 const nextTone = () => lt.on ? [...lt.tones].sort((a, b) => a.due - b.due)[0] || null : null;
 const dueTone = () => { const t = nextTone(); return t && t.due <= Date.now() ? t : null; };
 const fmtSpan = ms => ms < HOUR ? `${Math.max(1, Math.round(ms / MIN))} min` : ms < DAY ? `${Math.round(ms / HOUR)} h` : ms < 14 * DAY ? `${Math.round(ms / DAY)} d` : `${Math.round(ms / (7 * DAY))} wk`;
 const fmtIn = t => `in ${fmtSpan(t - Date.now())}`;
 function ltBegin(){
   lt.on = true; lt.started = lt.started || Date.now();
-  if (!lt.tones.length) lt.tones = [newTone(C6)];
+  if (!lt.tones.length) lt.tones = [blockTone(C6, Date.now())];
   else lt.tones.forEach(t => { t.due = Math.max(t.due, Date.now() + LT_FIRST); });   // back after a stop
   saveLT(); ltSchedule();
 }
@@ -2080,8 +2145,9 @@ function ltOfferOnce(){                    // the sheet comes once, when the off
   setTimeout(() => openToneSheet(f), 1400);
 }
 function ltAdd(f){
-  const now = Date.now(), lastCheck = lt.checks.length ? lt.checks[lt.checks.length - 1].t : 0;
-  lt.tones.push({f, wait: LT_FIRST, due: Math.max(now + LT_FIRST, lastCheck + LT_GAP)});   // not right after another tone's check
+  const now = Date.now(), lastCheck = lt.checks.length ? lt.checks[lt.checks.length - 1].t : 0, t = blockTone(f, now);
+  t.due = Math.max(t.due, lastCheck + LT_GAP);                         // not right after another tone's check
+  lt.tones.push(t);
   saveLT(); ltSchedule();
 }
 /* The flashcard that opens every check, before the Find and with no sound: one side at random, "What frequency is
@@ -2121,11 +2187,19 @@ function finishCheck(){
   if (!t || !rec) return quitRound();
   const ok = !!rec.ok;                                                 // the Find decides the schedule; the card is recorded beside it
   const gap = now - (t.last || lt.started || now);                     // how long the tone had to be remembered
-  t.wait = ok ? t.wait * LT_GROW : Math.max(LT_FIRST, t.wait * LT_SHRINK);
-  t.due = now + t.wait; t.last = now;
-  if (t.wait >= LT_READY) t.ready = true;                              // stays, even if a later miss shortens the wait
+  const due = t.due, b0 = t.blk && {day: t.blk.day || 0, end: t.blk.end, x: t.blk.x};
+  const next = t.blk ? blkNext(t, now, ok) : null;
+  if (next != null) { t.due = next; t.wait = next - now; }             // the block: fixed check-in times
+  else {
+    t.wait = t.blk ? (ok ? LT_READY : LT_READY * LT_SHRINK) : ok ? t.wait * LT_GROW : Math.max(LT_FIRST, t.wait * LT_SHRINK);   // after the block, from a day
+    delete t.blk;
+    t.due = now + t.wait;
+    if (t.wait >= LT_READY) t.ready = true;                            // stays, even if a later miss shortens the wait
+  }
+  t.last = now;
   lt.tones.forEach(x => { if (x !== t) x.due = Math.max(x.due, now + LT_GAP); });
-  const chk = {t: now, f: t.f, g: rec.g, cents: rec.cents, ok: ok ? 1 : 0, gap, c: rec.c, mv: rec.mv, v: rec.v, show: rec.show};
+  const chk = {t: now, f: t.f, g: rec.g, cents: rec.cents, ok: ok ? 1 : 0, gap, due, c: rec.c, mv: rec.mv, v: rec.v, show: rec.show};
+  if (b0) { chk.blk = t.blk ? t.blk.day : b0.day + (now >= b0.end && !asleep(now) ? 1 : 0); if (b0.x) chk.x = 1; }
   if (card) chk.card = {side: card.side, typed: card.typed, ok: card.ok};
   lt.checks.push(chk);
   if (lt.checks.length > 3000) lt.checks = lt.checks.slice(-3000);
@@ -2136,11 +2210,9 @@ function finishCheck(){
   sfx('whoosh');
   ltOfferOnce();
 }
-function remindAt(due){                     // moved into waking hours
-  const t = new Date(Math.max(due, Date.now())), morning = d => { d.setHours(LT_WAKE[0], 0, 0, 0); return d; };
-  if (t.getHours() < LT_WAKE[0]) return morning(t).getTime();
-  if (t.getHours() >= LT_WAKE[1]) { t.setDate(t.getDate() + 1); return morning(t).getTime(); }
-  return t.getTime();
+function remindAt(due){                     // out of sleep hours: 15 min after waking
+  const t = Math.max(due, Date.now());
+  return asleep(t) ? nextClock(t, settings.wake) + LT_MORN : t;
 }
 async function ltSchedule(){                // the app keeps one pending reminder: the next check's
   const LN = CAP?.LocalNotifications;
@@ -2259,7 +2331,7 @@ function openToneSheet(f){                  // the offer of the next tone
   const names = lt.tones.map(t => noteName(t.f)), held = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
   $('toneLabel').textContent = `Unlocked: ${noteName(f)}`;
   $('toneTitle').textContent = `Add ${noteName(f)}`;
-  $('toneCopy').textContent = `${held} now ${names.length > 1 ? 'last' : 'lasts'} a day between checks. ${noteName(f)} can join: its checks start in a few minutes.`;
+  $('toneCopy').textContent = `${held} now ${names.length > 1 ? 'last' : 'lasts'} a day between checks. ${noteName(f)} can join. Its first day is busy, so add it in the morning if you can.`;
   $('toneSheet').dataset.f = f;
   $('toneSheet').hidden = false;
   $('toneAdd').focus({preventScroll: true});
@@ -2284,8 +2356,14 @@ function drawCurve(){                                            // the classic 
     + `<text x="${X(1.3)}" y="${Y(0.12)}">on its own</text><text x="${X(9.9)}" y="${Y(1.04)}" text-anchor="end">with checks</text>`
     + [['minutes', 0.9], ['hours', 3.4], ['days', 6.6], ['weeks', 9.4]].map(([t, x]) => `<text class="tk" x="${X(x)}" y="${H - 6}" text-anchor="middle">${t.toUpperCase()}</text>`).join('');
 }
+const SLEEP_INS = [['optBed', 'bed'], ['optWake', 'wake'], ['ltBed', 'bed'], ['ltWake', 'wake']];
+function renderSleep(){ SLEEP_INS.forEach(([id, k]) => { if (document.activeElement !== $(id)) $(id).value = settings[k]; }); }
+SLEEP_INS.forEach(([id, k]) => $(id).addEventListener('change', () => {   // sleep hours: no check-ins, no reminders
+  if (/^\d\d:\d\d$/.test($(id).value)) { settings[k] = $(id).value; saveSettings(); ltSchedule(); }
+  renderSleep();
+}));
 function openLTSheet(){
-  drawCurve();
+  drawCurve(); renderSleep();
   $('ltMsg').hidden = true; $('ltStart').textContent = 'Start';
   $('ltSheet').hidden = false;
   $('ltStart').focus({preventScroll: true});
@@ -3179,7 +3257,7 @@ const EXPORT_FIELDS = {
   levels: 'levels[i] names level number i + 1: its set, then its step.',
   rounds: 'One per finished training round: lv level, score of n, ch up/down if it moved a level, p 1 for the practice round offered after a missed long-term check.',
   history: 'One per training answer (the last 5,000). task: pick/notes/piano (named), type (typed in Hz), find (tuned); f target Hz; g answer Hz; ok 1 if within a quarter tone; exact 1 if tuned exactly; lv level; rd round id (its start time); k position in the round; c 1 if cold (nothing labeled heard for 10+ minutes; first answer of a round only); rp replays; mv record moves (find); ui roll/classic answer view. Conditions: itf interference before the question (both/noise/notes/none), v instrument, rove 1 if loudness varied, pv 1 if the round began by playing its target.',
-  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day). checks: one per check: f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
+  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day), blk while in its first days of fixed check-in times (at when they began, day, slots that day\'s times, k the next, x a miss\'s extra one, end that day\'s bedtime). checks: one per check: f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, due when it was due, blk the day of the fixed check-ins it fell on, x 1 for a miss\'s extra check-in, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
   echo: 'Echo, a short-term memory game kept apart from training: per game t, daily (its date, or null), itf interference, score out of 50, cents (the error on each of its five tones).',
   settings: 'The app\'s settings at export, without the name.'
 };
@@ -3226,6 +3304,7 @@ function renderSettings(){
   $('levelSeg').innerHTML = levelRows();
   [['optMatch','match'],['optRove','rove'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
+  renderSleep();
   renderItf('optItf', 'noise', 'notes');
   if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
   $('instSeg').innerHTML = voiceChips();
