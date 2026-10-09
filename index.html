@@ -968,7 +968,7 @@ img{max-width:100%}
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
       <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After a miss, or after any typed or tuned answer, your tone and the right one take turns every two and a half seconds until you go on. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
-      <p>A perfect 20 of 20 moves you up a step; 12 or fewer moves you back one.</p>
+      <p>A perfect 10 of 10 moves you up a step; 6 or fewer moves you back one.</p>
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
@@ -1056,7 +1056,7 @@ img{max-width:100%}
       <h2 id="ltTitle">Long-term memory training</h2>
       <svg class="curve" id="ltCurve" viewBox="0 0 320 150" role="img" aria-label="Memory fading on its own, and staying up with spaced checks"></svg>
       <div class="lt-copy">
-        <p>You just found C6 twenty times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
+        <p>You just found C6 ten times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
         <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
         <p>So we&rsquo;ll check on C6 at the right moments: in a few minutes, then a little longer after every hit, from hours to days to weeks. Miss one, and the next check comes sooner.</p>
         <p class="heads-up">The first week or two are busy: lots of quick checks, under half a minute each. It gets much quieter as C6 sticks.</p>
@@ -1129,7 +1129,7 @@ function stepsFor(T){
 const LEVELS = TIERS.flatMap((T, ti) => stepsFor(T).map(S => Object.assign({}, T, S, {tier: ti}, S.only ? {choices: S.only, narrow: true} : {})));
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
 const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
-const ROUND = 20, UP = 20, DOWN = 12, COARSE = 20;
+const ROUND = 10, UP = 10, DOWN = 6, COARSE = 20;   // 10 a round (was 20): all 10 moves up, 6 or fewer back
 const TOL = 1/24;      // every answer passes within a quarter tone (±50 cents, about ±2.9%), in octaves: fine enough to
                        // tell which note any tone is nearest. Buttons and keys are a half step or more apart, so only the right one is.
 const lvOf = r => r.lv || LEVELS.length;
@@ -2012,7 +2012,7 @@ function nextRound(){                      // the results screen's main button
 }
 
 /* ---------- long-term training ----------
-   The first 20/20 round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
+   The first perfect round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
    begin: a silent flashcard (below), then one cold Find of the tone, scored in cents. Cold means nothing plays first, no interference either: no pitch
    was heard, so there is no short-term memory to wipe. The first comes 2 minutes after Start; after a hit the wait
    grows 1.1×, after a miss it goes back one step (÷1.1), never under 2 minutes. Tones fade much faster than the
@@ -2518,7 +2518,7 @@ function renderHome(){
 function drawLevelRing(){                          // one arc per stage (Cs, C·F♯, …, last), filled by how far along it you are
   const svg = $('levelRing'), S = 300, c = S/2, r = 136, groups = DIVISIONS.length + 1, per = 360 / groups, gap = 7;
   const lr = [...rounds].reverse().find(x => x.lv === settings.level && !x.p);
-  const within = clamp((lr ? lr.score : 0) / UP, 0, 1);                 // how close the last round came to moving up
+  const within = clamp(lr ? lr.score / (lr.n || UP) : 0, 0, 1);          // how close the last round came to moving up (older rounds had 20)
   let s = '';
   for (let g = 0; g < groups; g++) {
     const lvs = LEVELS.map((L, i) => i + 1).filter(n => LEVELS[n-1].div === g);
@@ -3078,7 +3078,7 @@ function renderClear(){
 }
 
 /* ---------- level list: the Levels screen and Settings ----------
-   Levels above settings.top are shown but locked; a 20/20 round opens the next one. */
+   Levels above settings.top are shown but locked; a perfect round opens the next one. */
 function levelRows(){
   return TIERS.map((T, ti) => {
     const steps = LEVELS.map((L, i) => [L, i + 1]).filter(([L]) => L.tier === ti);
