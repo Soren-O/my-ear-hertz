@@ -951,6 +951,11 @@ img{max-width:100%}
       </div>
     </div>
 
+    <p class="label group-label">Data</p>
+    <div class="list">
+      <div class="row"><span class="row-main"><b>Export data</b><small class="snd" id="exportMsg"></small></span><button class="ghost" type="button" id="exportBtn">Export</button></div>
+    </div>
+
     <nav class="list" aria-label="More">
       <button class="row" type="button" data-go="about"><span class="row-main"><b>How it works</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </nav>
@@ -1868,6 +1873,11 @@ function record(rec){
     const lastHeard = Math.max(history.length ? history[history.length-1].t : 0, anchors.length ? anchors[anchors.length-1].t : 0);
     rec.c = round.id - lastHeard >= COLD_GAP ? 1 : 0;
   }
+  if (!round.echo && rec.task !== 'card') {                             // the conditions it was answered under, for research
+    rec.itf = round.lt ? 'none' : itfKey(trainItf()) || 'none';
+    rec.v = (trial.voice || SINE).id; rec.rove = settings.rove ? 1 : 0;
+    if (round.previewed) rec.pv = 1;
+  }
   if (rec.task !== 'card') noteAnchor(modeOf(rec) === 'match' ? rec.g : rec.f);   // the tone you heard now has a known number (a card plays none)
   if (!round.echo && !round.lt) {                                        // Echo and long-term checks stay out of training's history
     history.push(rec);
@@ -2101,7 +2111,7 @@ function finishCheck(){
   t.due = now + t.wait; t.last = now;
   if (t.wait >= LT_READY) t.ready = true;                              // stays, even if a later miss shortens the wait
   lt.tones.forEach(x => { if (x !== t) x.due = Math.max(x.due, now + LT_GAP); });
-  const chk = {t: now, f: t.f, g: rec.g, cents: rec.cents, ok: ok ? 1 : 0, gap, c: rec.c, mv: rec.mv, show: rec.show};
+  const chk = {t: now, f: t.f, g: rec.g, cents: rec.cents, ok: ok ? 1 : 0, gap, c: rec.c, mv: rec.mv, v: rec.v, show: rec.show};
   if (card) chk.card = {side: card.side, typed: card.typed, ok: card.ok};
   lt.checks.push(chk);
   if (lt.checks.length > 3000) lt.checks = lt.checks.slice(-3000);
@@ -3097,6 +3107,47 @@ function renderLevels(){
   $('levelPick').querySelector('.row.sel')?.scrollIntoView({block: 'center'});
 }
 $('levelPick').addEventListener('click', e => { if (pickLevel(e)) go('home'); });
+
+/* ---------- data export, for researchers ----------
+   Everything the app records, as one JSON file the person can send on: settings (without their name), training
+   rounds and answers with the conditions of each, long-term checks with their flashcards, and Echo. A field guide
+   travels with the data, and a random install id (no name, no account) tells files from different people apart. */
+const installId = (() => {
+  let id = store.get('hbe3.id', null);
+  if (!id) { id = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); store.set('hbe3.id', id); }
+  return id;
+})();
+const EXPORT_FIELDS = {
+  times: 'Every t (and due, last, started) is milliseconds since 1970-01-01 UTC; tzOffsetMin is the local offset from UTC, in minutes, at export.',
+  levels: 'levels[i] names level number i + 1: its set, then its step.',
+  rounds: 'One per finished training round: lv level, score of n, ch up/down if it moved a level, p 1 for the practice round offered after a missed long-term check.',
+  history: 'One per training answer (the last 5,000). task: pick/notes/piano (named), type (typed in Hz), find (tuned); f target Hz; g answer Hz; ok 1 if within a quarter tone; exact 1 if tuned exactly; lv level; rd round id (its start time); k position in the round; c 1 if cold (nothing labeled heard for 10+ minutes; first answer of a round only); rp replays; mv record moves (find); ui roll/classic answer view. Conditions: itf interference before the question (both/noise/notes/none), v instrument, rove 1 if loudness varied, pv 1 if the round began by playing its target.',
+  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day). checks: one per check: f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
+  echo: 'Echo, a short-term memory game kept apart from training: per game t, daily (its date, or null), itf interference, score out of 50, cents (the error on each of its five tones).',
+  settings: 'The app\'s settings at export, without the name.'
+};
+function buildExport(){
+  const {name, ...shared} = settings;                                   // the name stays on the phone
+  return {format: 'my-ear-hertz-export', version: 1, exported: new Date().toISOString(), tzOffsetMin: -new Date().getTimezoneOffset(),
+    installId, platform: CAP ? window.Capacitor.getPlatform() : 'web', fields: EXPORT_FIELDS,
+    levels: LEVELS.map(L => `${L.name} · ${L.short}`), settings: shared, rounds, history, lt, echo: echoStats};
+}
+async function exportData(){
+  const text = JSON.stringify(buildExport(), null, 1), file = `my-ear-hertz-data-${todayKey()}.json`, say = m => { $('exportMsg').textContent = m; };
+  try {
+    if (CAP?.Filesystem && CAP?.Share) {                                 // the app: a file in its cache, handed to the share sheet
+      const {uri} = await CAP.Filesystem.writeFile({path: file, data: text, directory: 'CACHE', encoding: 'utf8'});
+      await CAP.Share.share({title: 'My Ear Hertz data', files: [uri]});
+    } else {                                                             // the website: a download
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], {type: 'application/json'})); a.download = file;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    say(`${history.length} answers, ${lt.checks.length} checks`);
+  } catch (e) { if (!/cancel/i.test(String(e && (e.message || e)))) say('Couldn’t export'); }
+}
+$('exportBtn').addEventListener('click', exportData);
 
 /* ---------- settings ---------- */
 const fmtDb =v => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)} dB`;
