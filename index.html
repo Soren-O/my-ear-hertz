@@ -395,12 +395,32 @@ p{margin:0}
 .steps button:disabled{opacity:.3;cursor:default}
 .row.tier.locked .lvbadge,.row.tier.locked .row-main{opacity:.4}
 /* Long-term */
-.lt-when{font-family:var(--font-num);font-size:13px;color:var(--muted);white-space:nowrap}
-.lt-when.now,.lt-in.now{color:var(--teal)}
-.lt-next{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 0 4px}
-.lt-tone{font-family:var(--font-num);font-weight:300;font-size:64px;line-height:1}
-.lt-in{font-family:var(--font-num);font-size:15px;color:var(--muted)}
 #ltChart{height:190px}
+/* the note list: every note in ladder order; training notes count down to their next check */
+#ltList{display:flex;flex-direction:column;gap:10px}
+.page-head{margin:14px 0 2px;font-size:20px;font-weight:600}
+.page-head span{color:var(--muted);font-weight:400}
+.lt-note .row-main small{color:var(--muted);font-size:12.5px}
+.lt-note .lt-count{font-family:var(--font-num);font-size:15px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.lt-note.due .lt-count{color:var(--teal)}
+.lt-note.due{box-shadow:inset 3px 0 0 var(--teal)}
+.lt-note.offer .row-main b{color:var(--gold)}
+.lt-note.locked{cursor:default}
+.lt-note.locked .row-main,.lt-note.locked .lt-name{opacity:.4}
+.lt-note .lt-name{font-family:var(--font-num);font-weight:400;font-size:20px;min-width:3.2em}
+
+/* Tabs: Train, Levels, Long-term, Echo, Progress. At the top, clear of Safari's floating bar at the bottom */
+.tabhead{position:sticky;top:0;z-index:20;margin-inline:-20px;padding-inline:20px;background:color-mix(in oklab,var(--bg) 86%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-bottom:1px solid var(--line)}
+.tabs button{position:relative;border:none;background:none;padding:10px 2px 11px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.tabs button[aria-selected="true"]{color:var(--ink)}
+.tabs button[aria-selected="true"]::after{content:"";position:absolute;left:18%;right:18%;bottom:-1px;height:2px;border-radius:2px;background:var(--teal)}
+.tabs .streak{margin-left:4px;min-width:18px;height:18px;padding:0 5px;font-size:11px}
+.tab-dot{display:inline-block;width:7px;height:7px;margin-left:4px;border-radius:50%;background:var(--teal);vertical-align:2px}
+.screen.slide-l{animation:slideL .2s ease-out}
+.screen.slide-r{animation:slideR .2s ease-out}
+@keyframes slideL{from{opacity:.4;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes slideR{from{opacity:.4;transform:translateX(-28px)}to{opacity:1;transform:none}}
 .chart .hit{fill:var(--good)}
 .chart .miss{fill:var(--bad)}
 .chart .tol{stroke:var(--faint);stroke-width:1.2;stroke-dasharray:4 4}
@@ -650,12 +670,23 @@ img{max-width:100%}
 <div class="app" id="app">
 
   <!-- ============ HOME ============ -->
-  <section class="screen" id="scr-home" aria-label="Main menu">
-    <header class="topbar">
+  <!-- ============ TABS: the header of the five main pages; swipe sideways between them too ============ -->
+  <header class="tabhead" id="tabhead">
+    <div class="topbar">
       <span class="who" id="homeWho"></span>
       <span class="wordmark">MY<i>·</i>EAR<i>·</i>HERTZ</span>
       <button class="icon" type="button" data-go="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg></button>
-    </header>
+    </div>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Pages">
+      <button type="button" role="tab" data-tab="home">Train</button>
+      <button type="button" role="tab" data-tab="levels">Levels</button>
+      <button type="button" role="tab" data-tab="lt">Long-term<i class="tab-dot" id="tabLtDot" hidden></i></button>
+      <button type="button" role="tab" data-tab="echo">Echo<span class="streak" id="homeStreak" hidden></span></button>
+      <button type="button" role="tab" data-tab="progress">Progress</button>
+    </nav>
+  </header>
+
+  <section class="screen" id="scr-home" aria-label="Main menu">
 
     <div class="halves"><div class="half">
     <div class="hero">
@@ -676,10 +707,6 @@ img{max-width:100%}
     </div>
 
     <nav class="list" aria-label="More">
-      <button class="row" type="button" id="ltRow" hidden><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></span><span class="row-main"><b>Long-term</b></span><span class="lt-when" id="ltWhen"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-      <button class="row" type="button" data-go="levels"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4v-4h4v-4h4V8h4V4"/></svg></span><span class="row-main"><b>Levels</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-      <button class="row" type="button" data-go="echo"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></span><span class="row-main"><b>Echo</b></span><span class="streak" id="homeStreak" hidden></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-      <button class="row" type="button" data-go="progress"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6"/></svg></span><span class="row-main"><b>Progress</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
       <button class="row" type="button" data-go="lab"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"/></svg></span><span class="row-main"><b>Lab</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
     </nav>
     </div></div>
@@ -713,11 +740,6 @@ img{max-width:100%}
 
   <!-- ============ ECHO ============ -->
   <section class="screen" id="scr-echo" aria-label="Echo" hidden>
-    <header class="topbar">
-      <button class="icon" data-go="home" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <span class="title">Echo</span>
-      <span class="spacer"></span>
-    </header>
     <div class="echo-hero" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></div>
     <div class="tiles two" id="echoTiles"></div>
     <div class="list">
@@ -831,11 +853,6 @@ img{max-width:100%}
 
   <!-- ============ PROGRESS ============ -->
   <section class="screen" id="scr-progress" aria-label="Progress" hidden>
-    <header class="topbar">
-      <button class="icon" data-go="home" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <span class="title">Progress</span>
-      <span class="spacer"></span>
-    </header>
     <div class="halves"><div class="half">
     <div class="seg" id="progModes" role="group" aria-label="Mode">
       <button type="button" data-mode="pick" aria-pressed="true">Name the tone</button>
@@ -866,22 +883,10 @@ img{max-width:100%}
 
   <!-- ============ LONG-TERM ============ -->
   <section class="screen" id="scr-lt" aria-label="Long-term" hidden>
-    <header class="topbar">
-      <button class="icon" data-go="home" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <span class="title">Long-term</span>
-      <span class="spacer"></span>
-    </header>
     <div class="halves"><div class="half">
-    <div class="lt-next">
-      <span class="label">Next check</span>
-      <span class="lt-tone" id="ltTone"></span>
-      <span class="lt-in" id="ltIn"></span>
-    </div>
-    <button class="cta" id="ltCheck" type="button">Check</button>
+    <h1 class="page-head">Long-term <span>(perfect pitch)</span></h1>
+    <div id="ltList"></div>
     <div class="tiles" id="ltTiles"></div>
-    <div class="list" id="ltAddRow" hidden>
-      <button class="row" type="button" id="ltAdd"><span class="row-main"><b id="ltAddName"></b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-    </div>
     <div class="list" id="ltExactRow" hidden>
       <div class="row"><span class="row-main"><b>Exact timing</b></span><button class="ghost" id="ltExact" type="button">Allow</button></div>
     </div>
@@ -896,11 +901,6 @@ img{max-width:100%}
 
   <!-- ============ LEVELS ============ -->
   <section class="screen" id="scr-levels" aria-label="Levels" hidden>
-    <header class="topbar">
-      <button class="icon" data-go="home" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <span class="title">Levels</span>
-      <span class="spacer"></span>
-    </header>
     <div class="list" id="levelPick"></div>
   </section>
 
@@ -1065,14 +1065,14 @@ img{max-width:100%}
 
   <div class="sheet" id="ltSheet" role="dialog" aria-modal="true" aria-labelledby="ltTitle" hidden>
     <div class="sheet-card">
-      <p class="label unlocked">Unlocked</p>
+      <p class="label unlocked">Unlocked: C6</p>
       <h2 id="ltTitle">Long-term memory training</h2>
       <svg class="curve" id="ltCurve" viewBox="0 0 320 150" role="img" aria-label="Memory fading on its own, and staying up with spaced checks"></svg>
       <div class="lt-copy">
         <p>You just found C6 ten times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
         <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
         <p>So we&rsquo;ll check on C6 at the right moments: in a few minutes, then a little longer after every hit, from hours to days to weeks. Miss one, and the next check comes sooner.</p>
-        <p class="heads-up">The first week or two are busy: lots of quick checks, under half a minute each. It gets much quieter as C6 sticks.</p>
+        <p class="heads-up">The first couple of hours are very busy: a quick check every few minutes, under half a minute each. Start when you&rsquo;re free for the next two hours. After that it gets much quieter as C6 sticks.</p>
       </div>
       <p class="lt-msg" id="ltMsg" hidden></p>
       <button class="cta" id="ltStart" type="button">Start</button>
@@ -1081,7 +1081,7 @@ img{max-width:100%}
   </div>
   <div class="sheet" id="toneSheet" role="dialog" aria-modal="true" aria-labelledby="toneTitle" hidden>
     <div class="sheet-card">
-      <p class="label unlocked">Unlocked</p>
+      <p class="label unlocked" id="toneLabel">Unlocked</p>
       <h2 id="toneTitle"></h2>
       <div class="lt-copy"><p id="toneCopy"></p></div>
       <button class="cta" id="toneAdd" type="button">Add</button>
@@ -1791,12 +1791,18 @@ function startAdj(kind){                         // kind: the interference first
 
 /* ---------- navigation ---------- */
 let screen = 'home', progMode = 'pick';
+/* The five main pages share a header with tabs, and a sideways swipe moves to the next one. */
+const TABS = ['home', 'levels', 'lt', 'echo', 'progress'];
 function go(name){
   if ((screen === 'train' || screen === 'lab') && name !== screen) stopAll();
   if (name !== 'train') showTip(false);
+  const from = TABS.indexOf(screen), to = TABS.indexOf(name);
   screen = name;
   $('app').dataset.screen = name;
-  document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + name; });
+  document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + name; s.classList.remove('slide-l', 'slide-r'); });
+  $('tabhead').hidden = to < 0;
+  $('tabs').querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  if (from >= 0 && to >= 0 && from !== to && !reduceMotion.matches) $('scr-' + name).classList.add(to > from ? 'slide-l' : 'slide-r');
   window.scrollTo(0, 0);
   if (name === 'progress') { progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
   if (name === 'lt') ltStopping = false;
@@ -1804,6 +1810,21 @@ function go(name){
   placeBand();
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
+$('tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b && b.dataset.tab !== screen) go(b.dataset.tab); });
+let swipe = null;                                                  // a quick sideways swipe on a main page moves one tab over
+document.addEventListener('touchstart', e => {
+  const p = e.touches[0];
+  swipe = e.touches.length === 1 && TABS.includes(screen) && p.clientX > 24 && p.clientX < innerWidth - 24   // not from the edges: those are the system's back gestures
+    && !e.target.closest('input, textarea, .sheet') ? {x: p.clientX, y: p.clientY, t: Date.now()} : null;
+}, {passive: true});
+document.addEventListener('touchend', e => {
+  if (!swipe) return;
+  const p = e.changedTouches[0], dx = p.clientX - swipe.x, dy = p.clientY - swipe.y, quick = Date.now() - swipe.t < 700;
+  swipe = null;
+  if (!quick || Math.abs(dx) < 60 || Math.abs(dx) < 1.6 * Math.abs(dy) || !$('ltSheet').hidden || !$('toneSheet').hidden) return;
+  const i = TABS.indexOf(screen) + (dx < 0 ? 1 : -1);
+  if (i >= 0 && i < TABS.length) go(TABS[i]);
+}, {passive: true});
 
 /* ---------- rounds ---------- */
 let round = null, lastRound = null;
@@ -1811,9 +1832,9 @@ let phase = 'idle', trial = null, last = null;
 const input = $('guessInput');
 const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'interfere' && (!trial.echo || trial.heard);
 
-function startRound(echo, extra){            // extra: {lv, lt: tone} for a long-term check, {lv, practice: true} for the practice after a miss
-  const lv = extra && extra.lv || settings.level;
-  const V = roundVoice(echo ? ECHO_L : LEVELS[lv - 1]);
+function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a long-term check, {lv, practice: true, L} for the practice after a miss
+  const lv = extra && extra.lv || settings.level;                        // L: a one-note level standing in for LEVELS[lv - 1]
+  const V = roundVoice(echo ? ECHO_L : extra && extra.L || LEVELS[lv - 1]);
   const begin = v => {
     round = Object.assign({id: Date.now(), lv, items: [], voice: v, echo: echo || null}, extra);
     $('quitConfirm').hidden = true;
@@ -1821,7 +1842,7 @@ function startRound(echo, extra){            // extra: {lv, lt: tone} for a long
     nextQuestion();
   };
   if (V === SINE || voiceReady(V)) return begin(V);
-  const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily', 'ltCheck'].map($);
+  const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily'].map($);
   btns.forEach(b => { b.disabled = true; });                             // the instrument loads first (once)
   prepareVoice(V).catch(() => prepareVoice(V)).then(() => V, () => SINE).then(v => {   // a decode cut off by a rebuilt engine: once more
     btns.forEach(b => { b.disabled = false; });
@@ -1926,7 +1947,7 @@ function finishRound(){
   }
   if (!practice && score >= UP && lv + 1 > settings.top && lv < LEVELS.length) { settings.top = lv + 1; saveSettings(); }   // opens the next level, auto or not
   const sum = {id: round.id, lv, score, n: round.items.length, t: Date.now(), ch: change ? change.how : null};
-  if (practice) sum.p = 1;
+  if (practice) { sum.p = 1; if (round.L) sum.pf = round.L.choices[0]; }   // pf: the note practised
   rounds.push(sum);
   if (rounds.length > 2000) rounds = rounds.slice(-2000);
   store.set('hbe3.rounds', rounds);
@@ -1948,7 +1969,7 @@ function finishRound(){
 const ECHO_N = 5, ECHO_TONE = 2, ECHO_GAP = 0.6;
 const ECHO_L = {name: 'Echo', short: 'Echo', task: 'find', choices: null, wrap: 'both', tier: -1, div: DIVISIONS.length};
 let echoStats = Object.assign({best: null, days: {}, games: []}, store.get('hbe3.echo', {}) || {});
-const levelOf = () => round && round.echo ? ECHO_L : LEVELS[(round ? round.lv : settings.level) - 1];
+const levelOf = () => round && round.echo ? ECHO_L : round && round.L ? round.L : LEVELS[(round ? round.lv : settings.level) - 1];
 const roundLen = () => !round ? ROUND : round.echo ? ECHO_N : round.lt ? 2 : round.practice ? LT_PRACTICE : ROUND;   // a check: the card, then the Find
 const echoPts = cents => Math.max(0, Math.round((10 - Math.abs(cents) / 10) * 10) / 10);
 const centsTxt = c => `${c > 0.5 ? '+' : c < -0.5 ? '−' : '±'}${Math.abs(Math.round(c))}¢`;
@@ -2014,8 +2035,8 @@ bindItf('echoItf', 'echoNoise', 'echoNotes', true);
 const gameItf = g => g.itf || (g.scr ? 'both' : null);                // games from before Interference: Scrambled meant both
 $('echoDaily').addEventListener('click', () => startRound(newEcho(true)));
 function nextRound(){                      // the results screen's main button
-  if (lastRound && lastRound.lt) return lastRound.lt.ok ? go('lt') : startRound(undefined, {lv: findOneLv(lastRound.lt.f), practice: true});
-  if (lastRound && lastRound.sum && lastRound.sum.p) return startRound(undefined, {lv: lastRound.sum.lv, practice: true});
+  if (lastRound && lastRound.lt) { const f = lastRound.lt.f; return lastRound.lt.ok ? go('lt') : startRound(undefined, {lv: practiceLv(f), practice: true, L: ltLevel(f)}); }
+  if (lastRound && lastRound.sum && lastRound.sum.p) { const f = lastRound.sum.pf; return startRound(undefined, {lv: lastRound.sum.lv, practice: true, L: f ? ltLevel(f) : undefined}); }
   startRound(lastRound && lastRound.echo ? newEcho(false) : undefined);
 }
 
@@ -2023,24 +2044,42 @@ function nextRound(){                      // the results screen's main button
    The first perfect round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
    begin: a silent flashcard (below), then one cold Find of the tone, scored in cents. Cold means nothing plays first, no interference either: no pitch
    was heard, so there is no short-term memory to wipe. The first comes 2 minutes after Start; after a hit the wait
-   grows 1.1×, after a miss it goes back one step (÷1.1), never under 2 minutes. Tones fade much faster than the
-   words on ordinary flashcards (their usual 2.5× would leave gaps too long to hold), so the wait climbs slowly:
-   about 36 hits to an hour, 69 to a day (some 10 days of checks). Each check keeps the gap it tested and whether it
-   hit, so the factor can be fitted from real data later. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
+   grows 1.5×, after a miss it goes back one step (÷1.5), never under 2 minutes: a staircase that settles where
+   half the checks hit. Tones likely fade faster than the words on ordinary flashcards (whose usual 2.5× is too
+   coarse here), so the wait climbs more gently: about 9 hits (two busy hours) to an hour, 17 (two days) to a day.
+   Each check keeps the gap it tested and whether it hit, so the factor can be fitted from real data later. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
    hours, and tapping one opens straight into the check. A miss offers a quick 5-question Find practice. The next tone
    (C5, then C7) is offered once every tone in training has reached a wait of a day (LT_READY) and its own Find step in
    the ladder is passed; the player chooses whether to add it. Checks stay out of training's history; they live in
    hbe3.lt. Only the app can remind: the website shows a due check while it is open. */
 const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
-const LT_FIRST = 2 * MIN, LT_GROW = 1.1, LT_SHRINK = 1 / LT_GROW;   // a miss undoes one hit
+const LT_FIRST = 2 * MIN, LT_GROW = 1.5, LT_SHRINK = 1 / LT_GROW;   // a miss undoes one hit
 const LT_GAP = 5 * MIN;            // another tone's check never follows one sooner: two known tones in a row would be a reference
 const LT_READY = DAY;              // once a tone's wait between checks reaches a day, the next tone can be offered
 const LT_WAKE = [8, 22], LT_AGAIN = HOUR;   // waking hours; an unanswered reminder comes back after an hour
-const LT_PRACTICE = 5, LT_TONES = [C6, C5, C7], LT_NOTE = 1;  // LT_NOTE: the id of the one pending reminder
+const LT_PRACTICE = 5, LT_NOTE = 1;                                // LT_NOTE: the id of the one pending reminder
 let lt = Object.assign({unlocked: false, on: false, tones: [], checks: []}, store.get('hbe3.lt', {}) || {});
 const saveLT = () => store.set('hbe3.lt', lt);
 const isFindC6 = L => L && L.task === 'find' && L.choices && L.choices.length === 1 && L.choices[0] === C6;
 const findOneLv = f => LEVELS.findIndex(L => L.narrow && L.wrap === 'note' && L.choices[0] === f) + 1;   // ♪ Find C6 / C5 / C7
+/* Every note in the order the ladder brings it in: the first set's single-tone steps (C6, C5, C7), then each later
+   set's new notes, nearest C6 first, out to all 73 notes from C3 to C9. A note's gate is the ladder step that first
+   asks you to find it; it joins long-term training once that is passed and every note in training has reached a
+   day's wait. stage: which division of the octave brought it in (Cs, C·F♯, …). */
+const LT_NOTES = (() => {
+  const out = [], seen = new Set(), add = (f, lv, stage) => { if (!seen.has(f)) { seen.add(f); out.push({f, lv, stage}); } };
+  FIND_ONE.forEach(([, f]) => add(f, findOneLv(f), 0));
+  TIERS.forEach((T, ti) => {
+    if (!T.choices) return;
+    const lv = LEVELS.findIndex(L => L.tier === ti && L.task === 'find' && L.wrap === 'note' && !L.narrow) + 1;   // the set's ♪ Find
+    [...T.choices].sort((a, b) => Math.abs(Math.log2(a / C6)) - Math.abs(Math.log2(b / C6)) || a - b).forEach(f => add(f, lv, T.div));
+  });
+  return out;
+})();
+const LT_TONES = LT_NOTES.map(n => n.f);
+const gateLv = f => (LT_NOTES.find(n => n.f === f) || {lv: LEVELS.length}).lv;
+const ltLevel = f => ({name: noteName(f), short: 'Find', task: 'find', choices: [f], wrap: 'note', narrow: true, tier: -1, div: 0});   // a one-note Find, for checks and practice
+const practiceLv = f => findOneLv(f) || gateLv(f);                 // the ladder level a practice round is filed under
 const newTone = f => ({f, wait: LT_FIRST, due: Date.now() + LT_FIRST});
 if (lt.on && !lt.tones.length) { lt.tones = [newTone(C6)]; saveLT(); }   // opted in before the checks existed
 const nextTone = () => lt.on ? [...lt.tones].sort((a, b) => a.due - b.due)[0] || null : null;
@@ -2055,7 +2094,7 @@ function ltBegin(){
 }
 function ltOffer(){                        // the tone that may join now: every tone has reached a day's wait, and its ladder step is passed
   const f = LT_TONES.find(x => !lt.tones.some(t => t.f === x));
-  return lt.on && f && lt.tones.every(t => t.ready) && settings.top > findOneLv(f) ? f : null;
+  return lt.on && f && lt.tones.every(t => t.ready) && settings.top > gateLv(f) ? f : null;
 }
 function ltOfferOnce(){                    // the sheet comes once, when the offer first opens (after a check, or a ladder round)
   const f = ltOffer();
@@ -2093,10 +2132,10 @@ function submitCard(){
   showError('');
   record({task: 'card', side: trial.side, f: trial.f, g, typed: v, t: Date.now(), lt: 1, ok: ok ? 1 : 0});
 }
-function startCheck(){
-  const t = dueTone();
-  if (!t) return go(lt.on ? 'lt' : 'home');
-  startRound(undefined, {lv: findOneLv(t.f), lt: t.f});
+function startCheck(f){                    // f: a particular note's check (from its row), else the most overdue
+  const t = f ? lt.tones.find(x => x.f === f && x.due <= Date.now()) : dueTone();
+  if (!t) return go('lt');
+  startRound(undefined, {lv: practiceLv(t.f), lt: t.f, L: ltLevel(t.f)});
 }
 function finishCheck(){
   stopAll();
@@ -2144,8 +2183,7 @@ async function ltSchedule(){                // the app keeps one pending reminde
 }
 let webNoted = 0;
 function ltTick(){                          // keeps "in 12 min" current; on the website, a silent notification while the tab is hidden
-  if (screen === 'home') renderLTRow();
-  if (screen === 'lt') renderLTNext();
+  renderLTRow();
   const t = dueTone();
   if (CAP || !t || !document.hidden || webNoted === t.due || remindAt(t.due) > Date.now()) return;
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -2155,36 +2193,62 @@ function ltTick(){                          // keeps "in 12 min" current; on the
 setInterval(ltTick, 15000);
 function ltRefresh(){                       // on start and whenever the app comes back
   ltSchedule();
-  if (screen === 'home') renderLTRow();
+  renderLTRow();
   if (screen === 'lt') renderLT();
 }
 
-/* the Long-term screen: the next check, and every check so far */
-function renderLTRow(){
-  $('ltRow').hidden = !lt.unlocked;
-  const t = nextTone(), due = !!t && t.due <= Date.now();
-  $('ltWhen').textContent = !t ? '' : due ? 'Now' : fmtIn(t.due);
-  $('ltWhen').classList.toggle('now', due);
+/* the Long-term screen: every note in ladder order, as training (with a countdown to its next check; tap it when it's
+   due), the one that may join next (tap to add it), or locked (with the ladder step that opens it); then the checks */
+const pad2 = n => String(n).padStart(2, '0');
+const fmtCount = ms => {                                     // a countdown: 0:42, 12:05, 2:03:45, then days
+  if (ms <= 0) return 'Now';
+  const s = Math.ceil(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return d ? `${d} d ${h} h` : h ? `${h}:${pad2(m)}:${pad2(s % 60)}` : `${m}:${pad2(s % 60)}`;
+};
+function renderLTRow(){ $('tabLtDot').hidden = !dueTone(); }      // the Long-term tab's dot: a check is due
+function ltNoteState(f){
+  const t = lt.on && lt.tones.find(x => x.f === f);
+  if (t) return {state: 'training', t};
+  if (f === C6 && lt.unlocked && !lt.on) return {state: 'offer'};    // the invitation, started or not yet
+  if (ltOffer() === f) return {state: 'offer'};
+  return {state: 'locked'};
 }
-function renderLTNext(){
-  const t = nextTone(), due = !!t && t.due <= Date.now();
-  $('ltTone').textContent = t ? noteName(t.f) : '';
-  $('ltIn').textContent = !t ? '' : due ? 'Now' : fmtIn(t.due);
-  $('ltIn').classList.toggle('now', due);
-  $('ltCheck').disabled = !due;
+function renderLTList(){
+  const stages = [];
+  LT_NOTES.forEach(n => { (stages[n.stage] = stages[n.stage] || []).push(n); });
+  $('ltList').innerHTML = stages.map((ns, si) => `<p class="label group-label">${DIVISIONS[si].name}</p><div class="list">${ns.map(n => {
+    const {state, t} = ltNoteState(n.f), due = state === 'training' && t.due <= Date.now();
+    const sub = state === 'training' ? (due ? 'Check now' : 'Training') : state === 'offer' ? (lt.on ? 'Tap to add' : 'Tap to start') : levelTitle(n.lv);
+    const right = state === 'training' ? `<span class="lt-count" data-due="${t.due}">${fmtCount(t.due - Date.now())}</span>` : '';
+    return `<button class="row lt-note ${state}${due ? ' due' : ''}" type="button" data-f="${n.f}"${state === 'locked' ? ' aria-disabled="true"' : ''}><span class="lt-name">${noteName(n.f)}</span><span class="row-main"><small>${sub}</small></span>${right}</button>`;
+  }).join('')}</div>`).join('');
 }
+function tickLTList(){                                       // every second on this screen: the countdowns, and a row coming due
+  let changed = false;
+  $('ltList').querySelectorAll('[data-due]').forEach(el => {
+    const left = +el.dataset.due - Date.now();
+    el.textContent = fmtCount(left);
+    if (left <= 0 && !el.closest('.lt-note').classList.contains('due')) changed = true;
+  });
+  if (changed) renderLTList();
+}
+setInterval(() => { if (screen === 'lt') tickLTList(); }, 1000);
+$('ltList').addEventListener('click', e => {
+  const b = e.target.closest('.lt-note'); if (!b) return;
+  const f = +b.dataset.f, {state, t} = ltNoteState(f);
+  if (state === 'training' && t.due <= Date.now()) return startCheck(f);
+  if (state === 'offer') return lt.on ? openToneSheet(f) : openLTSheet();
+});
 function renderLT(){
-  if (!lt.on) return go('home');
-  renderLTNext();
+  renderLTList();
+  const show = lt.on || lt.checks.length > 0;                    // the totals and the chart, once there is something
+  $('ltTiles').hidden = $('ltChart').closest('.card').hidden = !show;
   const n = lt.checks.length, hits = lt.checks.filter(c => c.ok), held = Math.max(0, ...hits.map(c => c.gap || 0));
   $('ltTiles').innerHTML = [['Checks', n, ''], ['Hits', n ? Math.round(100 * hits.length / n) + '%' : '–', ''], ['Longest', held ? fmtSpan(held) : '–', 'held']].map(tileHtml).join('');
-  drawLTChart();
-  renderLTStop();
-  const offer = ltOffer();                                        // "Not now" on the offer leaves it here
-  $('ltAddRow').hidden = !offer;
-  if (offer) $('ltAddName').textContent = `Add ${noteName(offer)}`;
+  if (show) drawLTChart();
+  if (lt.on) renderLTStop(); else $('ltStopWrap').innerHTML = '';
   $('ltExactRow').hidden = true;                                  // the app needs "Alarms & reminders" for checks on the minute
-  CAP?.LocalNotifications?.checkExactNotificationSetting().then(r => { $('ltExactRow').hidden = r.exact_alarm === 'granted'; }, () => {});
+  if (lt.on) CAP?.LocalNotifications?.checkExactNotificationSetting().then(r => { $('ltExactRow').hidden = r.exact_alarm === 'granted'; }, () => {});
 }
 function drawLTChart(){                     // how far off each check was, over time since Start (log scale, like the forgetting curve)
   const svg = $('ltChart'), W = Math.max(260, Math.round(svg.clientWidth || 340)), H = 190, L = 34, R = 10, T = 12, B = 24;
@@ -2206,7 +2270,7 @@ function renderLTStop(){
   const w = $('ltStopWrap');
   if (ltStopping) {
     w.innerHTML = `<span>Stop the checks?</span><button class="ghost" id="ltStopYes" type="button">Stop</button><button class="cta" style="width:auto;padding:11px 18px;font-size:14px" id="ltStopNo" type="button">Keep</button>`;
-    $('ltStopYes').onclick = () => { lt.on = false; ltStopping = false; saveLT(); ltSchedule(); go('home'); };
+    $('ltStopYes').onclick = () => { lt.on = false; ltStopping = false; saveLT(); ltSchedule(); renderLT(); renderLTRow(); };
     $('ltStopNo').onclick = () => { ltStopping = false; renderLTStop(); };
   } else {
     w.innerHTML = `<button class="textbtn" id="ltStopBtn" type="button">Stop</button>`;
@@ -2216,6 +2280,7 @@ function renderLTStop(){
 function openToneSheet(f){                  // the offer of the next tone
   if (!ltOffer() || ltOffer() !== f || round) return;
   const names = lt.tones.map(t => noteName(t.f)), held = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
+  $('toneLabel').textContent = `Unlocked: ${noteName(f)}`;
   $('toneTitle').textContent = `Add ${noteName(f)}`;
   $('toneCopy').textContent = `${held} now ${names.length > 1 ? 'last' : 'lasts'} a day between checks. ${noteName(f)} can join: its checks start in a few minutes.`;
   $('toneSheet').dataset.f = f;
@@ -2226,9 +2291,6 @@ const closeToneSheet = () => { $('toneSheet').hidden = true; };
 $('toneLater').addEventListener('click', closeToneSheet);
 $('toneSheet').addEventListener('click', e => { if (e.target === $('toneSheet')) closeToneSheet(); });
 $('toneAdd').addEventListener('click', () => { const f = +$('toneSheet').dataset.f; closeToneSheet(); if (ltOffer() === f) ltAdd(f); go('lt'); });
-$('ltAdd').addEventListener('click', () => openToneSheet(ltOffer()));
-$('ltRow').addEventListener('click', () => lt.on ? go('lt') : openLTSheet());
-$('ltCheck').addEventListener('click', startCheck);
 $('ltExact').addEventListener('click', () => { CAP?.LocalNotifications?.changeExactNotificationSetting().then(() => { renderLT(); ltSchedule(); }, () => {}); });
 
 /* the invitation */
@@ -3672,6 +3734,7 @@ CAP?.App?.addListener('backButton', () => {
   if (!$('toneSheet').hidden) return closeToneSheet();
   if (!$('findTip').hidden) return showTip(false);
   if (screen === 'train') return $('quitBtn').click();
+  if (TABS.includes(screen) && screen !== 'home') return go('home');   // from a tab, back to Train; from Train, out
   const back = document.querySelector(`#scr-${screen} .topbar > [data-go]:first-child`);
   if (back) back.click(); else CAP.App.exitApp();
 });
@@ -3683,8 +3746,7 @@ CAP?.LocalNotifications?.addListener('localNotificationActionPerformed', e => { 
 
 /* ---------- boot ---------- */
 applyTheme();
-renderHome();
-if (!settings.name) go('phones');
+go(settings.name ? 'home' : 'phones');
 ltRefresh();
 let raf = 0;
 const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => {
