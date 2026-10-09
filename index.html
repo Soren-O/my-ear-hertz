@@ -924,10 +924,6 @@ img{max-width:100%}
     <div class="list">
       <label class="row"><span class="row-main"><b>Auto level</b></span><input type="checkbox" class="switch" id="optAuto"></label>
       <label class="row"><span class="row-main"><b>Find tip</b></span><input type="checkbox" class="switch" id="optTip"></label>
-      <div class="row col">
-        <span class="row-main"><b>Turn readout</b></span>
-        <div class="seg" id="deltaSeg" style="--n:4" role="group" aria-label="Turn readout"><button type="button" data-delta="off">Off</button><button type="button" data-delta="pct">%</button><button type="button" data-delta="cents">¢</button><button type="button" data-delta="st">Semitones</button></div>
-      </div>
     </div>
 
     </div><div class="half">
@@ -982,7 +978,7 @@ img{max-width:100%}
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
-      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. The record moves in even steps of 5 cents: a small arrow is one step, a big arrow a semitone, and after each turn the change shows under the target (in percent, cents or semitones; see Settings). Where it starts is random, so how far you've turned says nothing about where the target is. Past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three. Those one-tone rounds start by playing the target once, so you know what you're aiming for; tap Start when you're ready, and the interference before each question clears it again.</p>
+      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. The record moves in even steps of 5 cents: a small arrow is one step, a big arrow a semitone, and after each turn the change shows under the target: in cents when the target is a note, in percent when it is a frequency. Where it starts is random, so how far you've turned says nothing about where the target is. Past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three. Those one-tone rounds start by playing the target once, so you know what you're aiming for; tap Start when you're ready, and the interference before each question clears it again.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
@@ -1108,7 +1104,7 @@ const noteHz = midi => 440 * Math.pow(2, (midi - 69) / 12);
 const hzOf = midi => Math.round(noteHz(midi));                             // to the nearest Hz: at most 5¢ off (C♯3)
 const noteName = f => { const m = Math.round(69 + 12 * Math.log2(f / 440)); return NOTE[m % 12] + (Math.floor(m / 12) - 1); };
 const noteCents = f => {                                                   // nearest note plus how far off, e.g. "B5 +40¢"
-  const m = Math.round(69 + 12 * Math.log2(f / 440)), c = Math.round(1200 * Math.log2(f / noteHz(m)));
+  const m = Math.round(69 + 12 * Math.log2(f / 440)), c = Math.round(1200 * Math.log2(f / hzOf(m)));   // from the app's note (whole Hz), as targets are
   return NOTE[m % 12] + (Math.floor(m / 12) - 1) + (c ? ` ${c > 0 ? '+' : '−'}${Math.abs(c)}¢` : '');
 };
 const FMIN = hzOf(48), FMAX = hzOf(120);                                   // C3–C9: 131–8,372 Hz, six octaves
@@ -1148,7 +1144,7 @@ const levelTitle = lv => `${LEVELS[lv-1].name} · ${LEVELS[lv-1].short}`;
 const divHue = di => (25 + 275 * di / DIVISIONS.length).toFixed(1);
 
 // Progress restarted under new keys when this level ladder arrived (2026-10-03); sound settings carry over.
-const DEFAULTS = {dur:5, match:true, rove:true, noise:true, notes:true, delta:'pct', auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false};
+const DEFAULTS = {dur:5, match:true, rove:true, noise:true, notes:true, auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false};
 const carried = store.get('hbe2.settings', {}) || {};
 let settings = Object.assign({}, DEFAULTS,
   Object.fromEntries(['dur','match','rove','auto','hiTrim'].filter(k => k in carried).map(k => [k, carried[k]])),
@@ -2298,18 +2294,18 @@ function showError(msg){ const e = $('guessErr'); e.textContent = msg; e.hidden 
 
 let deckAngle = 0, deckRaf = 0, deckLast = 0;
 function spin(deg){ deckAngle += deg; $('record').style.setProperty('--rot', `${deckAngle.toFixed(1)}deg`); }
-/* The turn readout: once the hand settles, how far the pitch moved from where it last settled, as a relative change
-   (percent, cents or semitones; never hertz, whose size would say how high you are). Relative to your own last
-   stop, it says nothing about where the target is. */
+/* The turn readout: once the hand settles, how far the pitch moved from where it last settled, in the target's own
+   terms: cents when the target is a note (and in Echo, which scores in cents), percent when it is a frequency. Never
+   hertz, whose size would say how high you are. Relative to your own last stop, it says nothing about the target. */
 const turnTxt = d => {                                                   // d: octaves
   const sign = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v);
-  if (settings.delta === 'cents') return sign(Math.round(d * 1200)) + '¢';
-  if (settings.delta === 'st') { const s = d * 12; return sign(Math.abs(s) < 1 ? Math.round(s * 100) / 100 : Math.round(s * 10) / 10) + ' st'; }   // 5¢ is 0.05 st
+  const note = trial.echo || (trial.show ? trial.show === 'note' : noteOnly(levelOf(), 'find'));
+  if (note) return sign(Math.round(d * 1200)) + '¢';
   const p = (Math.pow(2, d) - 1) * 100;
   return sign(Math.abs(p) < 10 ? Math.round(p * 10) / 10 : Math.round(p)) + '%';
 };
 function showTurn(){
-  if (!trial || trial.task !== 'find' || phase !== 'listening' || settings.delta === 'off') return;
+  if (!trial || trial.task !== 'find' || phase !== 'listening') return;
   const here = trial.w.pts[deckPos(trial).i], d = here - trial.ref;
   trial.ref = here;
   if (Math.abs(d) > 1e-9) $('sub').innerHTML = `<span class="turn">${turnTxt(d)}</span>`;
@@ -3175,9 +3171,7 @@ function renderSettings(){
   $('levelSeg').innerHTML = levelRows();
   [['optMatch','match'],['optRove','rove'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
-  renderItf('optItf', 'noise', 'notes');
-  $('deltaSeg').querySelectorAll('[data-delta]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.delta === (settings.delta || 'pct'))));
-  if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
+  renderItf('optItf', 'noise', 'notes');  if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
   $('instSeg').innerHTML = voiceChips();
   $('answerSeg').querySelectorAll('[data-answer]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.answer === (settings.answer || 'keys'))));
   $('durSeg').innerHTML = [1, 2, 5, 10].map(d => `<button type="button" data-dur="${d}" aria-pressed="${settings.dur === d}">${d} s</button>`).join('');
@@ -3632,9 +3626,7 @@ function renderProfile(){
 }
 $('profName').addEventListener('input', () => { $('profDone').disabled = !$('profName').value.trim(); });
 $('profName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('profName').blur(); } });
-bindItf('optItf', 'noise', 'notes', true);
-$('deltaSeg').addEventListener('click', e => { const b = e.target.closest('[data-delta]'); if (!b) return; settings.delta = b.dataset.delta; saveSettings(); renderSettings(); });
-bindItf('profItf', 'noise', 'notes', false);                            // saved with the rest of the profile
+bindItf('optItf', 'noise', 'notes', true);bindItf('profItf', 'noise', 'notes', false);                            // saved with the rest of the profile
 $('profInst').addEventListener('click', e => {
   const b = e.target.closest('[data-inst]'); if (!b) return;
   settings.instrument = b.dataset.inst; renderProfile();
