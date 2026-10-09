@@ -177,7 +177,7 @@ p{margin:0}
 .last{font-size:13px;color:var(--muted);text-align:center}
 
 /* Training */
-.train-top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;margin-inline:-20px;padding-inline:20px;background:color-mix(in oklab,var(--bg) 84%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.train-top{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--pan,0px));z-index:5;margin-inline:-20px;padding-inline:20px;background:color-mix(in oklab,var(--bg) 84%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
 .progress{flex:1;display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:3px}
 .progress i{height:4px;border-radius:2px;background:var(--line)}
 .progress i.y{background:var(--good)} .progress i.n{background:var(--bad)} .progress i.o{background:var(--ink)} .progress i.f{background:var(--warn)}
@@ -409,8 +409,8 @@ p{margin:0}
 .lt-note.locked .row-main,.lt-note.locked .lt-name{opacity:.4}
 .lt-note .lt-name{font-family:var(--font-num);font-weight:400;font-size:20px;min-width:3.2em}
 
-/* Tabs: Train, Levels, Long-term, Echo, Progress. At the top, clear of Safari's floating bar at the bottom */
-.tabhead{position:sticky;top:0;z-index:20;margin-inline:-20px;padding-inline:20px;background:color-mix(in oklab,var(--bg) 86%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+/* Tabs: Train, Long-term, Echo, Progress, Lab. At the top, clear of Safari's floating bar at the bottom */
+.tabhead{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--pan,0px));z-index:20;margin-inline:-20px;padding-inline:20px;background:color-mix(in oklab,var(--bg) 86%,transparent);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
 .tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-bottom:1px solid var(--line)}
 .tabs button{position:relative;border:none;background:none;padding:10px 2px 11px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap;touch-action:manipulation}
 .tabs button[aria-selected="true"]{color:var(--ink)}
@@ -670,7 +670,7 @@ img{max-width:100%}
 <div class="app" id="app">
 
   <!-- ============ HOME ============ -->
-  <!-- ============ TABS: the header of the five main pages; swipe sideways between them too ============ -->
+  <!-- ============ TABS: the header of the five main pages ============ -->
   <header class="tabhead" id="tabhead">
     <div class="topbar">
       <span class="who" id="homeWho"></span>
@@ -679,10 +679,10 @@ img{max-width:100%}
     </div>
     <nav class="tabs" id="tabs" role="tablist" aria-label="Pages">
       <button type="button" role="tab" data-tab="home">Train</button>
-      <button type="button" role="tab" data-tab="levels">Levels</button>
       <button type="button" role="tab" data-tab="lt">Long-term<i class="tab-dot" id="tabLtDot" hidden></i></button>
       <button type="button" role="tab" data-tab="echo">Echo<span class="streak" id="homeStreak" hidden></span></button>
       <button type="button" role="tab" data-tab="progress">Progress</button>
+      <button type="button" role="tab" data-tab="lab">Lab</button>
     </nav>
   </header>
 
@@ -706,9 +706,8 @@ img{max-width:100%}
       <div class="week" id="week"></div>
     </div>
 
-    <nav class="list" aria-label="More">
-      <button class="row" type="button" data-go="lab"><span class="row-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"/></svg></span><span class="row-main"><b>Lab</b></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-    </nav>
+    <p class="label group-label">Levels</p>
+    <div class="list" id="levelPick"></div>
     </div></div>
   </section>
 
@@ -899,11 +898,6 @@ img{max-width:100%}
     </div></div>
   </section>
 
-  <!-- ============ LEVELS ============ -->
-  <section class="screen" id="scr-levels" aria-label="Levels" hidden>
-    <div class="list" id="levelPick"></div>
-  </section>
-
   <!-- ============ SETTINGS ============ -->
   <section class="screen" id="scr-settings" aria-label="Settings" hidden>
     <header class="topbar">
@@ -998,11 +992,6 @@ img{max-width:100%}
 
   <!-- ============ LAB ============ -->
   <section class="screen" id="scr-lab" aria-label="Lab" hidden>
-    <header class="topbar">
-      <button class="icon" data-go="home" type="button" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <span class="title">Lab</span>
-      <span class="spacer"></span>
-    </header>
 
     <div class="halves"><div class="half">
     <div class="card lab">
@@ -1791,8 +1780,8 @@ function startAdj(kind){                         // kind: the interference first
 
 /* ---------- navigation ---------- */
 let screen = 'home', progMode = 'pick';
-/* The five main pages share a header with tabs, and a sideways swipe moves to the next one. */
-const TABS = ['home', 'levels', 'lt', 'echo', 'progress'];
+/* The five main pages share a header with tabs: Train (with the levels), Long-term, Echo, Progress, Lab. */
+const TABS = ['home', 'lt', 'echo', 'progress', 'lab'];
 function go(name){
   if ((screen === 'train' || screen === 'lab') && name !== screen) stopAll();
   if (name !== 'train') showTip(false);
@@ -1806,25 +1795,11 @@ function go(name){
   window.scrollTo(0, 0);
   if (name === 'progress') { progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
   if (name === 'lt') ltStopping = false;
-  ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, levels: renderLevels, lt: renderLT, lab: renderLab, echo: renderEcho})[name]?.();
+  ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, lt: renderLT, lab: renderLab, echo: renderEcho})[name]?.();
   placeBand();
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
 $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b && b.dataset.tab !== screen) go(b.dataset.tab); });
-let swipe = null;                                                  // a quick sideways swipe on a main page moves one tab over
-document.addEventListener('touchstart', e => {
-  const p = e.touches[0];
-  swipe = e.touches.length === 1 && TABS.includes(screen) && p.clientX > 24 && p.clientX < innerWidth - 24   // not from the edges: those are the system's back gestures
-    && !e.target.closest('input, textarea, .sheet') ? {x: p.clientX, y: p.clientY, t: Date.now()} : null;
-}, {passive: true});
-document.addEventListener('touchend', e => {
-  if (!swipe) return;
-  const p = e.changedTouches[0], dx = p.clientX - swipe.x, dy = p.clientY - swipe.y, quick = Date.now() - swipe.t < 700;
-  swipe = null;
-  if (!quick || Math.abs(dx) < 60 || Math.abs(dx) < 1.6 * Math.abs(dy) || !$('ltSheet').hidden || !$('toneSheet').hidden) return;
-  const i = TABS.indexOf(screen) + (dx < 0 ? 1 : -1);
-  if (i >= 0 && i < TABS.length) go(TABS[i]);
-}, {passive: true});
 
 /* ---------- rounds ---------- */
 let round = null, lastRound = null;
@@ -2602,7 +2577,7 @@ function renderHome(){
   $('homeLvNum').textContent = L.tier + 1;
   $('homeLvName').textContent = L.name;
   $('homeStage').textContent = L.short;
-  drawLevelRing(); renderWeek(); renderLTRow();
+  drawLevelRing(); renderWeek(); renderLTRow(); renderLevels();
 }
 function drawLevelRing(){                          // one arc per stage (Cs, C·F♯, …, last), filled by how far along it you are
   const svg = $('levelRing'), S = 300, c = S/2, r = 136, groups = DIVISIONS.length + 1, per = 360 / groups, gap = 7;
@@ -3181,11 +3156,12 @@ function pickLevel(e){
   settings.level = n; saveSettings();
   return true;
 }
-function renderLevels(){
-  $('levelPick').innerHTML = levelRows();
-  $('levelPick').querySelector('.row.sel')?.scrollIntoView({block: 'center'});
-}
-$('levelPick').addEventListener('click', e => { if (pickLevel(e)) go('home'); });
+function renderLevels(){ $('levelPick').innerHTML = levelRows(); }   // on Train, under the ring
+$('levelPick').addEventListener('click', e => {                   // picking a level: back up to the ring, set to it
+  if (!pickLevel(e)) return;
+  renderHome();
+  window.scrollTo({top: 0, behavior: reduceMotion.matches ? 'auto' : 'smooth'});
+});
 
 /* ---------- data export, for researchers ----------
    Everything the app records, as one JSON file the person can send on: settings (without their name), training
@@ -3727,6 +3703,10 @@ function tintBars(){                     // bar icons dark only on the light the
   if (!CAP?.SystemBars) return;          // (WebView 140+); older WebViews pad the page, and the padding stays dark
   const behind = parseFloat(getComputedStyle(document.documentElement).paddingTop) > 0;
   CAP.SystemBars.setStyle({style: settings.light && behind ? 'LIGHT' : 'DARK'}).catch(() => {});
+}
+if (CAP && window.visualViewport) {      // WebViews older than 140 make the page a nav bar taller than the screen and slide its top
+  const vv = visualViewport, pan = () => document.body.style.setProperty('--pan', vv.offsetTop + 'px');   // out of sight when
+  vv.addEventListener('scroll', pan); vv.addEventListener('resize', pan); pan();                          // scrolled; the pinned bars follow
 }
 if (CAP) new MutationObserver(tintBars).observe(document.documentElement, {attributes: true, attributeFilter: ['style', 'data-theme']});   // insets arrive late
 CAP?.App?.addListener('backButton', () => {
