@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The launch screen before Android 12: the app's background with the icon's wave in the middle.
+     From Android 12 the system draws the splash itself, from the launcher icon and windowSplashScreenBackground. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/meh_background" />
+    <item
+        android:drawable="@drawable/ic_launcher_foreground"
+        android:gravity="center"
+        android:width="160dp"
+        android:height="160dp" />
+</layer-list>

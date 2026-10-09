@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app icon's wave (as in icon-180.png and the favicon), drawn in the favicon's 64-unit box and scaled into
+     the middle of the 108 dp adaptive-icon canvas, inside its 66 dp safe zone. Also the splash screen's mark. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="1.1"
+        android:scaleY="1.1"
+        android:translateX="18.8"
+        android:translateY="18.8">
+        <path
+            android:pathData="M8,32c6,-14 10,-14 16,0s10,14 16,0 10,-14 16,0"
+            android:strokeColor="#7DADF6"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+    </group>
+</vector>
