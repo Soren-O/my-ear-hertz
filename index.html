@@ -270,6 +270,7 @@ p{margin:0}
 .numpad button:disabled{opacity:.4;cursor:default}
 .numpad svg{width:22px;height:22px}
 .numpad [data-k="0"]{grid-column:2}
+#after .pair[hidden] ~ #nextBtn{flex:1}                                 /* alone (a round's preview, a flashcard): full width */
 #letterpad{grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}     /* a flashcard's note names: one row above the digits */
 #letterpad button{height:44px;font-size:18px;border-radius:11px}
 .field{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-hi);border-radius:20px;padding:6px 6px 6px 18px}
@@ -971,7 +972,7 @@ img{max-width:100%}
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
-      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three.</p>
+      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. Every target gets a new random set of pitch stops, so turns can't be counted, and past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three. Those one-tone rounds start by playing the target once, so you know what you're aiming for; tap Start when you're ready, and the interference before each question clears it again.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
@@ -1830,6 +1831,13 @@ function nextQuestion(){
   const target = round.echo ? round.echo.tones[round.items.length] : L.choices ? L.choices[Math.floor(Math.random() * L.choices.length)] : Math.round(logUniform());
   phase = 'listening'; last = null; showError('');
   const voice = round.voice || SINE, off = Math.random();               // off: this question's shift of the recordings' grid
+  if (!round.previewed && L.task === 'find' && L.narrow && !round.lt && !round.echo) {   // a single-tone Find round: hear the target once, then Start
+    round.previewed = true;                                             // the interference before each question then wipes it
+    trial = {task: 'preview', f: target, lv: round.lv, voice, off};
+    render();
+    $('nextBtn').focus({preventScroll: true});
+    return playPreview();
+  }
   if (round.lt && !round.items.length) {                                 // a long-term check opens with a flashcard, silent
     trial = {task: 'card', side: Math.random() < 0.5 ? 'hz' : 'note', f: target, lv: round.lv, voice, off};   // hz: type C6's frequency; note: type 1047's note
     input.value = '';
@@ -1852,6 +1860,7 @@ function nextQuestion(){
     if (style === 'roll') centerRoll();
   }
 }
+const playPreview = () => play(trial.f, {dur: 2, rove: false, labeled: true, voice: true});   // the round's target, labeled
 function record(rec){
   rec.rd = round.id;
   rec.k = round.items.length;                                            // position in the round
@@ -2320,6 +2329,7 @@ $('progModes').addEventListener('click', e => {
 
 $('playBtn').addEventListener('click', () => {
   if (!round || !trial || trial.task === 'card') return;                // a flashcard makes no sound: the Find after it is cold
+  if (trial.task === 'preview') return playPreview();
   if (phase === 'revealed') return play(last.f, {dur: 2, rove: false, labeled: true, voice: true});
   if (trial.task === 'find') { soundSoon(0); return; }
   trial.rp++;
@@ -2475,7 +2485,7 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); submitGuess(); return; }
   }
   if (inField || onButton) return;
-  if (e.key === 'Enter' && phase === 'revealed') { e.preventDefault(); advance(); return; }
+  if (e.key === 'Enter' && (phase === 'revealed' || trial.task === 'preview')) { e.preventDefault(); advance(); return; }
   const ch = phase === 'listening' && (trial.task === 'pick' || trial.task === 'notes') && LEVELS[trial.lv-1].choices;     // number keys answer on sets of 9 or fewer
   if (ch && ch.length <= 9 && /^[1-9]$/.test(e.key) && +e.key <= ch.length) { e.preventDefault(); answer(ch[+e.key - 1]); }
 });
@@ -2540,6 +2550,7 @@ function howto(){                                               // one short lin
   if (!trial || phase !== 'listening') return '';
   if (trial.echo) return trial.heard ? 'Tune back to the tone you heard' : 'Listen';
   if (trial.task === 'card') return trial.side === 'hz' ? 'What frequency is this note?' : 'What note is this frequency?';
+  if (trial.task === 'preview') return 'This round’s target. Listen, then start';
   const notes = trial.show ? trial.show === 'note' : noteOnly(levelOf(), trial.task);
   if (trial.task === 'find') return `Tune until the playing tone matches this target ${notes ? 'note' : 'frequency'}`;
   if (trial.task === 'type') return 'Type the frequency you hear';
@@ -2549,7 +2560,7 @@ function updateHowto(){ const t = howto(); if (t) $('howto').textContent = t; $(
 function render(){
   if (!round || !trial) return;
   updateHowto();
-  const L = levelOf(), task = trial.task, find = task === 'find', card = task === 'card', n = roundLen();
+  const L = levelOf(), task = trial.task, find = task === 'find', card = task === 'card', preview = task === 'preview', n = roundLen();
   const notes = trial.show ? trial.show === 'note' : noteOnly(L, task), both = !trial.show && L.wrap === 'both';   // show: a check's target, as the card had it
   const done = round.items.length, k = Math.min(n, done + (phase === 'revealed' ? 0 : 1));
   $('trCount').textContent = `${k}/${n}`;
@@ -2582,11 +2593,11 @@ function render(){
       : last.lt ? `<span class="ratio">${centsTxt(last.cents)}</span>`
       : `<span class="ratio">×${(last.g / last.f).toFixed(2)}</span>`;
   } else {
-    const shown = find && !trial.echo;                                   // Echo never shows the number before the answer
+    const shown = (find || preview) && !trial.echo;                      // Echo never shows the number before the answer
     orb.dataset.revealed = '0'; orb.dataset.hidden = shown ? '0' : '1';
     delete orb.dataset.result;
     $('bigVal').textContent = !shown ? '' : notes ? noteName(trial.f) : fmtFreq(trial.f);
-    $('bigUnit').textContent = trial.echo ? '' : !find ? 'Hz' : notes ? '' : both ? `Hz · ${noteName(trial.f)}` : 'Hz';
+    $('bigUnit').textContent = trial.echo ? '' : !shown ? 'Hz' : notes ? '' : both ? `Hz · ${noteName(trial.f)}` : 'Hz';
     $('guessVal').textContent = '';
     fitNum($('bigVal'), 50);
     sub.innerHTML = '';
@@ -2605,7 +2616,7 @@ function render(){
   $('letterpad').querySelectorAll('button').forEach(b => { b.disabled = phase !== 'listening'; });
   $('guessUnit').textContent = noteCard ? '' : 'Hz';
   input.setAttribute('aria-label', noteCard ? 'Your answer, a note' : 'Your answer in hertz');
-  $('after').querySelector('.pair').hidden = card;                       // nothing to listen to after a card
+  $('after').querySelector('.pair').hidden = card || preview;             // nothing to compare after a card, or before a round
   $('adjust').hidden = !find || phase === 'revealed';
   if (roll) { renderRoll(L); if (phase === 'revealed' && !last.ok) showActualKey(); }
   else if (task === 'pick' || task === 'notes') renderChoices(L, task);
@@ -2613,11 +2624,11 @@ function render(){
   input.disabled = phase !== 'listening';
   $('numpad').querySelectorAll('button').forEach(b => { b.disabled = phase !== 'listening'; });
   $('checkBtn').disabled = phase !== 'listening';
-  $('after').hidden = phase !== 'revealed';
+  $('after').hidden = phase !== 'revealed' && !preview;
   $('hearTrueTxt').textContent = find ? 'Target' : 'Actual';
   $('numpad').hidden = phase === 'revealed';
-  $('nextBtn').textContent = done >= n ? 'Results' : 'Next';
-  $('playBtn').setAttribute('aria-label', card ? 'Flashcard' : phase === 'listening' ? (find ? 'Resume tone' : 'Replay tone') : (find ? 'Play target' : 'Replay actual tone'));
+  $('nextBtn').textContent = preview ? 'Start' : done >= n ? 'Results' : 'Next';
+  $('playBtn').setAttribute('aria-label', card ? 'Flashcard' : preview ? 'Play target' : phase === 'listening' ? (find ? 'Resume tone' : 'Replay tone') : (find ? 'Play target' : 'Replay actual tone'));
   renderStatus();
   if (phase === 'revealed' && !card) drawStrip(L);
   startWave();
