@@ -288,7 +288,7 @@ p{margin:0}
   box-shadow:inset 0 1px 0 var(--hi)}
 .wheel span{position:absolute;left:0;right:0;bottom:10px;text-align:center;font-family:var(--font-label);font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
 .wheel.active{border-color:var(--line-hi)}
-.arrows{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.arrows{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}     /* octave, half step, step; step, half step, octave */
 .arr{height:56px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,var(--surface-2),var(--surface));box-shadow:inset 0 1px 0 var(--hi),0 2px 6px -3px var(--shadow);display:grid;place-items:center;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;color:var(--ink)}
 .arr svg{width:22px;height:22px}
 .arr:active{transform:translateY(1px)}
@@ -427,6 +427,11 @@ p{margin:0}
 .train-body{flex:1;display:flex;flex-direction:column;gap:12px}
 .train-left{flex:1;display:flex;flex-direction:column;gap:12px}
 .train-right{display:flex;flex-direction:column;gap:8px}
+@media not (orientation: landscape){                                    /* Find: the record right under the target, not pushed to the bottom (where Safari's bar floats) */
+  .train-body:has(#adjust:not([hidden])) > .train-left{flex:none}
+  .train-body:has(#adjust:not([hidden])) .stage{padding-block:8px 0}
+  .train-body:has(#adjust:not([hidden])) .adjust .deck{width:min(66vw,250px,30vh)}
+}
 .after{flex-direction:row;align-items:center}
 .after > .pair{flex:1;min-width:0}
 .after #nextBtn{flex:0 0 auto;width:auto;padding-inline:28px}
@@ -786,10 +791,12 @@ img{max-width:100%}
         <label class="tip-check"><input type="checkbox" id="tipNever"> Don't show again</label>
       </div>
       <div class="arrows">
-        <button class="arr" type="button" data-d="-20" aria-label="Lower a lot"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l6 6 6-6M6 12l6 6 6-6"/></svg></button>
+        <button class="arr" type="button" data-d="-240" aria-label="Down an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l6 5 6-5M6 9.5l6 5 6-5M6 16l6 5 6-5"/></svg></button>
+        <button class="arr" type="button" data-d="-20" aria-label="Down a half step"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l6 6 6-6M6 12l6 6 6-6"/></svg></button>
         <button class="arr" type="button" data-d="-1" aria-label="Lower a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
         <button class="arr" type="button" data-d="1" aria-label="Raise a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
-        <button class="arr" type="button" data-d="20" aria-label="Raise a lot"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
+        <button class="arr" type="button" data-d="20" aria-label="Up a half step"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
+        <button class="arr" type="button" data-d="240" aria-label="Up an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l6-5 6 5M6 14.5l6-5 6 5M6 21l6-5 6 5"/></svg></button>
       </div>
       <button class="cta" id="lockBtn" type="button">Lock in</button>
     </div>
@@ -978,7 +985,7 @@ img{max-width:100%}
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
-      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. The record moves in even steps of 5 cents: a small arrow is one step, a big arrow a semitone, and after each turn the change shows under the target: in cents when the target is a note, in percent when it is a frequency. Where it starts is random, so how far you've turned says nothing about where the target is. Past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three. Those one-tone rounds start by playing the target once, so you know what you're aiming for; tap Start when you're ready, and the interference before each question clears it again.</p>
+      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. The record moves in even steps of 5 cents: the single arrows move one step, the double arrows a half step, the triple arrows an octave, and after each turn the change shows under the target: in cents when the target is a note, in percent when it is a frequency. Where it starts is random, so how far you've turned says nothing about where the target is. Past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three. Those one-tone rounds start by playing the target once, so you know what you're aiming for; tap Start when you're ready, and the interference before each question clears it again.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
@@ -1135,7 +1142,7 @@ function stepsFor(T){
 const LEVELS = TIERS.flatMap((T, ti) => stepsFor(T).map(S => Object.assign({}, T, S, {tier: ti}, S.only ? {choices: S.only, narrow: true} : {})));
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
 const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
-const ROUND = 10, UP = 10, DOWN = 6, COARSE = 20;   // 10 a round (was 20): all 10 moves up, 6 or fewer back
+const ROUND = 10, UP = 10, DOWN = 6, COARSE = 20, OCT = 240;   // 10 a round (was 20): all 10 moves up, 6 or fewer back; record steps: 20 a half step, 240 an octave
 const TOL = 1/24;      // every answer passes within a quarter tone (±50 cents, about ±2.9%), in octaves: fine enough to
                        // tell which note any tone is nearest. Buttons and keys are a half step or more apart, so only the right one is.
 const lvOf = r => r.lv || LEVELS.length;
@@ -1530,7 +1537,7 @@ function sfx(kind){
 /* ---------- compare: after an answer, your tone and the right one, back and forth every 2.5 s ----------
    After Find and typed answers (unless exactly right); after naming only when the answer was wrong. Whichever is playing lights up: its number
    in the orb, its listen button, and its key, pressed down. It runs until you move on, or for 30 seconds. */
-const CMP_EVERY = 2.5, CMP_MAX = 30;                                    // seconds: a new tone every 2.5, six turns each, then it stops
+const CMP_EVERY = 2.5, CMP_NOTES = 4;                                   // a new tone every 2.5 s, two turns each (four notes), then it stops
 const CMP_BOXES = ['choices', 'piano', 'roll'];
 function startCompare(g, f){
   if (!audio()) return;
@@ -1539,7 +1546,7 @@ function startCompare(g, f){
   CMP_BOXES.forEach(id => $(id).classList.add('cmp'));
   const step = () => {
     if (cmp !== c) return;
-    if (Date.now() - c.t0 > CMP_MAX * 1000) { endCompare(); setAudio('idle'); return; }
+    if (c.i >= CMP_NOTES) { endCompare(); setAudio('idle'); return; }   // Target and My guess still play one each
     const which = c.i++ % 2 ? 'true' : 'you', freq = which === 'you' ? c.g : c.f;
     const len = voiceNote(freq, ctx.currentTime + 0.02, {dur: CMP_EVERY - 0.1});   // each tone fades out just before the next
     noteAnchor(freq);
@@ -1676,8 +1683,8 @@ function previewVoice(V){                                                // Sett
 }
 
 /* ---------- Find the tone: the record ----------
-   Even steps of 5 cents, on a grid through the target so it is exactly reachable: the small arrow moves one step,
-   the big arrow (20) a semitone, and the turn readout can show how far a turn went. Where you are stays hidden by
+   Even steps of 5 cents, on a grid through the target so it is exactly reachable: the single arrows move one step,
+   the double arrows (20) a half step, the triple arrows (240) an octave, and the turn readout shows how far a turn went. Where you are stays hidden by
    the rest: a random span with the target anywhere in it, and a random start, so how far you've turned says
    nothing about where the target is. (Until 2026-10-09 the stops were randomly spaced instead.) */
 const STOP = 5 / 1200;                                                   // one step, in octaves
@@ -1719,7 +1726,8 @@ function startOsc(f, t, a){
    arrow cuts it off at once; letting go of the record sounds the new pitch right away, and after an arrow tap or key it
    sounds after a short pause, so the pitch is never heard sliding or stepping. A pure sine is one continuous tone
    that glides with the record. */
-const PULSE = 4.5, SETTLE = 0.45, IDLE_INST = 30, IDLE_SINE = 8;        // seconds; rest after the idle time untouched
+const PULSE = 4.5, SETTLE = 0.45, IDLE_SINE = 8;                        // seconds; a sine rests after 8 s untouched
+const PULSES = 4;                                                        // an instrument rests after 4 notes untouched: tap the orb, an arrow or the record for more
 function pulseNote(t){                                           // sound the record's pitch at time t, and line up the next note
   clearTimeout(pulseTimer);
   if (!ctx || !trial || trial.task !== 'find' || phase !== 'listening') return;
@@ -1737,8 +1745,12 @@ function pulseNote(t){                                           // sound the re
     return;
   }
   if (loud) strike(trial.voice, f, t, {off: trial.off, rove: newRove(), gain: p.g});   // every note at its own level
-  pulseTimer = setTimeout(() => pulseNote(ctx.currentTime + 0.02), Math.max(0, t - ctx.currentTime + PULSE) * 1000);
+  const next = Math.max(0, t - ctx.currentTime + PULSE) * 1000;
+  trial.pulses = (trial.pulses || 0) + 1;
+  if (trial.pulses >= PULSES) { pulseTimer = setTimeout(rest, next); return; }   // the last one rings out, then quiet
+  pulseTimer = setTimeout(() => pulseNote(ctx.currentTime + 0.02), next);
 }
+function rest(){ hush(); setAudio('paused'); }                     // resumed by the orb, an arrow or the record (soundSoon)
 const sineFind = () => !!trial && trial.task === 'find' && trial.voice === SINE;
 function sineFollow(){                                           // a pure sine glides with the record and never waits for the hand
   if (!canAdjust() || !audio()) return;
@@ -1753,17 +1765,18 @@ function soundSoon(delay){                                       // once the han
   if (sineFind()) return sineFollow();
   if (!canAdjust() || !audio()) return;
   hush();
+  trial.pulses = 0;                                                     // a touch earns four more notes
   pulseTimer = setTimeout(() => pulseNote(ctx.currentTime + 0.02), delay * 1000);
   if (audioState !== 'adjust') setAudio('adjust');
   armIdle();
 }
-function armIdle(){
+function armIdle(){                                              // a sine's rest; an instrument's comes after PULSES notes (pulseNote)
   clearTimeout(adjIdle);
-  const idle = trial && trial.voice !== SINE ? IDLE_INST : IDLE_SINE;
+  if (!sineFind()) return;
   adjIdle = setTimeout(() => {                                   // rest the ears; tap the orb or move the record to resume
     if (sineTone && !sineTone.dead) sineTone.g.gain.setTargetAtTime(0, ctx.currentTime, 0.08);
     hush(); setAudio('paused');
-  }, idle * 1000);
+  }, IDLE_SINE * 1000);
 }
 function startAdj(kind){                         // kind: the interference first, or null
   if (!audio()) { showError('This browser cannot play audio.'); return; }
@@ -2298,11 +2311,13 @@ function spin(deg){ deckAngle += deg; $('record').style.setProperty('--rot', `${
    terms: cents when the target is a note (and in Echo, which scores in cents), percent when it is a frequency. Never
    hertz, whose size would say how high you are. Relative to your own last stop, it says nothing about the target. */
 const turnTxt = d => {                                                   // d: octaves
-  const sign = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v);
+  const sign = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v), c = Math.round(d * 1200);
+  if (c && c % 1200 === 0) { const n = c / 1200; return `${sign(n)} octave${Math.abs(n) > 1 ? 's' : ''}`; }   // the big arrows: "+1 octave"
+  const half = Math.abs(c) === 100 ? ` (${c > 0 ? '+' : '−'}half step)` : '';                                   // the middle ones: "+100¢ (+half step)"
   const note = trial.echo || (trial.show ? trial.show === 'note' : noteOnly(levelOf(), 'find'));
-  if (note) return sign(Math.round(d * 1200)) + '¢';
+  if (note) return sign(c) + '¢' + half;
   const p = (Math.pow(2, d) - 1) * 100;
-  return sign(Math.abs(p) < 10 ? Math.round(p * 10) / 10 : Math.round(p)) + '%';
+  return sign(Math.abs(p) < 10 ? Math.round(p * 10) / 10 : Math.round(p)) + '%' + half;
 };
 function showTurn(){
   if (!trial || trial.task !== 'find' || phase !== 'listening') return;
@@ -2415,7 +2430,7 @@ $('playBtn').addEventListener('animationend', e => { if (e.animationName === 'po
 let holdTimer = null;
 const stopHold = () => { clearTimeout(holdTimer); holdTimer = null; };
 document.querySelectorAll('#adjust .arr').forEach(b => {
-  const d = +b.dataset.d, kick = Math.sign(d) * (Math.abs(d) > 1 ? 24 : 6);   // the record turns the way a drag would
+  const d = +b.dataset.d, kick = Math.sign(d) * (Math.abs(d) > COARSE ? 48 : Math.abs(d) > 1 ? 24 : 6);   // the record turns the way a drag would
   b.addEventListener('mousedown', e => e.preventDefault());               // keep keyboard focus where it was
   b.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
@@ -2483,7 +2498,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (!$('findTip').hidden) showTip(false); else $('quitBtn').click(); return; }
   if (trial.task === 'find' && phase === 'listening' && !inField) {
     const step = e.shiftKey ? COARSE : 1;
-    const map = {ArrowUp: step, ArrowDown: -step, PageUp: COARSE, PageDown: -COARSE};
+    const map = {ArrowUp: step, ArrowDown: -step, PageUp: OCT, PageDown: -OCT};   // shift+arrow: a half step; page keys: an octave
     if (e.key in map) { e.preventDefault(); if (canAdjust()) { spin(Math.sign(map[e.key]) * (Math.abs(map[e.key]) > 1 ? 24 : 6)); sfx('tick'); } nudge(map[e.key]); soundSoon(SETTLE); return; }
     if (e.key === 'Enter' && !onButton) { e.preventDefault(); lockIn(); return; }
   }
@@ -3171,7 +3186,8 @@ function renderSettings(){
   $('levelSeg').innerHTML = levelRows();
   [['optMatch','match'],['optRove','rove'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
-  renderItf('optItf', 'noise', 'notes');  if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
+  renderItf('optItf', 'noise', 'notes');
+  if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
   $('instSeg').innerHTML = voiceChips();
   $('answerSeg').querySelectorAll('[data-answer]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.answer === (settings.answer || 'keys'))));
   $('durSeg').innerHTML = [1, 2, 5, 10].map(d => `<button type="button" data-dur="${d}" aria-pressed="${settings.dur === d}">${d} s</button>`).join('');
@@ -3626,7 +3642,8 @@ function renderProfile(){
 }
 $('profName').addEventListener('input', () => { $('profDone').disabled = !$('profName').value.trim(); });
 $('profName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('profName').blur(); } });
-bindItf('optItf', 'noise', 'notes', true);bindItf('profItf', 'noise', 'notes', false);                            // saved with the rest of the profile
+bindItf('optItf', 'noise', 'notes', true);
+bindItf('profItf', 'noise', 'notes', false);                            // saved with the rest of the profile
 $('profInst').addEventListener('click', e => {
   const b = e.target.closest('[data-inst]'); if (!b) return;
   settings.instrument = b.dataset.inst; renderProfile();
