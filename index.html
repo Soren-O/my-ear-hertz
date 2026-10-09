@@ -858,10 +858,6 @@ img{max-width:100%}
       <button type="button" data-mode="match" aria-pressed="false">Find the tone</button>
     </div>
     <div class="card">
-      <div class="card-head"><span class="label">Rounds</span><span></span></div>
-      <ol class="rounds" id="roundList"></ol>
-    </div>
-    <div class="card">
       <div class="card-head"><span class="label">Memory</span><span></span></div>
       <div class="tiles two" id="memTiles"></div>
     </div>
@@ -875,6 +871,10 @@ img{max-width:100%}
     <div class="card chart">
       <div class="card-head"><span class="label" id="scTitle"></span><span id="scSlope"></span></div>
       <svg id="scatter" role="img" aria-label="Answer versus actual frequency"></svg>
+    </div>
+    <div class="card">                         <!-- last: the same in both modes, so the switch above changes what shows first -->
+      <div class="card-head"><span class="label">Rounds</span><span></span></div>
+      <ol class="rounds" id="roundList"></ol>
     </div>
     <div class="confirm" id="clearWrap"></div>
     </div></div>
@@ -1003,10 +1003,12 @@ img{max-width:100%}
         <div class="tonearm"></div>
       </div>
       <div class="arrows" id="ttArrows">
-        <button class="arr" type="button" data-oct="-1" aria-label="Down an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l6 6 6-6M6 12l6 6 6-6"/></svg></button>
-        <button class="arr" type="button" data-oct="-0.08333333" aria-label="Down a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
-        <button class="arr" type="button" data-oct="0.08333333" aria-label="Up a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
-        <button class="arr" type="button" data-oct="1" aria-label="Up an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
+        <button class="arr" type="button" data-oct="-1" aria-label="Down an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l6 5 6-5M6 9.5l6 5 6-5M6 16l6 5 6-5"/></svg></button>
+        <button class="arr" type="button" data-oct="-0.08333333" aria-label="Down a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l6 6 6-6M6 12l6 6 6-6"/></svg></button>
+        <button class="arr" type="button" data-oct="-0.00416667" aria-label="Lower a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
+        <button class="arr" type="button" data-oct="0.00416667" aria-label="Raise a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
+        <button class="arr" type="button" data-oct="0.08333333" aria-label="Up a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
+        <button class="arr" type="button" data-oct="1" aria-label="Up an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l6-5 6 5M6 14.5l6-5 6 5M6 21l6-5 6 5"/></svg></button>
       </div>
       <button class="cta" id="ttPlay" type="button">Play</button>
     </div>
@@ -2645,7 +2647,7 @@ function render(){
     if (back) orb.dataset.result = last.ok ? 'good' : 'bad'; else delete orb.dataset.result;
     $('bigVal').textContent = showHz ? fmtHz(trial.f) : noteName(trial.f);
     $('bigUnit').textContent = showHz ? 'Hz' : '';
-    $('guessVal').textContent = back ? last.typed : '';
+    $('guessVal').textContent = back ? (hz ? fmtHz(last.g) : last.typed) : '';   // typed Hz shown like the target (1,047)
     fitNum($('bigVal'), 50); fitNum($('guessVal'), 40);
     sub.innerHTML = back ? tuningsHtml(Math.round(midiOf(trial.f))) : '';
   } else if (phase === 'revealed') {
@@ -2676,7 +2678,7 @@ function render(){
   $('choices').hidden = roll || (task !== 'pick' && task !== 'notes');
   $('piano').hidden = roll || task !== 'piano';
   $('roll').hidden = !roll;
-  $('guessForm').hidden = task !== 'type' && !card;
+  $('guessForm').hidden = task !== 'type' && !card || card && phase === 'revealed';   // a card's answer shows on the orb
   const noteCard = card && trial.side === 'note';
   $('letterpad').hidden = !noteCard || phase === 'revealed';
   $('letterpad').querySelectorAll('button').forEach(b => { b.disabled = phase !== 'listening'; });
