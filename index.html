@@ -1059,7 +1059,7 @@ img{max-width:100%}
         <p>You just found C6 twenty times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
         <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
         <p>So we&rsquo;ll check on C6 at the right moments: in a few minutes, then a little longer after every hit, from hours to days to weeks. Miss one, and the next check comes sooner.</p>
-        <p class="heads-up">The first few days are busy: lots of quick checks, about 20 seconds each. It gets much quieter as C6 sticks.</p>
+        <p class="heads-up">The first week or two are busy: lots of quick checks, under half a minute each. It gets much quieter as C6 sticks.</p>
       </div>
       <p class="lt-msg" id="ltMsg" hidden></p>
       <button class="cta" id="ltStart" type="button">Start</button>
@@ -2015,14 +2015,16 @@ function nextRound(){                      // the results screen's main button
    The first 20/20 round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
    begin: a silent flashcard (below), then one cold Find of the tone, scored in cents. Cold means nothing plays first, no interference either: no pitch
    was heard, so there is no short-term memory to wipe. The first comes 2 minutes after Start; after a hit the wait
-   grows 2.5× (2, 5, 12, 31, 78 min, 3 h, 8 h, 20 h, 2 days, …), after a miss it shrinks to 40%, never under
-   2 minutes. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
+   grows 1.1×, after a miss it goes back one step (÷1.1), never under 2 minutes. Tones fade much faster than the
+   words on ordinary flashcards (their usual 2.5× would leave gaps too long to hold), so the wait climbs slowly:
+   about 36 hits to an hour, 69 to a day (some 10 days of checks). Each check keeps the gap it tested and whether it
+   hit, so the factor can be fitted from real data later. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
    hours, and tapping one opens straight into the check. A miss offers a quick 5-question Find practice. The next tone
    (C5, then C7) is offered once every tone in training has reached a wait of a day (LT_READY) and its own Find step in
    the ladder is passed; the player chooses whether to add it. Checks stay out of training's history; they live in
    hbe3.lt. Only the app can remind: the website shows a due check while it is open. */
 const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
-const LT_FIRST = 2 * MIN, LT_GROW = 2.5, LT_SHRINK = 0.4;
+const LT_FIRST = 2 * MIN, LT_GROW = 1.1, LT_SHRINK = 1 / LT_GROW;   // a miss undoes one hit
 const LT_GAP = 5 * MIN;            // another tone's check never follows one sooner: two known tones in a row would be a reference
 const LT_READY = DAY;              // once a tone's wait between checks reaches a day, the next tone can be offered
 const LT_WAKE = [8, 22], LT_AGAIN = HOUR;   // waking hours; an unanswered reminder comes back after an hour
