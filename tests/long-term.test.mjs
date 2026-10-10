@@ -14,20 +14,21 @@ function section(from, to) {
 const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const morning = new Date(2026, 9, 10, 7).getTime();
 
-function app(at = morning) {
+function app(at = morning, persisted = {}) {
   let now = at;
   class Clock extends Date { static now() { return now; } }
-  const context = vm.createContext({Date: Clock});
+  const context = vm.createContext({Date: Clock, persisted});
   vm.runInContext(`
     let settings = {wake: '07:00', bed: '22:00', auto: true, level: 1, top: 1};
-    let lt = {on: true, started: Date.now(), tones: [], checks: []};
+    let lt = persisted['hbe3.lt'] ? JSON.parse(persisted['hbe3.lt']) : {on: true, started: Date.now(), tones: [], checks: []};
     let round = null, lastRound = null, trial = null, last = null, phase = 'idle';
     let rounds = [], calls = [], anchors = [], history = [];
     const LEVELS = [{task: 'find'}], ROUND = 10, UP = 10, DOWN = 5, C6 = 1047;
-    const store = {set() {}}, reduceMotion = {matches: true};
-    const input = {value: ''}, SINE = {id: 'sine'}, CHOICE_TASKS = [];
-    const $ = () => ({focus() {}});
-    const saveLT = () => calls.push('save');
+    const store = {set(k, v) { persisted[k] = JSON.stringify(v); }}, reduceMotion = {matches: true};
+    const input = {value: '', blur() {}}, SINE = {id: 'sine'}, CHOICE_TASKS = [];
+    const elements = new Map();
+    const $ = id => { if (!elements.has(id)) elements.set(id, {focus() {}, classList: {remove() {}, add() {}}}); return elements.get(id); };
+    let CAP = null;
     const ltSchedule = () => calls.push('schedule');
     const ltOfferOnce = () => calls.push('offer');
     const stopAll = () => calls.push('stop');
@@ -36,9 +37,11 @@ function app(at = morning) {
     const practiceLv = () => 1;
     const ltLevel = f => ({task: 'find', narrow: true, choices: [f]});
     const startRound = (echo, extra) => { calls.push(extra); };
-    const quitRound = () => { throw new Error('Unexpected quit'); };
     const render = () => calls.push('render');
     const showError = () => {};
+    const COLD_GAP = 600000, modeOf = r => r.m === 'match' ? 'match' : 'pick';
+    const noteAnchor = () => {}, startCompare = () => {}, confetti = () => {};
+    const closeLTSheet = () => calls.push('closeSheet');
     const levelOf = () => round.L;
     const voiceRange = () => [100, 2000];
     const makeStops = () => ({n: 5, ti: 2});
@@ -50,43 +53,61 @@ function app(at = morning) {
     const roundLen = () => round.lt ? 2 : round.practice ? 1 : ROUND;
     const finishEcho = () => calls.push('echo');
     ${section('const MIN =', 'const LT_NOTE =')}
+    ${section('const saveLT =', 'const isFindC6 =')}
     ${section('const practiceTone =', 'const fmtSpan =')}
     ${section('function ltBegin()', 'function ltOffer()')}
     ${section('function nextCardSide()', 'function parseNote(')}
     ${section('function startCheck(', 'function remindAt(')}
     ${section('function nextQuestion()', 'const playPreview =')}
+    ${section('function record(rec)', 'function answer(g)')}
+    ${section('function quitRound()', 'function showError')}
     ${section('function finishRound()', '/* ---------- Echo:')}
+    ${section('async function startLongTerm()', "$('ltStart').addEventListener")}
+    ${section('function renderLTReminders()', 'function ltNoteState(')}
     ${section('const advance =', "$('nextBtn').addEventListener")}
     globalThis.api = {
       blockTone, blkNext, day1Slots, nextCardSide, nextQuestion, startCheck, ltBegin,
-      finishCheck, advance, ltSteps, nextTone, dueTone,
+      finishCheck, advance, ltSteps, nextTone, dueTone, record, quitRound, startLongTerm, renderLTReminders,
       get state() { return {lt, settings, round, lastRound, trial, last, phase, calls, rounds}; },
       setCheck(t, ok, cardOK = true) {
         lt.tones = [t];
         round = {lt: t.f, items: [
-          {task: 'card', side: 'hz', typed: '1047', ok: Number(cardOK)},
-          {task: 'find', f: t.f, g: ok ? t.f : t.f * 2, cents: ok ? 0 : 1200, ok: Number(ok)}
+          {task: 'card', side: 'hz', typed: '1047', ok: Number(cardOK), t: Date.now()},
+          {task: 'find', f: t.f, g: ok ? t.f : t.f * 2, cents: ok ? 0 : 1200, ok: Number(ok), t: Date.now()}
         ]};
+        saveCheckAnswer(round.items[0]);
       },
       setPractice(t, ok) {
         lt.tones = [t];
         round = {id: Date.now(), lv: 1, practice: true, practiceTone: t.f,
-          L: ltLevel(t.f), items: [{task: 'find', ok: Number(ok)}]};
-        last = round.items[0]; trial = {task: 'find'}; phase = 'revealed';
+          practiceCard: t.practice[0] === 'find' ? null : t.practice[0],
+          L: ltLevel(t.f), items: [{task: t.practice[0] === 'find' ? 'find' : 'card', ok: Number(ok)}]};
+        last = round.items[0]; trial = {task: round.items[0].task}; phase = 'revealed';
       },
       setRound(r) { round = r; },
       setSettings(s) { Object.assign(settings, s); },
+      setCAP(v) { CAP = v; }, element: $,
       loadLT(s) { lt = JSON.parse(s); },
       migrate() { ${section('lt.tones.forEach(t => {', 'if (lt.on && !lt.tones.length)')} }
     };
   `, context);
-  return {api: context.api, time(t) { now = t; }};
+  return {api: context.api, persisted, time(t) { now = t; }};
 }
 
 const offsets = [0, 2, 4, 6, 8, 10, 12.5, 15, 17.5, 20, 20 + 1 / 3 * 10, 27,
   30, 30 + 1 / 3 * 10, 37, 40, 45, 50, 55, 60, 70, 80, 90, 105, 120, 135,
   150, 165, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840];
 const plain = value => JSON.parse(JSON.stringify(value));
+function beginCheck(api, tone, items = []) {
+  api.state.lt.tones = [tone];
+  api.setRound({id: morning, lv: 1, lt: tone.f, L: {task: 'find', narrow: true, choices: [tone.f]}, items});
+  api.nextQuestion();
+}
+function submit(api, ok, at) {
+  const q = api.state.trial;
+  api.record({task: q.task, side: q.side, f: q.f, g: ok ? q.f : q.f * 2,
+    typed: String(ok ? q.f : q.f * 2), cents: ok ? 0 : 1200, ok: Number(ok), t: at});
+}
 
 test('the app JavaScript parses', () => { new vm.Script(script); });
 
@@ -312,4 +333,148 @@ test('existing Day 1 data migrates without replaying completed checks', () => {
   api.migrate();
   assert.equal(t.due, morning + 10 * MIN);
   assert.equal(t.blk.levels[t.blk.k], 1);
+});
+
+test('a wrong Find is saved before Results and survives quitting and reload', () => {
+  const {api, persisted} = app(morning + DAY);
+  const tone = {f: 1047, wait: DAY, last: morning, due: morning + DAY};
+  beginCheck(api, tone);
+  submit(api, true, morning + DAY);
+  api.advance();
+  submit(api, false, morning + DAY);
+  assert.equal(api.state.lt.checks.length, 1);
+  assert.ok(tone.wait < DAY);
+  api.quitRound();
+  const loaded = app(morning + DAY, persisted).api;
+  assert.equal(loaded.state.lt.checks.length, 1);
+  assert.equal(loaded.state.lt.tones[0].wait, tone.wait);
+  assert.deepEqual(plain(loaded.state.lt.tones[0].practice), ['find']);
+  loaded.startCheck();
+  assert.equal(loaded.state.calls.at(-1).practiceTone, 1047);
+});
+
+test('a missed flashcard survives quitting, requires practice, and resumes its Find without repeating the card', () => {
+  const {api, persisted} = app();
+  const tone = api.blockTone(1047, morning);
+  beginCheck(api, tone);
+  const side = api.state.trial.side;
+  submit(api, false, morning);
+  api.quitRound();
+  const loaded = app(morning, persisted).api, restored = loaded.state.lt.tones[0];
+  assert.deepEqual(plain(restored.practice), [side]);
+  assert.equal(restored.due, morning); // a card never moves the pitch schedule
+  loaded.startCheck();
+  assert.equal(loaded.state.calls.at(-1).practiceCard, side);
+  loaded.setPractice(restored, true);
+  loaded.advance();
+  loaded.startCheck();
+  const opts = loaded.state.calls.at(-1), nextSide = loaded.state.lt.cardSide;
+  assert.equal(opts.items.length, 1);
+  beginCheck(loaded, restored, opts.items);
+  assert.equal(loaded.state.trial.task, 'find');
+  assert.equal(loaded.state.lt.cardSide, nextSide);
+  submit(loaded, true, morning);
+  assert.equal(restored.practice, undefined); // the corrected card must not be required again
+  assert.equal(restored.card, undefined);
+  assert.equal(loaded.state.lt.checks[0].card.ok, 0);
+});
+
+test('a correct flashcard survives reload and proceeds straight to its Find', () => {
+  const {api, persisted} = app();
+  beginCheck(api, api.blockTone(1047, morning));
+  submit(api, true, morning);
+  const loaded = app(morning, persisted).api;
+  loaded.startCheck();
+  const opts = loaded.state.calls.at(-1), nextSide = loaded.state.lt.cardSide;
+  assert.equal(opts.items.length, 1);
+  beginCheck(loaded, loaded.state.lt.tones[0], opts.items);
+  assert.equal(loaded.state.trial.task, 'find');
+  assert.equal(loaded.state.lt.cardSide, nextSide);
+});
+
+test('feedback delay cannot earn lateness credit or postpone the next adaptive check', () => {
+  const {api, time, persisted} = app(morning + 2 * MIN);
+  const tone = {f: 1047, wait: 2 * MIN, last: morning, due: morning + 2 * MIN};
+  beginCheck(api, tone);
+  submit(api, true, morning + 2 * MIN);
+  api.advance();
+  submit(api, true, morning + 2 * MIN);
+  assert.equal(tone.wait, 3 * MIN);
+  assert.equal(tone.due, morning + 5 * MIN);
+  time(morning + 12 * MIN);
+  api.advance();
+  assert.equal(api.state.lt.checks.length, 1);
+  assert.equal(api.state.lt.checks[0].t, morning + 2 * MIN);
+  assert.equal(api.state.lt.checks[0].gap, 2 * MIN);
+  assert.equal(tone.last, morning + 2 * MIN);
+  assert.equal(tone.due, morning + 5 * MIN);
+  assert.equal(app(morning + 12 * MIN, persisted).api.state.lt.checks.length, 1);
+});
+
+test('viewing feedback does not skip Day 1 check-in slots', () => {
+  const {api, time} = app();
+  const tone = api.blockTone(1047, morning);
+  beginCheck(api, tone);
+  submit(api, true, morning);
+  api.advance();
+  submit(api, true, morning + 20_000);
+  time(morning + 12 * MIN);
+  api.advance();
+  assert.equal(tone.due, morning + 2 * MIN);
+  assert.equal(tone.blk.k, 1);
+  assert.equal(api.state.lt.checks.length, 1);
+});
+
+test('one practice success is saved before Results without clearing the next required correction', () => {
+  const {api, persisted} = app();
+  const tone = {f: 1047, wait: DAY, due: morning + DAY, practice: ['hz', 'find']};
+  api.setPractice(tone, false);
+  api.advance();
+  submit(api, true, morning);
+  assert.deepEqual(plain(tone.practice), ['find']);
+  const loaded = app(morning, persisted).api;
+  assert.deepEqual(plain(loaded.state.lt.tones[0].practice), ['find']);
+  api.advance();
+  assert.deepEqual(plain(tone.practice), ['find']);
+  assert.equal(tone.wait, DAY);
+  assert.equal(tone.due, morning + DAY);
+});
+
+test('the website starts immediately without a browser notification permission', async () => {
+  const {api} = app();
+  api.state.lt.on = false;
+  await api.startLongTerm();
+  assert.equal(api.state.lt.on, true);
+  assert.equal(api.dueTone().due, morning);
+  assert.equal(api.state.calls.at(-1).lt, 1047);
+  api.renderLTReminders();
+  assert.match(api.element('ltReminderStatus').textContent, /no reminders when it is closed/);
+});
+
+test('the native app requests notification permission and starts after it is granted', async () => {
+  const {api} = app(), permissions = [];
+  api.state.lt.on = false;
+  api.setCAP({LocalNotifications: {
+    async checkPermissions() { permissions.push('check'); return {display: 'prompt'}; },
+    async requestPermissions() { permissions.push('request'); return {display: 'granted'}; }
+  }});
+  await api.startLongTerm();
+  assert.deepEqual(permissions, ['check', 'request']);
+  assert.equal(api.state.lt.on, true);
+  assert.equal(api.state.calls.at(-1).lt, 1047);
+  api.renderLTReminders();
+  assert.match(api.element('ltReminderStatus').textContent, /silent reminders/);
+});
+
+test('denied native notification permission keeps training stopped with a useful message', async () => {
+  const {api} = app();
+  api.state.lt.on = false;
+  api.setCAP({LocalNotifications: {
+    async checkPermissions() { return {display: 'denied'}; },
+    async requestPermissions() { return {display: 'denied'}; }
+  }});
+  await api.startLongTerm();
+  assert.equal(api.state.lt.on, false);
+  assert.equal(api.element('ltMsg').hidden, false);
+  assert.match(api.element('ltMsg').textContent, /Notifications are off/);
 });

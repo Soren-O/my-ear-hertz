@@ -604,6 +604,7 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .lt-copy b{color:var(--ink);font-weight:600}
 .lt-copy .heads-up{color:var(--ink);background:var(--gold-bg);border:1px solid color-mix(in oklab,var(--gold) 35%,transparent);border-radius:14px;padding:10px 12px}
 .lt-msg{margin:0;font-size:14px;line-height:1.45;color:var(--warn)}
+.lt-reminders{font-size:14px;line-height:1.5;color:var(--muted)}
 /* first launch: headphones */
 .phones{min-height:78vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
 .phones svg{width:58px;height:58px;color:var(--muted)}
@@ -890,6 +891,7 @@ img{max-width:100%}
   <section class="screen" id="scr-lt" aria-label="Long-term" hidden>
     <div class="halves"><div class="half">
     <h1 class="page-head">Long-term <span>(perfect pitch)</span></h1>
+    <p class="lt-reminders" id="ltReminderStatus"></p>
     <div id="ltList"></div>
     <div class="tiles" id="ltTiles"></div>
     <div class="list" id="ltExactRow" hidden>
@@ -1072,6 +1074,7 @@ img{max-width:100%}
         <p>You just found C6 ten times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
         <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
         <p>So we&rsquo;ll check on C6 right away, then at gradually longer intervals, from minutes to hours to days to weeks. Miss one, and you&rsquo;ll practise until you get it right, with the next check coming sooner.</p>
+        <p id="ltReminderNote"></p>
         <p class="heads-up">Day one is busy: checks every 2 minutes at first, gradually spreading to once an hour until bedtime. A missed pitch check drops you one interval level and restarts that level. Best started in the morning. After two or three days it gets much quieter.</p>
       </div>
       <div class="sleep-row"><b>Asleep</b><span class="sleep"><input type="time" id="ltBed" aria-label="Bedtime"><span aria-hidden="true">–</span><input type="time" id="ltWake" aria-label="Wake-up time"></span></div>
@@ -1891,6 +1894,8 @@ function record(rec){
     store.set('hbe3.history', history);
   }
   round.items.push(rec);
+  if (round.lt) saveCheckAnswer(rec);
+  else if (round.practiceTone && rec.ok) completeLTPractice();
   last = rec; phase = 'revealed';
   input.blur();
   render();
@@ -1939,10 +1944,10 @@ function finishRound(){
   if (rounds.length > 2000) rounds = rounds.slice(-2000);
   store.set('hbe3.rounds', rounds);
   lastRound = {sum, items: round.items, change};
+  if (practiceTone && score) completeLTPractice();
   round = null; phase = 'idle'; trial = null; last = null;
   if (practiceTone) {
     const t = lt.tones.find(t => t.f === practiceTone);
-    if (t && score) { t.practice.shift(); if (!t.practice.length) delete t.practice; saveLT(); ltSchedule(); }
     if (t && t.practice) return startLTPractice(t);
     return go('lt');
   }
@@ -2034,7 +2039,7 @@ function nextRound(){                      // the results screen's main button
 }
 
 /* ---------- long-term training ----------
-   The first perfect round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
+   The first perfect round of Find C6 opens it (the invitation below). The native app asks for notifications, then the checks
    begin: a silent flashcard (below), then one cold Find of the tone, scored in cents. Cold means nothing plays first, no interference either: no pitch
    was heard, so there is no short-term memory to wipe. A new tone's first two or three days run on fixed check-in
    times (the block, below). After that, a hit grows the wait 1.5× and a miss cuts it about 10×, with half credit for
@@ -2239,6 +2244,17 @@ function startLTPractice(t){
   const task = t.practice[0];
   startRound(undefined, {lv: practiceLv(t.f), practice: true, practiceTone: t.f, practiceCard: task === 'find' ? null : task, L: ltLevel(t.f)});
 }
+function requireLTPractice(t, task){
+  t.practice = [...new Set([...(t.practice || []), task])];
+}
+function completeLTPractice(){               // one success is saved at submission, even if the feedback is closed
+  if (round.practiceSaved || !round.items[round.items.length - 1]?.ok) return;
+  const t = lt.tones.find(t => t.f === round.practiceTone), task = round.practiceCard || 'find';
+  if (t?.practice?.[0] !== task) return;
+  t.practice.shift(); if (!t.practice.length) delete t.practice;
+  round.practiceSaved = true;
+  saveLT(); ltSchedule();
+}
 function parseNote(s){                                           // "C6", "C♯6", "Db6" → MIDI; null if it isn't a note
   const x = /^([A-G])([♯#♭b]?)(\d)$/.exec(s.trim());
   if (!x) return null;
@@ -2264,13 +2280,23 @@ function startCheck(f){                    // f: a particular note's check (from
   if (pending) return startLTPractice(pending);
   const t = f ? lt.tones.find(x => x.f === f && x.due <= Date.now()) : dueTone();
   if (!t) return go('lt');
-  startRound(undefined, {lv: practiceLv(t.f), lt: t.f, L: ltLevel(t.f)});
+  startRound(undefined, {lv: practiceLv(t.f), lt: t.f, L: ltLevel(t.f), items: t.card ? [t.card] : []});
 }
-function finishCheck(){
-  stopAll();
+function saveCheckAnswer(rec){               // a card survives interruption; a Find commits the check immediately
+  const t = lt.tones.find(x => x.f === round.lt);
+  if (!t) return;
+  if (rec.task === 'card') {
+    t.card = rec;
+    if (!rec.ok) requireLTPractice(t, rec.side);
+    saveLT(); ltSchedule();
+  } else if (rec.task === 'find') commitCheck();
+}
+function commitCheck(){
+  if (round.check) return round.check;        // Results must not count the same answer twice
   const rec = round.items.find(x => x.task === 'find'), card = round.items.find(x => x.task === 'card');
-  const now = Date.now(), t = lt.tones.find(x => x.f === round.lt);
-  if (!t || !rec) return quitRound();
+  const t = lt.tones.find(x => x.f === round.lt);
+  if (!t || !rec) return null;
+  const now = rec.t ?? Date.now();            // the tested gap ends at the answer, not after viewing feedback
   const ok = !!rec.ok;                                                 // the Find decides the schedule; the card is recorded beside it
   const gap = now - (t.last || t.start || lt.started || now);          // how long this tone had to be remembered
   const due = t.due, b0 = t.blk && {day: t.blk.day || 0, end: t.blk.end, x: t.blk.x};
@@ -2298,11 +2324,18 @@ function finishCheck(){
   if (probe) chk.probe = probe;
   if (ltArm()) chk.arm = ltArm().id;
   if (card) chk.card = {side: card.side, typed: card.typed, ok: card.ok};
-  t.practice = [...(card && !card.ok ? [card.side] : []), ...(!ok ? ['find'] : [])];
-  if (!t.practice.length) delete t.practice;
+  if (!ok) requireLTPractice(t, 'find');
+  delete t.card;
   lt.checks.push(chk);
   if (lt.checks.length > 3000) lt.checks = lt.checks.slice(-3000);
+  round.check = chk;
   saveLT(); ltSchedule();
+  return chk;
+}
+function finishCheck(){
+  stopAll();
+  const chk = commitCheck(), t = chk && lt.tones.find(x => x.f === chk.f);
+  if (!chk || !t) return quitRound();
   lastRound = {lt: chk, tone: t};
   round = null; phase = 'idle'; trial = null; last = null;
   go('summary');
@@ -2329,16 +2362,7 @@ async function ltSchedule(){                // the app keeps one pending reminde
       schedule: {at: new Date(at), allowWhileIdle: true}, isExactNotification: exact, extra: {lt: 1}}]});
   } catch (e) {}
 }
-let webNoted = 0;
-function ltTick(){                          // keeps "in 12 min" current; on the website, a silent notification while the tab is hidden
-  renderLTRow();
-  const t = dueTone();
-  if (CAP || !t || !document.hidden || webNoted === t.due || remindAt(t.due) > Date.now()) return;
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  webNoted = t.due;
-  try { const n = new Notification('My Ear Hertz', {body: `Find ${noteName(t.f)}`, silent: true, tag: 'lt'}); n.onclick = () => { window.focus(); n.close(); if (!round) startCheck(); }; } catch (e) {}
-}
-setInterval(ltTick, 15000);
+setInterval(renderLTRow, 15000);             // web check-ins appear in the app; background reminders are native
 function ltRefresh(){                       // on start and whenever the app comes back
   ltSchedule();
   renderLTRow();
@@ -2354,6 +2378,11 @@ const fmtCount = ms => {                                     // a countdown: 0:4
   return d ? `${d} d ${h} h` : h ? `${h}:${pad2(m)}:${pad2(s % 60)}` : `${m}:${pad2(s % 60)}`;
 };
 function renderLTRow(){ $('tabLtDot').hidden = !dueTone(); }      // the Long-term tab's dot: a check is due
+function renderLTReminders(){
+  const text = CAP?.LocalNotifications ? 'The app sends silent reminders when a check is due, during your waking hours.' :
+    'On the website, check-ins appear while it is open. There are no reminders when it is closed or your phone is locked. Keep it open during training, or set your own reminders.';
+  $('ltReminderStatus').textContent = $('ltReminderNote').textContent = text;
+}
 function ltNoteState(f){
   const t = lt.on && lt.tones.find(x => x.f === f);
   if (t) return {state: 'training', t};
@@ -2388,6 +2417,7 @@ $('ltList').addEventListener('click', e => {
   if (state === 'offer') return lt.on ? openToneSheet(f) : openLTSheet();
 });
 function renderLT(){
+  renderLTReminders();
   renderLTList();
   const show = lt.on || lt.checks.length > 0;                    // the totals and the chart, once there is something
   $('ltTiles').hidden = $('ltChart').closest('.card').hidden = !show;
@@ -2462,7 +2492,7 @@ SLEEP_INS.forEach(([id, k]) => $(id).addEventListener('change', () => {   // sle
   renderSleep();
 }));
 function openLTSheet(){
-  drawCurve(); renderSleep();
+  drawCurve(); renderSleep(); renderLTReminders();
   $('ltMsg').hidden = true; $('ltStart').textContent = 'Start';
   $('ltSheet').hidden = false;
   $('ltStart').focus({preventScroll: true});
@@ -2470,24 +2500,20 @@ function openLTSheet(){
 const closeLTSheet = () => { $('ltSheet').hidden = true; };
 $('ltLater').addEventListener('click', closeLTSheet);
 $('ltSheet').addEventListener('click', e => { if (e.target === $('ltSheet')) closeLTSheet(); });
-$('ltStart').addEventListener('click', async () => {             // starting needs notifications, so the checks can find you
+async function startLongTerm(){                               // only the native app needs notification permission
   const say = msg => { $('ltMsg').textContent = msg; $('ltMsg').hidden = false; $('ltStart').textContent = 'Try again'; };
   const LN = CAP?.LocalNotifications;
   if (LN) {                                                      // the app: Android's own permission (asked at runtime from Android 13)
     let perm = 'denied';
     try { perm = (await LN.checkPermissions()).display; if (perm !== 'granted') perm = (await LN.requestPermissions()).display; } catch (e) {}
     if (perm !== 'granted') return say('Notifications are off. Turn them on for My Ear Hertz in your phone’s Settings, then try again.');
-  } else {
-    if (!('Notification' in window)) return say(IOS ? 'Checks arrive as notifications. On iPhone: tap Share, then Add to Home Screen, open My Ear Hertz from there, and start again.' : 'Checks arrive as notifications, and this browser can’t show them.');
-    let perm = Notification.permission;
-    if (perm !== 'granted') { try { perm = await Notification.requestPermission(); } catch (e) { perm = 'denied'; } }
-    if (perm !== 'granted') return say('Notifications are off. Turn them on for My Ear Hertz in Settings, then try again.');
   }
   ltBegin();
   closeLTSheet();
   go('lt');
   startCheck();
-});
+}
+$('ltStart').addEventListener('click', startLongTerm);
 
 /* Sharing the daily, Wordle style: a square per tone and the score, never the tones themselves. Only the day's
    first try counts, so that is the one shared. */
@@ -3365,7 +3391,7 @@ const EXPORT_FIELDS = {
   levels: 'levels[i] names level number i + 1: its set, then its step.',
   rounds: 'One per finished training round: lv level, score of n, ch up/down if it moved a level, p 1 for correction practice after a missed long-term answer (ends after one success), pf the tone practised; n includes retries.',
   history: 'One per training answer (the last 5,000). task: pick/notes/piano (named), type (typed in Hz), find (tuned); f target Hz; g answer Hz; ok 1 if within a quarter tone; exact 1 if tuned exactly; lv level; rd round id (its start time); k position in the round; c 1 if cold (nothing labeled heard for 10+ minutes; first answer of a round only); rp replays; mv record moves (find); ui roll/classic answer view. Conditions: itf interference before the question (both/noise/notes/none), v instrument, rove 1 if loudness varied, pv 1 if the round began by playing its target.',
-  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day), start when it joined, probed the probes done (days), probe set while its next check is one, practice pending corrections (hz/note for a missed card, find for a missed pitch), blk while in its first days of fixed check-in times (at when they began, day, slots that day\'s times, k the next, levels each Day 1 slot\'s interval level (0-based), x a later-day miss\'s extra one, end that day\'s bedtime). cardSide the next alternating flashcard side. checks: one per check: f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, due when it was due, blk the day of the fixed check-ins it fell on, x 1 for a miss\'s extra check-in, arm the study arm in effect, probe 14 or 30 for a study probe, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
+  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day), start when it joined, probed the probes done (days), probe set while its next check is one, card an answered flashcard awaiting its Find (preserved across reloads), practice pending corrections (hz/note for a missed card, find for a missed pitch), blk while in its first days of fixed check-in times (at when they began, day, slots that day\'s times, k the next, levels each Day 1 slot\'s interval level (0-based), x a later-day miss\'s extra one, end that day\'s bedtime). cardSide the next alternating flashcard side. checks: one per check: t when the Find was answered, f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, due when it was due, blk the day of the fixed check-ins it fell on, x 1 for a miss\'s extra check-in, arm the study arm in effect, probe 14 or 30 for a study probe, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
   echo: 'Echo, a short-term memory game kept apart from training: per game t, daily (its date, or null), itf interference, score out of 50, cents (the error on each of its five tones).',
   settings: 'The app\'s settings at export, without the name. study: on for an install in the study; arm: its arm; wake, bed: sleep hours.',
   arms: 'The study\'s arms: id; p, the share of checks the staircase aims to have hit; up, the wait\'s growth after a hit (a miss divides it by up^(p/(1-p))). Outside the study p is 0.85 and up 1.5. After fixed check-ins, late checks step from sqrt(wait * max(wait, gap)); misses are capped at the previous wait and floored at 2 minutes.'
