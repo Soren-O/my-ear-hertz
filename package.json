@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
     "web": "node scripts/copy-web.mjs",
     "sync": "node scripts/copy-web.mjs && npx cap sync android",
     "android": "node scripts/copy-web.mjs && npx cap sync android && npx cap open android"

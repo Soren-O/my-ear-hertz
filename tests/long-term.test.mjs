@@ -1,0 +1,315 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import test from 'node:test';
+import vm from 'node:vm';
+
+// Exercise the real single-file app's functions without the audio engine or DOM.
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const script = html.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
+function section(from, to) {
+  const start = script.indexOf(from), end = script.indexOf(to, start);
+  assert.ok(start >= 0 && end > start, `Missing app section: ${from}`);
+  return script.slice(start, end);
+}
+const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
+const morning = new Date(2026, 9, 10, 7).getTime();
+
+function app(at = morning) {
+  let now = at;
+  class Clock extends Date { static now() { return now; } }
+  const context = vm.createContext({Date: Clock});
+  vm.runInContext(`
+    let settings = {wake: '07:00', bed: '22:00', auto: true, level: 1, top: 1};
+    let lt = {on: true, started: Date.now(), tones: [], checks: []};
+    let round = null, lastRound = null, trial = null, last = null, phase = 'idle';
+    let rounds = [], calls = [], anchors = [], history = [];
+    const LEVELS = [{task: 'find'}], ROUND = 10, UP = 10, DOWN = 5, C6 = 1047;
+    const store = {set() {}}, reduceMotion = {matches: true};
+    const input = {value: ''}, SINE = {id: 'sine'}, CHOICE_TASKS = [];
+    const $ = () => ({focus() {}});
+    const saveLT = () => calls.push('save');
+    const ltSchedule = () => calls.push('schedule');
+    const ltOfferOnce = () => calls.push('offer');
+    const stopAll = () => calls.push('stop');
+    const go = name => calls.push(name);
+    const sfx = () => {}, saveSettings = () => {}, isFindC6 = () => true;
+    const practiceLv = () => 1;
+    const ltLevel = f => ({task: 'find', narrow: true, choices: [f]});
+    const startRound = (echo, extra) => { calls.push(extra); };
+    const quitRound = () => { throw new Error('Unexpected quit'); };
+    const render = () => calls.push('render');
+    const showError = () => {};
+    const levelOf = () => round.L;
+    const voiceRange = () => [100, 2000];
+    const makeStops = () => ({n: 5, ti: 2});
+    const newRove = () => 0;
+    const startAdj = () => calls.push('adjust');
+    const trainItf = () => null;
+    const showTip = () => {};
+    const playPreview = () => calls.push('preview');
+    const roundLen = () => round.lt ? 2 : round.practice ? 1 : ROUND;
+    const finishEcho = () => calls.push('echo');
+    ${section('const MIN =', 'const LT_NOTE =')}
+    ${section('const practiceTone =', 'const fmtSpan =')}
+    ${section('function ltBegin()', 'function ltOffer()')}
+    ${section('function nextCardSide()', 'function parseNote(')}
+    ${section('function startCheck(', 'function remindAt(')}
+    ${section('function nextQuestion()', 'const playPreview =')}
+    ${section('function finishRound()', '/* ---------- Echo:')}
+    ${section('const advance =', "$('nextBtn').addEventListener")}
+    globalThis.api = {
+      blockTone, blkNext, day1Slots, nextCardSide, nextQuestion, startCheck, ltBegin,
+      finishCheck, advance, ltSteps, nextTone, dueTone,
+      get state() { return {lt, settings, round, lastRound, trial, last, phase, calls, rounds}; },
+      setCheck(t, ok, cardOK = true) {
+        lt.tones = [t];
+        round = {lt: t.f, items: [
+          {task: 'card', side: 'hz', typed: '1047', ok: Number(cardOK)},
+          {task: 'find', f: t.f, g: ok ? t.f : t.f * 2, cents: ok ? 0 : 1200, ok: Number(ok)}
+        ]};
+      },
+      setPractice(t, ok) {
+        lt.tones = [t];
+        round = {id: Date.now(), lv: 1, practice: true, practiceTone: t.f,
+          L: ltLevel(t.f), items: [{task: 'find', ok: Number(ok)}]};
+        last = round.items[0]; trial = {task: 'find'}; phase = 'revealed';
+      },
+      setRound(r) { round = r; },
+      setSettings(s) { Object.assign(settings, s); },
+      loadLT(s) { lt = JSON.parse(s); },
+      migrate() { ${section('lt.tones.forEach(t => {', 'if (lt.on && !lt.tones.length)')} }
+    };
+  `, context);
+  return {api: context.api, time(t) { now = t; }};
+}
+
+const offsets = [0, 2, 4, 6, 8, 10, 12.5, 15, 17.5, 20, 20 + 1 / 3 * 10, 27,
+  30, 30 + 1 / 3 * 10, 37, 40, 45, 50, 55, 60, 70, 80, 90, 105, 120, 135,
+  150, 165, 180, 210, 240, 270, 300, 360, 420, 480, 540, 600, 660, 720, 780, 840];
+const plain = value => JSON.parse(JSON.stringify(value));
+
+test('the app JavaScript parses', () => { new vm.Script(script); });
+
+test('Day 1 matches every requested time and continues hourly until bedtime', () => {
+  const {api} = app();
+  const t = api.blockTone(1047, morning);
+  assert.equal(t.due, morning);
+  assert.deepEqual(plain(t.blk.slots), offsets.map(m => morning + Math.round(m * MIN)));
+  for (let i = 0; i < offsets.length - 1; i++) {
+    assert.equal(api.blkNext(t, t.blk.slots[t.blk.k], true), morning + Math.round(offsets[i + 1] * MIN));
+  }
+  assert.equal(api.blkNext(t, t.blk.slots[t.blk.k], true), morning + DAY + 15 * MIN);
+});
+
+test('finishing the immediate check 20 seconds later preserves the 2-minute slot', () => {
+  const {api} = app();
+  const t = api.blockTone(1047, morning);
+  assert.equal(api.blkNext(t, morning + 20_000, true), morning + 2 * MIN);
+});
+
+test('each Day 1 miss drops exactly one level and repeats its full run', async t => {
+  const cases = [
+    [10, 2, [0, 2, 4, 6, 8, 10]],
+    [20, 2.5, [0, 2.5, 5, 7.5, 10]],
+    [40, 10 / 3, [0, 10 / 3, 7, 10, 10 + 10 / 3, 17, 20]],
+    [60, 5, [0, 5, 10, 15, 20]],
+    [90, 10, [0, 10, 20, 30]],
+    [210, 15, [0, 15, 30, 45, 60, 75, 90, 120]],
+    [360, 30, [0, 30, 60, 90, 150]]
+  ];
+  for (const [missAt, gap, retry] of cases) await t.test(`miss at ${missAt} min`, () => {
+    const {api} = app();
+    const tone = api.blockTone(1047, morning);
+    tone.blk.k = tone.blk.slots.indexOf(morning + missAt * MIN);
+    const first = morning + Math.round((missAt + gap) * MIN);
+    assert.equal(api.blkNext(tone, morning + missAt * MIN, false), first);
+    assert.deepEqual(plain(tone.blk.slots.slice(0, retry.length)), retry.map(m => first + Math.round(m * MIN)));
+  });
+});
+
+test('repeated misses at the lowest level restart the 2-minute run', () => {
+  const {api} = app();
+  const t = api.blockTone(1047, morning);
+  assert.equal(api.blkNext(t, morning, false), morning + 2 * MIN);
+  assert.equal(api.blkNext(t, morning + 2 * MIN, false), morning + 4 * MIN);
+  assert.equal(t.blk.k, 0);
+  assert.deepEqual(plain(t.blk.slots.slice(0, 5)), [4, 6, 8, 10, 12].map(m => morning + m * MIN));
+});
+
+test('an immediate resumed check after the last Day 1 slot can still drop a level', () => {
+  const {api} = app();
+  const t = api.blockTone(1047, morning);
+  t.blk.k = t.blk.slots.length - 1;
+  api.blkNext(t, morning + 840 * MIN, true); // leaves the next check for morning
+  assert.equal(t.blk.slots.length, 0);
+  assert.equal(api.blkNext(t, morning + 841 * MIN, false), morning + 871 * MIN);
+  assert.equal(t.blk.levels[0], 6);
+});
+
+test('late Day 1 hits merge elapsed slots without shifting the schedule', () => {
+  const {api} = app();
+  const t = api.blockTone(1047, morning);
+  assert.equal(api.blkNext(t, morning + 18 * MIN, true), morning + 20 * MIN);
+  assert.equal(api.blkNext(t, morning + 23 * MIN, true), morning + 23 * MIN + 20_000);
+});
+
+test('a late Day 1 miss drops from the scheduled level', () => {
+  const {api} = app();
+  const t = api.blockTone(1047, morning);
+  t.blk.k = t.blk.slots.indexOf(morning + 10 * MIN);
+  assert.equal(api.blkNext(t, morning + 35 * MIN, false), morning + 37 * MIN);
+  assert.equal(t.blk.levels[0], 0);
+});
+
+test('starts near bedtime and at night still get an immediate first check', () => {
+  for (const hour of [21, 23]) {
+    const start = new Date(2026, 9, 10, hour, 59).getTime();
+    const {api} = app(start);
+    const t = api.blockTone(1047, start);
+    assert.equal(t.due, start);
+    const next = api.blkNext(t, start + 20_000, true);
+    assert.equal(next, morning + DAY + 15 * MIN);
+    const day2 = api.blkNext(t, next, true);
+    assert.equal(t.blk.day, 2);
+    assert.ok(day2 >= next + 10 * MIN);
+    assert.equal(t.blk.levels, undefined);
+  }
+});
+
+test('the fixed block hands off after 36 hours, without lateness credit at the handoff', () => {
+  const {api, time} = app();
+  const t = api.blockTone(1047, morning);
+  time(morning + 36 * HOUR);
+  api.setCheck(t, true);
+  api.finishCheck();
+  assert.equal(t.blk, undefined);
+  assert.equal(t.wait, DAY);
+});
+
+test('late adaptive check-ins use half credit on hits and misses in every arm', () => {
+  for (const arm of [null, 'A', 'B', 'C', 'D', 'E', 'F']) {
+    for (const gapDays of [0.5, 1, 4, 13, 1000]) {
+      for (const ok of [true, false]) {
+        const {api} = app(morning + gapDays * DAY);
+        if (arm) api.setSettings({study: true, arm});
+        const t = {f: 1047, wait: DAY, last: morning, due: morning + DAY};
+        api.setCheck(t, ok);
+        api.finishCheck();
+        const {up, down} = api.ltSteps();
+        const base = Math.sqrt(Math.max(1, gapDays)) * DAY;
+        const expected = ok ? base * up : Math.max(2 * MIN, Math.min(DAY, base / down));
+        assert.ok(Math.abs(t.wait - expected) < 0.001, `${arm} / ${gapDays} days / ${ok}`);
+        assert.equal(api.state.lt.checks[0].gap, gapDays * DAY);
+        assert.equal(api.state.lt.checks[0].due, morning + DAY);
+        if (!ok) assert.ok(t.wait <= DAY);
+      }
+    }
+  }
+});
+
+test('an early probe does not shorten the tested interval and remains recorded', () => {
+  const {api} = app(morning + 2 * DAY);
+  const t = {f: 1047, wait: 4 * DAY, last: morning, due: morning + 2 * DAY, probe: 14};
+  api.setCheck(t, true);
+  api.finishCheck();
+  assert.equal(t.wait, 6 * DAY);
+  assert.equal(api.state.lt.checks[0].probe, 14);
+  assert.deepEqual(plain(t.probed), [14]);
+});
+
+test('the actual gap is measured from when an added tone joined', () => {
+  const {api} = app(morning + 5 * DAY);
+  const t = {f: 1047, start: morning + 4 * DAY, wait: DAY, due: morning + 5 * DAY};
+  api.setCheck(t, true);
+  api.finishCheck();
+  assert.equal(api.state.lt.checks[0].gap, DAY);
+  assert.equal(t.wait, 1.5 * DAY);
+});
+
+test('flashcards alternate and their next direction survives reload', () => {
+  const {api} = app();
+  assert.equal(api.nextCardSide(), 'hz');
+  assert.equal(api.nextCardSide(), 'note');
+  const loaded = app().api;
+  loaded.loadLT(JSON.stringify(api.state.lt));
+  assert.equal(loaded.nextCardSide(), 'hz');
+  assert.equal(loaded.nextCardSide(), 'note');
+});
+
+test('starting and resuming training makes the first check due immediately', () => {
+  const {api} = app();
+  api.ltBegin();
+  assert.equal(api.dueTone().due, morning);
+  api.state.lt.on = false;
+  api.state.lt.tones[0].due = morning + DAY;
+  api.ltBegin();
+  assert.equal(api.dueTone().due, morning);
+});
+
+test('a missed card requires card practice while only Find changes the schedule', () => {
+  const {api} = app();
+  const t = api.blockTone(1047, morning);
+  api.setCheck(t, true, false);
+  api.finishCheck();
+  assert.equal(t.due, morning + 2 * MIN);
+  assert.deepEqual(plain(t.practice), ['hz']);
+  api.startCheck();
+  assert.equal(api.state.calls.at(-1).practiceCard, 'hz');
+  assert.equal(api.state.calls.at(-1).practiceTone, 1047);
+});
+
+test('both missed questions require one successful correction each', () => {
+  const {api} = app();
+  const t = api.blockTone(1047, morning);
+  api.setCheck(t, false, false);
+  api.finishCheck();
+  assert.deepEqual(plain(t.practice), ['hz', 'find']);
+  const due = t.due;
+  api.setPractice(t, true);
+  api.advance();
+  assert.deepEqual(plain(t.practice), ['find']);
+  assert.equal(api.state.calls.at(-1).practiceCard, null);
+  api.setPractice(t, true);
+  api.advance();
+  assert.equal(t.practice, undefined);
+  assert.equal(api.state.calls.at(-1), 'lt');
+  assert.equal(t.due, due);
+  assert.equal(api.state.settings.level, 1);
+});
+
+test('practice repeats after a miss and stops after one success', () => {
+  const {api} = app();
+  const t = {f: 1047, due: morning + DAY, wait: DAY, practice: ['find']};
+  api.setPractice(t, false);
+  api.advance();
+  assert.equal(api.state.trial.task, 'preview');
+  assert.deepEqual(plain(t.practice), ['find']);
+  api.setPractice(t, true);
+  api.advance();
+  assert.equal(t.practice, undefined);
+  assert.equal(api.state.calls.at(-1), 'lt');
+  assert.equal(t.wait, DAY);
+  assert.equal(t.due, morning + DAY);
+});
+
+test('unfinished practice survives reload and gates the next long-term check', () => {
+  const {api} = app();
+  const t = {f: 1047, due: morning + DAY, practice: ['note']};
+  api.setPractice(t, false);
+  const loaded = app().api;
+  loaded.loadLT(JSON.stringify(api.state.lt));
+  assert.equal(loaded.dueTone().f, 1047);
+  loaded.startCheck(523);
+  assert.equal(loaded.state.calls.at(-1).practiceTone, 1047);
+  assert.equal(loaded.state.calls.at(-1).practiceCard, 'note');
+});
+
+test('existing Day 1 data migrates without replaying completed checks', () => {
+  const {api} = app();
+  const t = {f: 1047, due: morning + 9 * MIN, last: morning + 5 * MIN,
+    blk: {day: 1, at: morning, end: morning + 15 * HOUR, slots: [], k: 0, x: 0}};
+  api.state.lt.tones.push(t);
+  api.migrate();
+  assert.equal(t.due, morning + 10 * MIN);
+  assert.equal(t.blk.levels[t.blk.k], 1);
+});
