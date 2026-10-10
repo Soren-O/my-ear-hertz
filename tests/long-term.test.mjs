@@ -592,23 +592,38 @@ test('each new note gets the initial Re-tune even when another note has complete
   assert.deepEqual(plain(tone.practice), ['find']);
 });
 
-test('later correct check-ins require no Re-tune and later misses still need one correction', () => {
+test('later check-ins require two consecutive pitch successes, counting a correct initial tune', () => {
   for (const ok of [true, false]) {
     const {api} = app(morning + DAY);
     const tone = {f: 1047, wait: DAY, last: morning, due: morning + DAY};
+    api.state.lt.checks.push({f: tone.f, t: morning, ok: 1});
     beginCheck(api, tone);
     submit(api, true, morning + DAY);
     api.advance();
     submit(api, ok, morning + DAY);
+    assert.equal(tone.retune.streak, ok ? 1 : 0);
+    assert.deepEqual(plain(tone.practice), ['find']);
+    const due = tone.due, wait = tone.wait;
     api.advance();
-    assert.equal(tone.retune, undefined);
-    if (ok) assert.equal(tone.practice, undefined);
-    else {
-      beginPractice(api, tone);
-      assert.equal(api.roundLen(), 1);
+    assert.equal(api.roundLen(), 3);
+    assert.equal(api.state.calls.includes('summary'), false);
+    if (!ok) {
       submit(api, true, morning + DAY + 10_000);
-      assert.equal(tone.practice, undefined);
+      assert.equal(tone.retune.streak, 1);
+      assert.deepEqual(plain(tone.practice), ['find']);
+      assert.equal(api.nextButtonLabel(), 'Re-tune');
+      api.advance();
     }
+    assert.match(api.howto(), /^Re-tune:/);
+    submit(api, true, morning + DAY + 20_000);
+    assert.equal(tone.retune, undefined);
+    assert.equal(tone.practice, undefined);
+    assert.equal(api.nextButtonLabel(), 'Results');
+    api.advance();
+    assert.equal(api.state.round, null);
+    assert.equal(tone.wait, wait);
+    assert.equal(tone.due, due);
+    assert.equal(api.state.lt.checks.length, 2); // one previous check, one new check; no warm interval updates
   }
 });
 
@@ -692,31 +707,39 @@ test('a missed flashcard is corrected in the same flow before Re-tune without an
   assert.equal(tone.practice, undefined);
 });
 
-test('reloading after the first correct tune restores the third step and ends at the original check Results', () => {
-  const {api, persisted} = app(), tone = api.blockTone(1047, morning);
+test('reloading an existing note after a correct tune restores the third step and original check Results', () => {
+  const {api, persisted} = app(morning + DAY), tone = {f: 1047, wait: DAY, last: morning, due: morning + DAY};
+  api.state.lt.checks.push({f: tone.f, t: morning, ok: 1});
   beginCheck(api, tone);
-  submit(api, true, morning);
+  submit(api, true, morning + DAY);
   api.advance();
-  submit(api, true, morning);
+  submit(api, true, morning + DAY);
   api.quitRound();
-  const loaded = app(morning + 10_000, persisted).api, restored = loaded.state.lt.tones[0];
+  const loaded = app(morning + DAY + 10_000, persisted).api, restored = loaded.state.lt.tones[0];
   beginPractice(loaded, restored);
   assert.deepEqual(plain(loaded.roundProgress()), {n: 3, k: 3, marks: ['y', 'y', 'cur']});
-  submit(loaded, true, morning + 20_000);
+  submit(loaded, true, morning + DAY + 20_000);
   assert.equal(loaded.nextButtonLabel(), 'Results');
   loaded.advance();
-  assert.equal(loaded.state.lastRound.lt.t, morning);
-  assert.equal(loaded.state.lt.checks.length, 1);
+  assert.equal(loaded.state.lastRound.lt.t, morning + DAY);
+  assert.equal(loaded.state.lt.checks.length, 2);
 });
 
-test('later check-ins retain the two-step progress bar and Results button', () => {
+test('an existing C6 check-in shows 2/3 at Tune and 3/3 at Re-tune', () => {
   const {api} = app(morning + DAY), tone = {f: 1047, wait: DAY, last: morning, due: morning + DAY};
+  api.state.lt.checks.push({f: tone.f, t: morning, ok: 1});
   beginCheck(api, tone);
-  assert.equal(api.roundProgress().n, 2);
+  assert.deepEqual(plain(api.roundProgress()), {n: 3, k: 1, marks: ['cur', '', '']});
   submit(api, true, morning + DAY);
   api.advance();
+  assert.deepEqual(plain(api.roundProgress()), {n: 3, k: 2, marks: ['y', 'cur', '']});
   submit(api, true, morning + DAY);
-  assert.deepEqual(plain(api.roundProgress()), {n: 2, k: 2, marks: ['y', 'y']});
+  assert.deepEqual(plain(api.roundProgress()), {n: 3, k: 2, marks: ['y', 'y', '']});
+  assert.equal(api.nextButtonLabel(), 'Re-tune');
+  api.advance();
+  assert.deepEqual(plain(api.roundProgress()), {n: 3, k: 3, marks: ['y', 'y', 'cur']});
+  submit(api, true, morning + DAY + 10_000);
+  assert.deepEqual(plain(api.roundProgress()), {n: 3, k: 3, marks: ['y', 'y', 'y']});
   assert.equal(api.nextButtonLabel(), 'Results');
   api.advance();
   assert.equal(api.state.round, null);
