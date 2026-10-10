@@ -40,7 +40,7 @@ function app(at = morning, persisted = {}) {
     const render = () => calls.push('render');
     const showError = () => {};
     const COLD_GAP = 600000, modeOf = r => r.m === 'match' ? 'match' : 'pick';
-    const noteAnchor = () => {}, startCompare = () => {}, confetti = () => {};
+    const noteAnchor = () => {}, hearOne = () => {}, confetti = () => {};
     const closeLTSheet = () => calls.push('closeSheet');
     const levelOf = () => round.L;
     const voiceRange = () => [100, 2000];

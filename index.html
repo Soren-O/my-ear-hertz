@@ -985,7 +985,7 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
-      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After a miss, or after any typed or tuned answer, your tone and the right one take turns every two and a half seconds until you go on. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
+      <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After each pitch answer, the correct tone plays once. Use Actual to replay the target or My guess to hear your answer. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
       <p>A perfect 10 of 10 moves you up a step; 6 or fewer moves you back one.</p>
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
@@ -1282,7 +1282,7 @@ function ampFor(f, roveDb){
 }
 
 /* ---------- audio ---------- */
-let ctx = null, out = null, voices = [], timers = [], audioState = 'idle', noiseBuf = null, cmp = null, sfxBuf = null;
+let ctx = null, out = null, voices = [], timers = [], audioState = 'idle', noiseBuf = null, sfxBuf = null;
 let adjIdle = null, pulseTimer = null, sineTone = null;   // Find: the rest after a quiet spell, the next note, a sine's tone
 // Browsers, Safari above all (iPhone and Mac), can leave the audio engine silent after an interruption:
 // the screen locking, switching apps, a call or notification, the Mac sleeping, AirPods hopping between
@@ -1538,31 +1538,11 @@ function sfx(kind){
   src.start(t, Math.random() * 0.5); src.stop(t + S.dur + 0.05);
 }
 
-/* ---------- compare: after an answer, your tone and the right one, back and forth every 2.5 s ----------
-   After Find and typed answers (unless exactly right); after naming only when the answer was wrong. Whichever is playing lights up: its number
-   in the orb, its listen button, and its key, pressed down. It runs until you move on, or for 30 seconds. */
-const CMP_EVERY = 2.5, CMP_NOTES = 4;                                   // a new tone every 2.5 s, two turns each (four notes), then it stops
+/* ---------- answer playback: the correct tone once, with either tone available on its listen button ----------
+   Whichever is playing lights up: its number in the orb, its listen button, and its key, pressed down.
+   Moving on or playing another tone stops the feedback. */
 const CMP_BOXES = ['choices', 'piano', 'roll'];
-function startCompare(g, f){
-  if (!audio()) return;
-  stopAll();
-  const c = cmp = {g: clamp(g, 20, 20000), f, i: 0, t0: Date.now()};
-  CMP_BOXES.forEach(id => $(id).classList.add('cmp'));
-  const step = () => {
-    if (cmp !== c) return;
-    if (c.i >= CMP_NOTES) { endCompare(); setAudio('idle'); return; }   // Target and My guess still play one each
-    const which = c.i++ % 2 ? 'true' : 'you', freq = which === 'you' ? c.g : c.f;
-    const len = voiceNote(freq, ctx.currentTime + 0.02, {dur: CMP_EVERY - 0.1});   // each tone fades out just before the next
-    noteAnchor(freq);
-    showCompare(which);
-    timers.push(setTimeout(() => { if (cmp === c) showCompare(null); }, Math.min(len, CMP_EVERY - 0.1) * 1000));
-    timers.push(setTimeout(step, CMP_EVERY * 1000));
-  };
-  setAudio('tone');
-  timers.push(setTimeout(step, 350));                             // after the answer's sound effect
-}
 function endCompare(){
-  cmp = null;
   showCompare(null);
   CMP_BOXES.forEach(id => $(id).classList.remove('cmp'));
 }
@@ -1902,8 +1882,7 @@ function record(rec){
   input.blur();
   render();
   sfx(rec.ok ? 'pop' : 'thud');
-  const numeric = rec.task === 'find' || rec.task === 'type';             // tuned or typed: always, unless it was spot on; named: after a miss
-  if (rec.task !== 'card' && (numeric ? rec.g !== rec.f : !rec.ok)) startCompare(rec.g, rec.f);   // a card stays silent
+  if (rec.task !== 'card') hearOne('true');                              // play the correct tone once after every pitch answer; cards stay silent
   const orb = $('playBtn');                                              // pop for right, shake for wrong
   orb.classList.remove('pop', 'shake'); void orb.offsetWidth;
   if (!reduceMotion.matches) orb.classList.add(rec.ok ? 'pop' : 'shake');
@@ -2711,11 +2690,12 @@ const advance = () => {
   round.items.length >= roundLen() ? (round.echo ? finishEcho() : round.lt ? finishCheck() : finishRound()) : nextQuestion();
 };
 $('nextBtn').addEventListener('click', advance);
-function hearOne(which){                           // a tap on Actual or My guess plays just that one, and stops the back and forth
+function hearOne(which){                           // the answer's target, or a tap on Actual / My guess: play only that tone
   if (!last) return;
   play(which === 'you' ? clamp(last.g, 20, 20000) : last.f, {dur: 2, rove: false, labeled: true, voice: true});
+  CMP_BOXES.forEach(id => $(id).classList.add('cmp'));
   showCompare(which);
-  timers.push(setTimeout(() => showCompare(null), 2000));
+  timers.push(setTimeout(endCompare, 2000));
 }
 $('hearTrue').addEventListener('click', () => hearOne('true'));
 $('hearGuess').addEventListener('click', () => hearOne('you'));
