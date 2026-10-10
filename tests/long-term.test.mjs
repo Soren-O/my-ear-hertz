@@ -23,7 +23,7 @@ function app(at = morning, persisted = {}) {
     let lt = persisted['hbe3.lt'] ? JSON.parse(persisted['hbe3.lt']) : {on: true, started: Date.now(), tones: [], checks: []};
     let round = null, lastRound = null, trial = null, last = null, phase = 'idle';
     let rounds = [], calls = [], anchors = [], history = [];
-    const LEVELS = [{task: 'find'}], ROUND = 10, UP = 10, DOWN = 5, C6 = 1047;
+    const LEVELS = [{task: 'find'}], ROUND = 10, UP = 10, DOWN = 5, C6 = 1047, ECHO_N = 5;
     const store = {set(k, v) { persisted[k] = JSON.stringify(v); }}, reduceMotion = {matches: true};
     const input = {value: '', blur() {}}, SINE = {id: 'sine'}, CHOICE_TASKS = [];
     const elements = new Map();
@@ -47,10 +47,10 @@ function app(at = morning, persisted = {}) {
     const makeStops = () => ({n: 5, ti: 2});
     const newRove = () => 0;
     const startAdj = () => calls.push('adjust');
-    const trainItf = () => null;
+    const trainItf = () => null, itfKey = () => null;
     const showTip = () => {};
     const playPreview = () => calls.push('preview');
-    const roundLen = () => round.lt ? 2 : round.practice ? 1 : ROUND;
+    ${section('const roundLen =', 'const echoPts =')}
     const finishEcho = () => calls.push('echo');
     ${section('const MIN =', 'const LT_NOTE =')}
     ${section('const saveLT =', 'const isFindC6 =')}
@@ -64,10 +64,11 @@ function app(at = morning, persisted = {}) {
     ${section('function finishRound()', '/* ---------- Echo:')}
     ${section('async function startLongTerm()', "$('ltStart').addEventListener")}
     ${section('function renderLTReminders()', 'function ltNoteState(')}
+    ${section('function howto()', 'function updateHowto()')}
     ${section('const advance =', "$('nextBtn').addEventListener")}
     globalThis.api = {
       blockTone, blkNext, day1Slots, nextCardSide, nextQuestion, startCheck, ltBegin,
-      finishCheck, advance, ltSteps, nextTone, dueTone, record, quitRound, startLongTerm, renderLTReminders,
+      finishCheck, advance, ltSteps, nextTone, dueTone, record, quitRound, startLongTerm, renderLTReminders, ltPracticeLabel, howto, roundLen,
       get state() { return {lt, settings, round, lastRound, trial, last, phase, calls, rounds}; },
       setCheck(t, ok, cardOK = true) {
         lt.tones = [t];
@@ -81,6 +82,7 @@ function app(at = morning, persisted = {}) {
         lt.tones = [t];
         round = {id: Date.now(), lv: 1, practice: true, practiceTone: t.f,
           practiceCard: t.practice[0] === 'find' ? null : t.practice[0],
+          practiceGoal: t.practice[0] === 'find' && t.retune ? 2 : 1, practiceStreak: t.retune?.streak || 0,
           L: ltLevel(t.f), items: [{task: t.practice[0] === 'find' ? 'find' : 'card', ok: Number(ok)}]};
         last = round.items[0]; trial = {task: round.items[0].task}; phase = 'revealed';
       },
@@ -107,6 +109,13 @@ function submit(api, ok, at) {
   const q = api.state.trial;
   api.record({task: q.task, side: q.side, f: q.f, g: ok ? q.f : q.f * 2,
     typed: String(ok ? q.f : q.f * 2), cents: ok ? 0 : 1200, ok: Number(ok), t: at});
+}
+function beginPractice(api, tone) {
+  api.startCheck(tone.f);
+  const opts = api.state.calls.at(-1);
+  api.setRound({id: morning, items: [], ...opts});
+  api.nextQuestion();
+  if (api.state.trial.task === 'preview') api.advance();
 }
 
 test('the app JavaScript parses', () => { new vm.Script(script); });
@@ -267,19 +276,20 @@ test('starting and resuming training makes the first check due immediately', () 
   assert.equal(api.dueTone().due, morning);
 });
 
-test('a missed card requires card practice while only Find changes the schedule', () => {
+test('a missed card requires card practice before the initial pitch re-tune', () => {
   const {api} = app();
   const t = api.blockTone(1047, morning);
   api.setCheck(t, true, false);
   api.finishCheck();
   assert.equal(t.due, morning + 2 * MIN);
-  assert.deepEqual(plain(t.practice), ['hz']);
+  assert.deepEqual(plain(t.practice), ['hz', 'find']);
+  assert.equal(t.retune.streak, 1);
   api.startCheck();
   assert.equal(api.state.calls.at(-1).practiceCard, 'hz');
   assert.equal(api.state.calls.at(-1).practiceTone, 1047);
 });
 
-test('both missed questions require one successful correction each', () => {
+test('both missed questions on the first check require one card correction and two consecutive pitch successes', () => {
   const {api} = app();
   const t = api.blockTone(1047, morning);
   api.setCheck(t, false, false);
@@ -290,6 +300,10 @@ test('both missed questions require one successful correction each', () => {
   api.advance();
   assert.deepEqual(plain(t.practice), ['find']);
   assert.equal(api.state.calls.at(-1).practiceCard, null);
+  api.setPractice(t, true);
+  api.advance();
+  assert.deepEqual(plain(t.practice), ['find']);
+  assert.equal(t.retune.streak, 1);
   api.setPractice(t, true);
   api.advance();
   assert.equal(t.practice, undefined);
@@ -374,7 +388,8 @@ test('a missed flashcard survives quitting, requires practice, and resumes its F
   assert.equal(loaded.state.trial.task, 'find');
   assert.equal(loaded.state.lt.cardSide, nextSide);
   submit(loaded, true, morning);
-  assert.equal(restored.practice, undefined); // the corrected card must not be required again
+  assert.deepEqual(plain(restored.practice), ['find']); // the corrected card must not be required again
+  assert.equal(restored.retune.streak, 1);
   assert.equal(restored.card, undefined);
   assert.equal(loaded.state.lt.checks[0].card.ok, 0);
 });
@@ -477,4 +492,120 @@ test('denied native notification permission keeps training stopped with a useful
   assert.equal(api.state.lt.on, false);
   assert.equal(api.element('ltMsg').hidden, false);
   assert.match(api.element('ltMsg').textContent, /Notifications are off/);
+});
+
+test('a correct first check counts as the first success and needs just one Re-tune', () => {
+  const {api} = app();
+  const tone = api.blockTone(1047, morning);
+  beginCheck(api, tone);
+  submit(api, true, morning);
+  api.advance();
+  submit(api, true, morning);
+  assert.deepEqual(plain(tone.practice), ['find']);
+  assert.equal(tone.retune.streak, 1);
+  const due = tone.due, wait = tone.wait;
+  api.advance();
+  assert.equal(tone.retune.streak, 1); // opening Results cannot add another success
+  assert.equal(api.ltPracticeLabel(tone), 'Re-tune');
+  beginPractice(api, tone);
+  assert.equal(api.roundLen(), 2);
+  assert.equal(api.state.round.practiceStreak, 1);
+  assert.match(api.howto(), /^Re-tune:/);
+  submit(api, true, morning + 30_000);
+  assert.equal(tone.practice, undefined);
+  assert.equal(tone.retune, undefined);
+  api.advance();
+  assert.equal(api.state.round, null);
+  assert.equal(tone.due, due);
+  assert.equal(tone.wait, wait);
+  assert.equal(api.state.lt.checks.length, 1); // re-tunes are practice, not interval updates
+});
+
+test('a failed first check needs two consecutive successes and a failed Re-tune resets the streak', () => {
+  const {api} = app();
+  const tone = api.blockTone(1047, morning);
+  beginCheck(api, tone);
+  submit(api, true, morning);
+  api.advance();
+  submit(api, false, morning);
+  api.advance();
+  const due = tone.due;
+  beginPractice(api, tone);
+  assert.match(api.howto(), /^Practice: get two/);
+  submit(api, true, morning + 10_000);
+  assert.equal(tone.retune.streak, 1);
+  assert.equal(api.state.round.practiceSaved, undefined);
+  api.advance();
+  assert.equal(tone.retune.streak, 1); // advancing the same answer cannot count it twice
+  assert.match(api.howto(), /^Re-tune:/);
+  submit(api, false, morning + 20_000);
+  assert.equal(tone.retune.streak, 0);
+  api.advance();
+  assert.match(api.howto(), /^Practice: get two/);
+  submit(api, true, morning + 30_000);
+  api.advance();
+  assert.match(api.howto(), /^Re-tune:/);
+  submit(api, true, morning + 40_000);
+  assert.equal(tone.practice, undefined);
+  assert.equal(tone.retune, undefined);
+  api.advance();
+  assert.equal(api.state.round, null);
+  assert.equal(tone.due, due);
+  assert.equal(api.state.lt.checks.length, 1);
+});
+
+test('an unfinished Re-tune and a reset streak both survive quitting and reload', () => {
+  const {api, persisted} = app();
+  const tone = api.blockTone(1047, morning);
+  beginCheck(api, tone);
+  submit(api, true, morning);
+  api.advance();
+  submit(api, false, morning);
+  api.advance();
+  beginPractice(api, tone);
+  submit(api, true, morning + 10_000);
+  api.quitRound();
+  const loaded = app(morning + 10_000, persisted).api, restored = loaded.state.lt.tones[0];
+  assert.equal(restored.retune.streak, 1);
+  assert.equal(loaded.ltPracticeLabel(restored), 'Re-tune');
+  beginPractice(loaded, restored);
+  assert.match(loaded.howto(), /^Re-tune:/);
+  submit(loaded, false, morning + 20_000);
+  loaded.quitRound();
+  const reset = app(morning + 20_000, persisted).api;
+  assert.equal(reset.state.lt.tones[0].retune.streak, 0);
+  assert.equal(reset.ltPracticeLabel(reset.state.lt.tones[0]), 'Practice');
+  assert.deepEqual(plain(reset.state.lt.tones[0].practice), ['find']);
+});
+
+test('each new note gets the initial Re-tune even when another note has completed checks', () => {
+  const {api} = app();
+  api.state.lt.checks.push({f: 1047, t: morning, ok: 1});
+  const tone = api.blockTone(523, morning);
+  beginCheck(api, tone);
+  submit(api, true, morning);
+  api.advance();
+  submit(api, true, morning);
+  assert.equal(tone.retune.streak, 1);
+  assert.deepEqual(plain(tone.practice), ['find']);
+});
+
+test('later correct check-ins require no Re-tune and later misses still need one correction', () => {
+  for (const ok of [true, false]) {
+    const {api} = app(morning + DAY);
+    const tone = {f: 1047, wait: DAY, last: morning, due: morning + DAY};
+    beginCheck(api, tone);
+    submit(api, true, morning + DAY);
+    api.advance();
+    submit(api, ok, morning + DAY);
+    api.advance();
+    assert.equal(tone.retune, undefined);
+    if (ok) assert.equal(tone.practice, undefined);
+    else {
+      beginPractice(api, tone);
+      assert.equal(api.roundLen(), 1);
+      submit(api, true, morning + DAY + 10_000);
+      assert.equal(tone.practice, undefined);
+    }
+  }
 });

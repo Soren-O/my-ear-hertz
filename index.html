@@ -1073,7 +1073,7 @@ img{max-width:100%}
       <div class="lt-copy">
         <p>You just found C6 ten times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
         <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
-        <p>So we&rsquo;ll check on C6 right away, then at gradually longer intervals, from minutes to hours to days to weeks. Miss one, and you&rsquo;ll practise until you get it right, with the next check coming sooner.</p>
+        <p>So we&rsquo;ll check on C6 right away, then at gradually longer intervals, from minutes to hours to days to weeks. On a note&rsquo;s first check, get two correct pitch answers in a row: after the first success, re-tune once more. Miss a later check, and you&rsquo;ll practise until you get it right, with the next check coming sooner.</p>
         <p id="ltReminderNote"></p>
         <p class="heads-up">Day one is busy: checks every 2 minutes at first, gradually spreading to once an hour until bedtime. A missed pitch check drops you one interval level and restarts that level. Best started in the morning. After two or three days it gets much quieter.</p>
       </div>
@@ -1822,7 +1822,7 @@ let phase = 'idle', trial = null, last = null;
 const input = $('guessInput');
 const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'interfere' && (!trial.echo || trial.heard);
 
-function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a long-term check, {lv, practice: true, L} for the practice after a miss
+function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a long-term check, {lv, practice: true, L} for long-term practice
   const lv = extra && extra.lv || settings.level;                        // L: a one-note level standing in for LEVELS[lv - 1]
   const V = roundVoice(echo ? ECHO_L : extra && extra.L || LEVELS[lv - 1]);
   const begin = v => {
@@ -1840,6 +1840,7 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
   });
 }
 function nextQuestion(){
+  if (round.practiceTone && !round.practiceCard) round.retune = !!lt.tones.find(t => t.f === round.practiceTone)?.retune?.streak;
   const L = levelOf();
   const task = L.task === 'mixed' ? (Math.random() < 0.5 ? 'type' : 'find') : L.task;
   const target = round.echo ? round.echo.tones[round.items.length] : L.choices ? L.choices[Math.floor(Math.random() * L.choices.length)] : Math.round(logUniform());
@@ -1895,7 +1896,7 @@ function record(rec){
   }
   round.items.push(rec);
   if (round.lt) saveCheckAnswer(rec);
-  else if (round.practiceTone && rec.ok) completeLTPractice();
+  else if (round.practiceTone) completeLTPractice();
   last = rec; phase = 'revealed';
   input.blur();
   render();
@@ -1968,7 +1969,7 @@ const ECHO_N = 5, ECHO_TONE = 2, ECHO_GAP = 0.6;
 const ECHO_L = {name: 'Echo', short: 'Echo', task: 'find', choices: null, wrap: 'both', tier: -1, div: DIVISIONS.length};
 let echoStats = Object.assign({best: null, days: {}, games: []}, store.get('hbe3.echo', {}) || {});
 const levelOf = () => round && round.echo ? ECHO_L : round && round.L ? round.L : LEVELS[(round ? round.lv : settings.level) - 1];
-const roundLen = () => !round ? ROUND : round.echo ? ECHO_N : round.lt ? 2 : round.practice ? 1 : ROUND;   // practice: repeat one question until a success
+const roundLen = () => !round ? ROUND : round.echo ? ECHO_N : round.lt ? 2 : round.practice ? round.practiceGoal || 1 : ROUND;
 const echoPts = cents => Math.max(0, Math.round((10 - Math.abs(cents) / 10) * 10) / 10);
 const centsTxt = c => `${c > 0.5 ? '+' : c < -0.5 ? '−' : '±'}${Math.abs(Math.round(c))}¢`;
 const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -2046,7 +2047,8 @@ function nextRound(){                      // the results screen's main button
    late checks in log time and a 2-minute minimum: a staircase that settles where 85% of checks hit. Tones likely fade faster than
    the words on ordinary flashcards (whose usual 2.5× is too coarse here), so the wait climbs more gently.
    Each check keeps the gap it tested and whether it hit, so the factor can be fitted from real data later. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
-   hours, and tapping one opens straight into the check. Either missed question requires correction practice until one success. The next tone
+   hours, and tapping one opens straight into the check. Each note's first Find needs two correct pitch answers in a row,
+   counting a correct initial check; the second is a re-tune. Later misses require correction practice until one success. The next tone
    (C5, then C7) is offered once every tone in training has reached a wait of a day (LT_READY) and its own Find step in
    the ladder is passed; the player chooses whether to add it. Checks stay out of training's history; they live in
    hbe3.lt. Only the app can remind: the website shows a due check while it is open. */
@@ -2242,15 +2244,24 @@ function nextCardSide(){
 }
 function startLTPractice(t){
   const task = t.practice[0];
-  startRound(undefined, {lv: practiceLv(t.f), practice: true, practiceTone: t.f, practiceCard: task === 'find' ? null : task, L: ltLevel(t.f)});
+  startRound(undefined, {lv: practiceLv(t.f), practice: true, practiceTone: t.f, practiceCard: task === 'find' ? null : task,
+    practiceGoal: task === 'find' && t.retune ? 2 : 1, practiceStreak: task === 'find' ? t.retune?.streak || 0 : 0, L: ltLevel(t.f)});
 }
+const ltPracticeLabel = t => t.practice?.[0] === 'find' && t.retune?.streak ? 'Re-tune' : 'Practice';
 function requireLTPractice(t, task){
   t.practice = [...new Set([...(t.practice || []), task])];
 }
-function completeLTPractice(){               // one success is saved at submission, even if the feedback is closed
-  if (round.practiceSaved || !round.items[round.items.length - 1]?.ok) return;
+function completeLTPractice(){               // save each answer once, including a miss resetting the initial streak
+  const rec = round.items[round.items.length - 1];
+  if (round.practiceSaved || !rec || round.practiceProcessed === round.items.length) return;
   const t = lt.tones.find(t => t.f === round.practiceTone), task = round.practiceCard || 'find';
   if (t?.practice?.[0] !== task) return;
+  round.practiceProcessed = round.items.length;
+  if (task === 'find' && t.retune) {
+    round.practiceStreak = t.retune.streak = rec.ok ? t.retune.streak + 1 : 0;
+    if (t.retune.streak < 2) { saveLT(); ltSchedule(); return; }
+    delete t.retune;
+  } else if (!rec.ok) return;
   t.practice.shift(); if (!t.practice.length) delete t.practice;
   round.practiceSaved = true;
   saveLT(); ltSchedule();
@@ -2297,6 +2308,7 @@ function commitCheck(){
   const t = lt.tones.find(x => x.f === round.lt);
   if (!t || !rec) return null;
   const now = rec.t ?? Date.now();            // the tested gap ends at the answer, not after viewing feedback
+  const first = t.last == null && !lt.checks.some(c => c.f === t.f);
   const ok = !!rec.ok;                                                 // the Find decides the schedule; the card is recorded beside it
   const gap = now - (t.last || t.start || lt.started || now);          // how long this tone had to be remembered
   const due = t.due, b0 = t.blk && {day: t.blk.day || 0, end: t.blk.end, x: t.blk.x};
@@ -2324,7 +2336,8 @@ function commitCheck(){
   if (probe) chk.probe = probe;
   if (ltArm()) chk.arm = ltArm().id;
   if (card) chk.card = {side: card.side, typed: card.typed, ok: card.ok};
-  if (!ok) requireLTPractice(t, 'find');
+  if (first) { t.retune = {streak: ok ? 1 : 0}; requireLTPractice(t, 'find'); }
+  else if (!ok) requireLTPractice(t, 'find');
   delete t.card;
   lt.checks.push(chk);
   if (lt.checks.length > 3000) lt.checks = lt.checks.slice(-3000);
@@ -2358,7 +2371,7 @@ async function ltSchedule(){                // the app keeps one pending reminde
     // Exact only once "Alarms & reminders" is allowed (the Exact timing row): asking for exact without it makes the
     // plugin open that settings page on every schedule.
     const exact = (await LN.checkExactNotificationSetting()).exact_alarm === 'granted';
-    await LN.schedule({notifications: [{id: LT_NOTE, title: 'My Ear Hertz', body: `${t.practice ? 'Practise' : 'Find'} ${noteName(t.f)}`, channelId: 'checks', smallIcon: 'ic_stat_check',
+    await LN.schedule({notifications: [{id: LT_NOTE, title: 'My Ear Hertz', body: `${t.practice ? ltPracticeLabel(t) : 'Find'} ${noteName(t.f)}`, channelId: 'checks', smallIcon: 'ic_stat_check',
       schedule: {at: new Date(at), allowWhileIdle: true}, isExactNotification: exact, extra: {lt: 1}}]});
   } catch (e) {}
 }
@@ -2395,7 +2408,7 @@ function renderLTList(){
   LT_NOTES.forEach(n => { (stages[n.stage] = stages[n.stage] || []).push(n); });
   $('ltList').innerHTML = stages.map((ns, si) => `<p class="label group-label">${DIVISIONS[si].name}</p><div class="list">${ns.map(n => {
     const {state, t} = ltNoteState(n.f), due = state === 'training' && (t.practice || t.due <= Date.now());
-    const sub = state === 'training' ? (t.practice ? 'Practise until correct' : due ? 'Check now' : 'Training') : state === 'offer' ? (lt.on ? 'Tap to add' : 'Tap to start') : levelTitle(n.lv);
+    const sub = state === 'training' ? (t.practice ? ltPracticeLabel(t) === 'Re-tune' ? 'Re-tune once more' : t.retune && t.practice[0] === 'find' ? 'Two correct pitches in a row' : 'Practise until correct' : due ? 'Check now' : 'Training') : state === 'offer' ? (lt.on ? 'Tap to add' : 'Tap to start') : levelTitle(n.lv);
     const right = state === 'training' && !t.practice ? `<span class="lt-count" data-due="${t.due}">${fmtCount(t.due - Date.now())}</span>` : '';
     return `<button class="row lt-note ${state}${due ? ' due' : ''}" type="button" data-f="${n.f}"${state === 'locked' ? ' aria-disabled="true"' : ''}><span class="lt-name">${noteName(n.f)}</span><span class="row-main"><small>${sub}</small></span>${right}</button>`;
   }).join('')}</div>`).join('');
@@ -2659,7 +2672,11 @@ $('piano').addEventListener('click', onKey);
 $('roll').addEventListener('click', onKey);
 const advance = () => {
   if (!round || phase !== 'revealed' && trial.task !== 'preview') return;
-  if (round.practice) return last && last.ok ? finishRound() : nextQuestion();
+  if (round.practice) {
+    if (round.practiceTone && last) completeLTPractice();
+    const done = round.practiceTone ? round.practiceSaved : last && last.ok;
+    return done ? finishRound() : nextQuestion();
+  }
   round.items.length >= roundLen() ? (round.echo ? finishEcho() : round.lt ? finishCheck() : finishRound()) : nextQuestion();
 };
 $('nextBtn').addEventListener('click', advance);
@@ -2827,7 +2844,7 @@ function howto(){                                               // one short lin
   if (trial.task === 'preview') return 'This round’s target. Listen, then start';
   if (round.practice) return trial.task === 'card'
     ? trial.side === 'hz' ? 'Practice: type this note’s frequency' : 'Practice: type this frequency’s note'
-    : 'Practice: find the target once to finish';
+    : round.retune ? 'Re-tune: find the target once more to finish' : round.practiceGoal === 2 ? 'Practice: get two correct pitch answers in a row' : 'Practice: find the target once to finish';
   if (trial.echo) return trial.heard ? 'Tune back to the tone you heard' : 'Listen';
   if (trial.task === 'card') return trial.side === 'hz' ? 'What frequency is this note?' : 'What note is this frequency?';
   const notes = trial.show ? trial.show === 'note' : noteOnly(levelOf(), trial.task);
@@ -2841,11 +2858,13 @@ function render(){
   updateHowto();
   const L = levelOf(), task = trial.task, find = task === 'find', card = task === 'card', preview = task === 'preview', n = roundLen();
   const notes = trial.show ? trial.show === 'note' : noteOnly(L, task), both = !trial.show && L.wrap === 'both';   // show: a check's target, as the card had it
-  const done = round.practice ? (phase === 'revealed' ? 1 : 0) : round.items.length, k = Math.min(n, done + (phase === 'revealed' ? 0 : 1));
+  const streak = round.practiceGoal === 2;
+  const done = round.practice ? streak ? round.practiceStreak || 0 : phase === 'revealed' ? 1 : 0 : round.items.length, k = Math.min(n, done + (phase === 'revealed' ? 0 : 1));
   $('trCount').textContent = `${k}/${n}`;
   $('dots').style.gridTemplateColumns = `repeat(${n},minmax(0,1fr))`;
   let dots = '';
   for (let i = 0; i < n; i++) {
+    if (streak) { dots += `<i class="${i < done ? 'y' : i === done ? phase === 'revealed' && last && !last.ok ? 'n' : phase !== 'revealed' ? 'cur' : '' : ''}"></i>`; continue; }
     const r = round.practice ? phase === 'revealed' && last : round.items[i];
     dots += `<i class="${r ? grade(r)[2] : (i === done && phase !== 'revealed' ? 'cur' : '')}"></i>`;
   }
@@ -2906,7 +2925,7 @@ function render(){
   $('after').hidden = phase !== 'revealed' && !preview;
   $('hearTrueTxt').textContent = find ? 'Target' : 'Actual';
   $('numpad').hidden = phase === 'revealed';
-  $('nextBtn').textContent = preview ? 'Start' : round.practice ? last && last.ok ? 'Done' : 'Try again' : done >= n ? 'Results' : 'Next';
+  $('nextBtn').textContent = preview ? 'Start' : round.practice ? round.practiceSaved || !round.practiceTone && last && last.ok ? 'Done' : last && last.ok ? 'Re-tune' : 'Try again' : done >= n ? 'Results' : 'Next';
   $('playBtn').setAttribute('aria-label', card ? 'Flashcard' : preview ? 'Play target' : phase === 'listening' ? (find ? 'Resume tone' : 'Replay tone') : (find ? 'Play target' : 'Replay actual tone'));
   renderStatus();
   if (phase === 'revealed' && !card) drawStrip(L);
@@ -3113,14 +3132,19 @@ function renderEchoSummary(){
 function renderCheckSummary(){              // one long-term check: how far off, and when the next one comes
   const {lt: k, tone} = lastRound, cls = grade(k);
   $('sumSub').textContent = `Long-term · ${noteName(k.f)}`;
-  $('sumNext').textContent = tone.practice ? 'Practice' : 'Done';
+  $('sumNext').textContent = tone.practice ? ltPracticeLabel(tone) : 'Done';
   const num = centsTxt(k.cents).slice(0, -1);                            // "+12", the ¢ goes small like "/20"
   $('sumScore').innerHTML = `${num}<span>¢</span>`;
   $('sumScore').classList.remove('gold');
   $('sumScore').classList.toggle('wide', num.length > 3);
   $('scoreRing').innerHTML = `<path class="sr ${cls[2]}" d="${arcPath(120, 120, 108, -87.75, 267.75)}"/>`;
   $('sumBanner').hidden = !tone.practice;
-  if (tone.practice) { $('sumBanner').className = 'banner'; $('sumBanner').textContent = 'Practise each missed answer until you get it right once.'; }
+  if (tone.practice) {
+    $('sumBanner').className = 'banner';
+    $('sumBanner').textContent = tone.retune ? tone.practice[0] !== 'find' ? 'Correct the flashcard, then finish with two correct pitch answers in a row.' :
+      tone.retune.streak ? 'One correct. Re-tune correctly once more to finish.' : 'Get two correct pitch answers in a row. After the first success, re-tune once more.' :
+      'Practise each missed answer until you get it right once.';
+  }
   $('sumTiles').innerHTML = [['Since last', fmtSpan(k.gap), ''], ['Next', fmtIn(tone.due).replace('in ', ''), '']].map(tileHtml).join('');
   const row = (what, you, ratio, c) => `<li><span class="hd" style="--h:${hueOf(k.f)}"></span><span>${what}</span><span class="you">${you}</span><span class="ratio">${ratio}</span><span class="mark ${c}">${MARK[c]}</span></li>`;
   const hz = k.show === 'hz', c = k.card;                               // the card: its front, your answer, its back
@@ -3389,9 +3413,9 @@ const installId = (() => {
 const EXPORT_FIELDS = {
   times: 'Every t (and due, last, started) is milliseconds since 1970-01-01 UTC; tzOffsetMin is the local offset from UTC, in minutes, at export.',
   levels: 'levels[i] names level number i + 1: its set, then its step.',
-  rounds: 'One per finished training round: lv level, score of n, ch up/down if it moved a level, p 1 for correction practice after a missed long-term answer (ends after one success), pf the tone practised; n includes retries.',
+  rounds: 'One per finished training round: lv level, score of n, ch up/down if it moved a level, p 1 for long-term practice (the initial pitch check needs two consecutive successes, counting a correct check; later corrections end after one success), pf the tone practised; n includes retries.',
   history: 'One per training answer (the last 5,000). task: pick/notes/piano (named), type (typed in Hz), find (tuned); f target Hz; g answer Hz; ok 1 if within a quarter tone; exact 1 if tuned exactly; lv level; rd round id (its start time); k position in the round; c 1 if cold (nothing labeled heard for 10+ minutes; first answer of a round only); rp replays; mv record moves (find); ui roll/classic answer view. Conditions: itf interference before the question (both/noise/notes/none), v instrument, rove 1 if loudness varied, pv 1 if the round began by playing its target.',
-  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day), start when it joined, probed the probes done (days), probe set while its next check is one, card an answered flashcard awaiting its Find (preserved across reloads), practice pending corrections (hz/note for a missed card, find for a missed pitch), blk while in its first days of fixed check-in times (at when they began, day, slots that day\'s times, k the next, levels each Day 1 slot\'s interval level (0-based), x a later-day miss\'s extra one, end that day\'s bedtime). cardSide the next alternating flashcard side. checks: one per check: t when the Find was answered, f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, due when it was due, blk the day of the fixed check-ins it fell on, x 1 for a miss\'s extra check-in, arm the study arm in effect, probe 14 or 30 for a study probe, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
+  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day), start when it joined, probed the probes done (days), probe set while its next check is one, card an answered flashcard awaiting its Find (preserved across reloads), practice pending tasks (hz/note for a missed card, find for the initial re-tune or a missed pitch), retune while the first pitch check needs two consecutive successes (streak: 0 or 1 correct so far), blk while in its first days of fixed check-in times (at when they began, day, slots that day\'s times, k the next, levels each Day 1 slot\'s interval level (0-based), x a later-day miss\'s extra one, end that day\'s bedtime). cardSide the next alternating flashcard side. checks: one per check: t when the Find was answered, f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, due when it was due, blk the day of the fixed check-ins it fell on, x 1 for a miss\'s extra check-in, arm the study arm in effect, probe 14 or 30 for a study probe, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
   echo: 'Echo, a short-term memory game kept apart from training: per game t, daily (its date, or null), itf interference, score out of 50, cents (the error on each of its five tones).',
   settings: 'The app\'s settings at export, without the name. study: on for an install in the study; arm: its arm; wake, bed: sleep hours.',
   arms: 'The study\'s arms: id; p, the share of checks the staircase aims to have hit; up, the wait\'s growth after a hit (a miss divides it by up^(p/(1-p))). Outside the study p is 0.85 and up 1.5. After fixed check-ins, late checks step from sqrt(wait * max(wait, gap)); misses are capped at the previous wait and floored at 2 minutes.'
