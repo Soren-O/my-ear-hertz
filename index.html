@@ -1840,6 +1840,7 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
   });
 }
 function nextQuestion(){
+  if (round.lt && round.ltInitial == null) round.ltInitial = isFirstLTCheck(lt.tones.find(t => t.f === round.lt));
   if (round.practiceTone && !round.practiceCard) round.retune = !!lt.tones.find(t => t.f === round.practiceTone)?.retune?.streak;
   const L = levelOf();
   const task = L.task === 'mixed' ? (Math.random() < 0.5 ? 'type' : 'find') : L.task;
@@ -1862,7 +1863,7 @@ function nextQuestion(){
   if (task === 'find') {
     const w = makeStops(target, voiceRange(voice));
     trial = {task, f: target, lv: round.lv, w, x: Math.floor(Math.random() * w.n), rove: newRove(), mv: 0, voice, off, echo: !!round.echo};   // start on any stop, the target included; rove: a sine's level
-    if (round.lt && round.items[0]) trial.show = round.items[0].side;    // the target in the form the card's answer took
+    if (round.lt || round.checkFlow) trial.show = round.items[0]?.task === 'card' ? round.items[0].side : round.checkFlow?.check.card?.side;
     render();
     if (round.echo) startEchoTone(); else startAdj(round.lt ? null : trainItf());   // a long-term check is cold: no interference
     if (!settings.hideFindTip && !round.tipShown && !round.lt) { round.tipShown = true; showTip(true); }
@@ -1931,7 +1932,8 @@ function lockIn(){
 }
 function finishRound(){
   stopAll();
-  const lv = round.lv, score = round.items.filter(r => r.ok).length, practice = !!round.practice, practiceTone = round.practiceTone;
+  const flow = round.checkFlow, items = flow ? round.items.slice(flow.practiceAt) : round.items;
+  const lv = round.lv, score = items.filter(r => r.ok).length, practice = !!round.practice, practiceTone = round.practiceTone;
   let change = null;
   if (settings.auto && !practice) {                                      // correction practice moves no training levels
     if (score >= UP && lv < LEVELS.length) change = {how: 'up', n: lv + 1};
@@ -1939,17 +1941,22 @@ function finishRound(){
     if (change) { settings.level = change.n; saveSettings(); }
   }
   if (!practice && score >= UP && lv + 1 > settings.top && lv < LEVELS.length) { settings.top = lv + 1; saveSettings(); }   // opens the next level, auto or not
-  const sum = {id: round.id, lv, score, n: round.items.length, t: Date.now(), ch: change ? change.how : null};
+  const sum = {id: round.id, lv, score, n: items.length, t: Date.now(), ch: change ? change.how : null};
   if (practice) { sum.p = 1; if (round.L) sum.pf = round.L.choices[0]; }   // pf: the note practised
   rounds.push(sum);
   if (rounds.length > 2000) rounds = rounds.slice(-2000);
   store.set('hbe3.rounds', rounds);
-  lastRound = {sum, items: round.items, change};
+  lastRound = {sum, items, change};
   if (practiceTone && score) completeLTPractice();
   round = null; phase = 'idle'; trial = null; last = null;
   if (practiceTone) {
     const t = lt.tones.find(t => t.f === practiceTone);
     if (t && t.practice) return startLTPractice(t);
+    if (flow && t) {
+      lastRound = {lt: flow.check, tone: t};
+      go('summary'); sfx('whoosh'); ltOfferOnce();
+      return;
+    }
     return go('lt');
   }
   go('summary');
@@ -1969,7 +1976,7 @@ const ECHO_N = 5, ECHO_TONE = 2, ECHO_GAP = 0.6;
 const ECHO_L = {name: 'Echo', short: 'Echo', task: 'find', choices: null, wrap: 'both', tier: -1, div: DIVISIONS.length};
 let echoStats = Object.assign({best: null, days: {}, games: []}, store.get('hbe3.echo', {}) || {});
 const levelOf = () => round && round.echo ? ECHO_L : round && round.L ? round.L : LEVELS[(round ? round.lv : settings.level) - 1];
-const roundLen = () => !round ? ROUND : round.echo ? ECHO_N : round.lt ? 2 : round.practice ? round.practiceGoal || 1 : ROUND;
+const roundLen = () => !round ? ROUND : round.echo ? ECHO_N : round.checkFlow || round.ltInitial ? 3 : round.lt ? 2 : round.practice ? round.practiceGoal || 1 : ROUND;
 const echoPts = cents => Math.max(0, Math.round((10 - Math.abs(cents) / 10) * 10) / 10);
 const centsTxt = c => `${c > 0.5 ? '+' : c < -0.5 ? '−' : '±'}${Math.abs(Math.round(c))}¢`;
 const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -2242,10 +2249,26 @@ function nextCardSide(){
   lt.cardSide = side === 'hz' ? 'note' : 'hz'; saveLT();
   return side;
 }
+const isFirstLTCheck = t => !!t && t.last == null && !lt.checks.some(c => c.f === t.f);
+function checkFlowFor(t){
+  if (!t.retune) return null;
+  const check = [...lt.checks].reverse().find(c => c.f === t.f);
+  return check ? {check, f: t.f, cardOK: !t.practice.some(task => task !== 'find'), practiceAt: 0} : null;
+}
 function startLTPractice(t){
   const task = t.practice[0];
+  const flow = checkFlowFor(t);
   startRound(undefined, {lv: practiceLv(t.f), practice: true, practiceTone: t.f, practiceCard: task === 'find' ? null : task,
-    practiceGoal: task === 'find' && t.retune ? 2 : 1, practiceStreak: task === 'find' ? t.retune?.streak || 0 : 0, L: ltLevel(t.f)});
+    practiceGoal: task === 'find' && t.retune ? 2 : 1, practiceStreak: task === 'find' ? t.retune?.streak || 0 : 0,
+    checkFlow: flow, previewed: !!flow, L: ltLevel(t.f)});
+}
+function continueCheckPractice(t){           // keep flashcard → tune → re-tune on one three-step progress bar
+  const task = t.practice[0];
+  round.checkFlow ||= {check: round.check, f: t.f, cardOK: !t.practice.some(task => task !== 'find'), practiceAt: round.items.length};
+  Object.assign(round, {lt: null, practice: true, practiceTone: t.f, practiceCard: task === 'find' ? null : task,
+    practiceGoal: task === 'find' && t.retune ? 2 : 1, practiceStreak: task === 'find' ? t.retune?.streak || 0 : 0,
+    practiceSaved: false, practiceProcessed: round.items.length, previewed: true});
+  nextQuestion();
 }
 const ltPracticeLabel = t => t.practice?.[0] === 'find' && t.retune?.streak ? 'Re-tune' : 'Practice';
 function requireLTPractice(t, task){
@@ -2262,6 +2285,7 @@ function completeLTPractice(){               // save each answer once, including
     if (t.retune.streak < 2) { saveLT(); ltSchedule(); return; }
     delete t.retune;
   } else if (!rec.ok) return;
+  if (round.checkFlow && task !== 'find') round.checkFlow.cardOK = true;
   t.practice.shift(); if (!t.practice.length) delete t.practice;
   round.practiceSaved = true;
   saveLT(); ltSchedule();
@@ -2308,7 +2332,8 @@ function commitCheck(){
   const t = lt.tones.find(x => x.f === round.lt);
   if (!t || !rec) return null;
   const now = rec.t ?? Date.now();            // the tested gap ends at the answer, not after viewing feedback
-  const first = t.last == null && !lt.checks.some(c => c.f === t.f);
+  const first = isFirstLTCheck(t);
+  round.ltInitial = first;
   const ok = !!rec.ok;                                                 // the Find decides the schedule; the card is recorded beside it
   const gap = now - (t.last || t.start || lt.started || now);          // how long this tone had to be remembered
   const due = t.due, b0 = t.blk && {day: t.blk.day || 0, end: t.blk.end, x: t.blk.x};
@@ -2675,7 +2700,13 @@ const advance = () => {
   if (round.practice) {
     if (round.practiceTone && last) completeLTPractice();
     const done = round.practiceTone ? round.practiceSaved : last && last.ok;
+    const t = round.checkFlow && lt.tones.find(t => t.f === round.practiceTone);
+    if (done && t?.practice) return continueCheckPractice(t);
     return done ? finishRound() : nextQuestion();
+  }
+  if (round.lt && round.check) {
+    const t = lt.tones.find(t => t.f === round.lt);
+    return round.ltInitial && t?.practice ? continueCheckPractice(t) : finishCheck();
   }
   round.items.length >= roundLen() ? (round.echo ? finishEcho() : round.lt ? finishCheck() : finishRound()) : nextQuestion();
 };
@@ -2853,22 +2884,45 @@ function howto(){                                               // one short lin
   return notes ? 'Name the note you hear' : 'Name the frequency you hear';
 }
 function updateHowto(){ const t = howto(); if (t) $('howto').textContent = t; $('howto').classList.toggle('off', !t); }
+function roundProgress(){
+  const n = roundLen();
+  if (round.checkFlow) {
+    const step = round.practiceCard ? 0 : round.retune ? 2 : 1;
+    const t = lt.tones.find(t => t.f === round.practiceTone);
+    const streak = round.practiceCard ? t?.retune?.streak || 0 : round.practiceStreak || 0;
+    const marks = [round.checkFlow.cardOK ? 'y' : 'n', streak >= 1 ? 'y' : '', streak >= 2 ? 'y' : ''];
+    if (phase === 'listening') marks[step] = 'cur';
+    else if (last && !last.ok) marks[step] = 'n';
+    return {n, k: step + 1, marks};
+  }
+  const streak = round.practiceGoal === 2;
+  const done = round.practice ? streak ? round.practiceStreak || 0 : phase === 'revealed' ? 1 : 0 : round.items.length;
+  const marks = Array.from({length: n}, (_, i) => {
+    if (streak) return i < done ? 'y' : i === done ? phase === 'revealed' && last && !last.ok ? 'n' : phase !== 'revealed' ? 'cur' : '' : '';
+    const r = round.practice ? phase === 'revealed' && last : round.items[i];
+    return r ? grade(r)[2] : i === done && phase !== 'revealed' ? 'cur' : '';
+  });
+  return {n, k: Math.min(n, done + (phase === 'revealed' ? 0 : 1)), marks};
+}
+function nextButtonLabel(){
+  if (trial.task === 'preview') return 'Start';
+  const t = lt.tones.find(t => t.f === (round.lt || round.practiceTone));
+  if (round.lt && round.check && round.ltInitial && t?.practice) return ltPracticeLabel(t);
+  if (round.practice) {
+    if (round.practiceSaved) return round.checkFlow ? t?.practice ? ltPracticeLabel(t) : 'Results' : 'Done';
+    return last && last.ok ? round.practiceTone ? 'Re-tune' : 'Done' : 'Try again';
+  }
+  return round.items.length >= roundLen() ? 'Results' : 'Next';
+}
 function render(){
   if (!round || !trial) return;
   updateHowto();
   const L = levelOf(), task = trial.task, find = task === 'find', card = task === 'card', preview = task === 'preview', n = roundLen();
   const notes = trial.show ? trial.show === 'note' : noteOnly(L, task), both = !trial.show && L.wrap === 'both';   // show: a check's target, as the card had it
-  const streak = round.practiceGoal === 2;
-  const done = round.practice ? streak ? round.practiceStreak || 0 : phase === 'revealed' ? 1 : 0 : round.items.length, k = Math.min(n, done + (phase === 'revealed' ? 0 : 1));
+  const {k, marks} = roundProgress();
   $('trCount').textContent = `${k}/${n}`;
   $('dots').style.gridTemplateColumns = `repeat(${n},minmax(0,1fr))`;
-  let dots = '';
-  for (let i = 0; i < n; i++) {
-    if (streak) { dots += `<i class="${i < done ? 'y' : i === done ? phase === 'revealed' && last && !last.ok ? 'n' : phase !== 'revealed' ? 'cur' : '' : ''}"></i>`; continue; }
-    const r = round.practice ? phase === 'revealed' && last : round.items[i];
-    dots += `<i class="${r ? grade(r)[2] : (i === done && phase !== 'revealed' ? 'cur' : '')}"></i>`;
-  }
-  $('dots').innerHTML = dots;
+  $('dots').innerHTML = marks.map(cls => `<i class="${cls}"></i>`).join('');
 
   const orb = $('playBtn'), sub = $('sub');
   if (card) {                                                            // front: the note or the frequency; back: the other, and other tunings
@@ -2925,7 +2979,7 @@ function render(){
   $('after').hidden = phase !== 'revealed' && !preview;
   $('hearTrueTxt').textContent = find ? 'Target' : 'Actual';
   $('numpad').hidden = phase === 'revealed';
-  $('nextBtn').textContent = preview ? 'Start' : round.practice ? round.practiceSaved || !round.practiceTone && last && last.ok ? 'Done' : last && last.ok ? 'Re-tune' : 'Try again' : done >= n ? 'Results' : 'Next';
+  $('nextBtn').textContent = nextButtonLabel();
   $('playBtn').setAttribute('aria-label', card ? 'Flashcard' : preview ? 'Play target' : phase === 'listening' ? (find ? 'Resume tone' : 'Replay tone') : (find ? 'Play target' : 'Replay actual tone'));
   renderStatus();
   if (phase === 'revealed' && !card) drawStrip(L);
