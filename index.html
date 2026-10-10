@@ -116,6 +116,7 @@ p{margin:0}
 .verdict .pts{font-family:var(--font-num);font-size:18px;color:var(--ink)}
 .verdict .pts small{font-size:12px;color:var(--muted);margin-left:2px}
 .who{font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.arm-sel{border:1px solid var(--line-hi);background:var(--surface-2);border-radius:10px;padding:6px 10px;font-family:var(--font-num);font-size:15px}
 .sleep{display:flex;align-items:center;gap:6px;min-width:0;color:var(--muted)}
 .sleep input{border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:15px;padding:6px 8px;min-width:0;color-scheme:dark}
 .sleep input::-webkit-calendar-picker-indicator{display:none}   /* room for both on a phone; tapping still opens the picker */
@@ -962,6 +963,8 @@ img{max-width:100%}
     <p class="label group-label">Data</p>
     <div class="list">
       <div class="row"><span class="row-main"><b>Export data</b><small class="snd" id="exportMsg"></small></span><button class="ghost" type="button" id="exportBtn">Export</button></div>
+      <label class="row"><span class="row-main"><b>Study</b></span><input type="checkbox" class="switch" id="optStudy"></label>
+      <label class="row" id="armRow" hidden><span class="row-main"><b>Arm</b></span><select class="arm-sel" id="optArm" aria-label="Study arm"></select></label>
     </div>
 
     <nav class="list" aria-label="More">
@@ -2028,16 +2031,32 @@ function nextRound(){                      // the results screen's main button
    The first perfect round of Find C6 opens it (the invitation below). Start asks for notifications, then the checks
    begin: a silent flashcard (below), then one cold Find of the tone, scored in cents. Cold means nothing plays first, no interference either: no pitch
    was heard, so there is no short-term memory to wipe. A new tone's first two or three days run on fixed check-in
-   times (the block, below). After that, a hit grows the wait 1.5× and a miss takes it back one step (÷1.5), never
-   under 2 minutes: a staircase that settles where half the checks hit. Tones likely fade faster than the words on
-   ordinary flashcards (whose usual 2.5× is too coarse here), so the wait climbs more gently.
+   times (the block, below). After that, a hit grows the wait 1.5× and a miss cuts it about 10×, never under 2
+   minutes: a staircase that settles where 85% of checks hit (the staircase, below). Tones likely fade faster than
+   the words on ordinary flashcards (whose usual 2.5× is too coarse here), so the wait climbs more gently.
    Each check keeps the gap it tested and whether it hit, so the factor can be fitted from real data later. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
    hours, and tapping one opens straight into the check. A miss offers a quick 5-question Find practice. The next tone
    (C5, then C7) is offered once every tone in training has reached a wait of a day (LT_READY) and its own Find step in
    the ladder is passed; the player chooses whether to add it. Checks stay out of training's history; they live in
    hbe3.lt. Only the app can remind: the website shows a due check while it is open. */
 const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
-const LT_FIRST = 2 * MIN, LT_GROW = 1.5, LT_SHRINK = 1 / LT_GROW;   // a miss undoes one hit
+const LT_FIRST = 2 * MIN;
+/* The staircase (after the block): a hit multiplies the wait by `up`, a miss divides it by up^(p/(1-p)), so in log
+   time the wait settles where a share p of checks hit (a weighted up-down staircase). By default p is 85%, after
+   Wilson et al. 2019's "eighty-five percent rule" for learning (2026-10-09; it was 50%); with ×1.5 up, a miss
+   divides by about 10. Research (Settings → Study): each install in the study gets an arm, at random unless a
+   researcher picks one, which sets p and `up`; the block is the same in every arm. In the study each tone also gets
+   two probes, checks 14 and 30 days after it joined with no other check in the 3 days before, so every arm is
+   measured after at least the same quiet spell. Checks record the arm and the probe. */
+const LT_P = 0.85, LT_UP = 1.5, PROBES = [14, 30], PROBE_QUIET = 3 * DAY;
+const ARMS = [['A', 0.5, 1.3], ['B', 0.5, 1.8], ['C', 0.7, 1.3], ['D', 0.7, 1.8], ['E', 0.85, 1.3], ['F', 0.85, 1.8]].map(([id, p, up]) => ({id, p, up}));
+const ltArm = () => settings.study && ARMS.find(a => a.id === settings.arm) || null;
+function ltSteps(){ const a = ltArm(), p = a ? a.p : LT_P, up = a ? a.up : LT_UP; return {up, down: up ** (p / (1 - p))}; }
+function ltProbeHold(t, now){               // the study: a check that would come within a probe's quiet days waits for the probe
+  if (!ltArm() || !t.start) return;
+  const d = PROBES.find(d => !(t.probed || []).includes(d) && t.start + d * DAY > now);
+  if (d != null && t.due >= t.start + d * DAY - PROBE_QUIET) { t.due = t.start + d * DAY; t.probe = d; }
+}
 const LT_GAP = 5 * MIN;            // another tone's check never follows one sooner: two known tones in a row would be a reference
 const LT_READY = DAY;              // once a tone's wait between checks reaches a day, the next tone can be offered
 const LT_AGAIN = HOUR;             // an unanswered reminder comes back after an hour
@@ -2078,7 +2097,7 @@ function blkDay(t, now){                    // a day of the block starts now: it
   b.end = nextClock(now, settings.bed);
 }
 function blockTone(f, now){                 // a new tone: day 1 of its block starts now, or at the morning check-in if it's (nearly) bedtime
-  const t = {f, wait: LT_FIRST, blk: {}};
+  const t = {f, wait: LT_FIRST, start: now, blk: {}};
   if (!asleep(now) && ladder(now, LT_DAY1).length) { blkDay(t, now); t.due = t.blk.slots[0]; }
   else { t.blk.end = now; t.due = nextClock(now, settings.wake) + LT_MORN; }
   return t;
@@ -2191,15 +2210,21 @@ function finishCheck(){
   const next = t.blk ? blkNext(t, now, ok) : null;
   if (next != null) { t.due = next; t.wait = next - now; }             // the block: fixed check-in times
   else {
-    t.wait = t.blk ? (ok ? LT_READY : LT_READY * LT_SHRINK) : ok ? t.wait * LT_GROW : Math.max(LT_FIRST, t.wait * LT_SHRINK);   // after the block, from a day
+    const {up, down} = ltSteps();
+    t.wait = t.blk ? (ok ? LT_READY : LT_READY / down) : ok ? t.wait * up : Math.max(LT_FIRST, t.wait / down);   // after the block, from a day
     delete t.blk;
     t.due = now + t.wait;
     if (t.wait >= LT_READY) t.ready = true;                            // stays, even if a later miss shortens the wait
   }
   t.last = now;
+  const probe = t.probe; delete t.probe;                               // this was a probe
+  if (probe) t.probed = [...(t.probed || []), probe];
+  if (!t.blk) ltProbeHold(t, now);
   lt.tones.forEach(x => { if (x !== t) x.due = Math.max(x.due, now + LT_GAP); });
   const chk = {t: now, f: t.f, g: rec.g, cents: rec.cents, ok: ok ? 1 : 0, gap, due, c: rec.c, mv: rec.mv, v: rec.v, show: rec.show};
   if (b0) { chk.blk = t.blk ? t.blk.day : b0.day + (now >= b0.end && !asleep(now) ? 1 : 0); if (b0.x) chk.x = 1; }
+  if (probe) chk.probe = probe;
+  if (ltArm()) chk.arm = ltArm().id;
   if (card) chk.card = {side: card.side, typed: card.typed, ok: card.ok};
   lt.checks.push(chk);
   if (lt.checks.length > 3000) lt.checks = lt.checks.slice(-3000);
@@ -3257,15 +3282,16 @@ const EXPORT_FIELDS = {
   levels: 'levels[i] names level number i + 1: its set, then its step.',
   rounds: 'One per finished training round: lv level, score of n, ch up/down if it moved a level, p 1 for the practice round offered after a missed long-term check.',
   history: 'One per training answer (the last 5,000). task: pick/notes/piano (named), type (typed in Hz), find (tuned); f target Hz; g answer Hz; ok 1 if within a quarter tone; exact 1 if tuned exactly; lv level; rd round id (its start time); k position in the round; c 1 if cold (nothing labeled heard for 10+ minutes; first answer of a round only); rp replays; mv record moves (find); ui roll/classic answer view. Conditions: itf interference before the question (both/noise/notes/none), v instrument, rove 1 if loudness varied, pv 1 if the round began by playing its target.',
-  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day), blk while in its first days of fixed check-in times (at when they began, day, slots that day\'s times, k the next, x a miss\'s extra one, end that day\'s bedtime). checks: one per check: f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, due when it was due, blk the day of the fixed check-ins it fell on, x 1 for a miss\'s extra check-in, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
+  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day), start when it joined, probed the probes done (days), probe set while its next check is one, blk while in its first days of fixed check-in times (at when they began, day, slots that day\'s times, k the next, x a miss\'s extra one, end that day\'s bedtime). checks: one per check: f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, due when it was due, blk the day of the fixed check-ins it fell on, x 1 for a miss\'s extra check-in, arm the study arm in effect, probe 14 or 30 for a study probe, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the flashcard before it (side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
   echo: 'Echo, a short-term memory game kept apart from training: per game t, daily (its date, or null), itf interference, score out of 50, cents (the error on each of its five tones).',
-  settings: 'The app\'s settings at export, without the name.'
+  settings: 'The app\'s settings at export, without the name. study: on for an install in the study; arm: its arm; wake, bed: sleep hours.',
+  arms: 'The study\'s arms: id; p, the share of checks the staircase aims to have hit; up, the wait\'s growth after a hit (a miss divides it by up^(p/(1-p))). Outside the study p is 0.85 and up 1.5.'
 };
 function buildExport(){
   const {name, ...shared} = settings;                                   // the name stays on the phone
   return {format: 'my-ear-hertz-export', version: 1, exported: new Date().toISOString(), tzOffsetMin: -new Date().getTimezoneOffset(),
     installId, platform: CAP ? window.Capacitor.getPlatform() : 'web', fields: EXPORT_FIELDS,
-    levels: LEVELS.map(L => `${L.name} · ${L.short}`), settings: shared, rounds, history, lt, echo: echoStats};
+    levels: LEVELS.map(L => `${L.name} · ${L.short}`), settings: shared, arms: ARMS, rounds, history, lt, echo: echoStats};
 }
 async function exportData(){
   const text = JSON.stringify(buildExport(), null, 1), file = `my-ear-hertz-data-${todayKey()}.json`, say = m => { $('exportMsg').textContent = m; };
@@ -3304,7 +3330,7 @@ function renderSettings(){
   $('levelSeg').innerHTML = levelRows();
   [['optMatch','match'],['optRove','rove'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
-  renderSleep();
+  renderSleep(); renderStudy();
   renderItf('optItf', 'noise', 'notes');
   if (document.activeElement !== $('optName')) $('optName').value = settings.name || '';
   $('instSeg').innerHTML = voiceChips();
@@ -3314,6 +3340,17 @@ function renderSettings(){
   $('trimOut').textContent = fmtDb(settings.hiTrim);
 }
 $('levelSeg').addEventListener('click', e => { if (pickLevel(e)) renderSettings(); });
+function renderStudy(){                      // the arms go by letter only, so a participant doesn't see what theirs does
+  $('optStudy').checked = !!settings.study;
+  $('armRow').hidden = !settings.study;
+  $('optArm').innerHTML = ARMS.map(a => `<option value="${a.id}"${a.id === settings.arm ? ' selected' : ''}>${a.id}</option>`).join('');
+}
+$('optStudy').addEventListener('change', () => {
+  settings.study = $('optStudy').checked;
+  if (settings.study && !ARMS.some(a => a.id === settings.arm)) settings.arm = ARMS[Math.floor(Math.random() * ARMS.length)].id;   // at random, once
+  saveSettings(); renderStudy();
+});
+$('optArm').addEventListener('change', () => { settings.arm = $('optArm').value; saveSettings(); });
 const voiceChips = () => VOICES.map(V => `<button type="button" data-inst="${V.id}" aria-pressed="${V === chosenVoice()}">${V.name}</button>`).join('');
 $('instSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-inst]'); if (!b) return;
