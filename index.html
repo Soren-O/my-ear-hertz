@@ -587,6 +587,21 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 /* training: one line on what to do, and the buttons/keyboard switch */
 .howto{margin:-6px 0 0;min-height:1.4em;text-align:center;font-size:13px;color:var(--muted)}
 .howto.off{visibility:hidden}
+.challenge-heading{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding-block:4px}
+.challenge-level{font-size:26px;font-weight:650;letter-spacing:.1em;line-height:1.2}
+.challenge-instruction{font-size:23px;font-weight:450;line-height:1.25}
+.challenge-clock{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.challenge-time{font-family:var(--font-num);font-size:40px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.challenge-next{font-size:15px;color:var(--muted);line-height:1.3}
+#scr-train[data-ladder="1"] .stage{gap:32px;padding-block:18px 0}
+#scr-train[data-ladder="1"] .train-left{gap:6px}
+#scr-train[data-ladder="1"] .verdict:empty{display:none}
+@media not (orientation: landscape){
+  /* Keep the timer and Lock in visible together, including below an iPhone's safe areas. */
+  #scr-train[data-ladder="1"]{--challenge-dial:min(56vw,220px,max(150px,calc((100svh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 430px)/2)))}
+  #scr-train[data-ladder="1"] .orb,
+  #scr-train[data-ladder="1"] .train-body:has(#adjust:not([hidden])) .adjust .deck{width:var(--challenge-dial)}
+}
 .answer-tools{display:flex;justify-content:flex-end;margin-bottom:-2px}
 .answer-tools .icon svg{width:18px;height:18px}
 #viewToggle[aria-pressed="true"]{background:var(--sel-bg);border-color:var(--sel-line);color:var(--teal)}
@@ -657,6 +672,8 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
   .piano{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
   .adjust{display:grid;grid-template-columns:auto minmax(0,340px);justify-content:center;column-gap:20px;row-gap:8px;align-items:center}
   .adjust .deck{width:clamp(140px,40vh,270px);grid-row:1 / span 2;margin:0}
+  #scr-train[data-ladder="1"] .train-body:has(#adjust:not([hidden])){display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
+  #scr-train[data-ladder="1"] .stage{gap:16px;padding-block:8px}
 }
 @media (orientation: landscape) and (max-height: 540px){
   .app{padding-top:4px}
@@ -770,7 +787,10 @@ img{max-width:100%}
       <div class="progress" id="dots" aria-hidden="true"></div>
       <span class="count" id="trCount">1/20</span>
     </header>
-    <p class="howto" id="ltChallengeStatus" role="timer" hidden></p>
+    <div class="challenge-heading" id="ltChallengeHeading" hidden>
+      <p class="challenge-level" id="ltChallengeLevel"></p>
+      <p class="challenge-instruction" id="ltChallengeInstruction" aria-live="polite"></p>
+    </div>
     <p class="howto" id="howto" aria-live="polite"></p>
     <div class="confirm-bar" id="quitConfirm" hidden>
       <span>End round?</span>
@@ -788,6 +808,10 @@ img{max-width:100%}
           <span class="orb-guess" id="guessVal"></span>
         </span>
       </button>
+      <div class="challenge-clock" id="ltChallengeStatus" role="timer" aria-live="off" hidden>
+        <span class="challenge-time" id="ltChallengeTime"></span>
+        <span class="challenge-next" id="ltChallengeNext"></span>
+      </div>
     </div>
     <div class="verdict" id="sub" aria-live="polite"></div>
     <svg id="strip" class="strip" role="img" aria-label="Frequency scale"></svg>
@@ -2471,16 +2495,26 @@ function ladderCaption(t){
   return `Level ${s.level} · every ${l.gap === 200000 ? '3⅓ min' : l.gap === 150000 ? '2½ min' : fmtSpan(l.gap)}${progress}`;
 }
 function renderLadderClock(){
-  const el = $('ltChallengeStatus');
-  el.hidden = !round?.ladder;
+  $('ltChallengeHeading').hidden = $('ltChallengeStatus').hidden = !round?.ladder;
   if (!round?.ladder) return;
   const t = lt.tones.find(t => t.f === round.lt), now = Date.now(), s = t.ladder;
-  let text;
-  if (phase === 'listening') text = `Guess within ${Math.max(0, Math.ceil((s.deadline - now) / 1000))} seconds`;
-  else if (now < round.answerAt + 20000) text = `Target · ${Math.ceil((round.answerAt + 20000 - now) / 1000)} seconds`;
-  else if (now < round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000)) text = 'Random notes';
-  else text = ltSessionTone != null ? `${s.mode === 'boundary' ? 'Level complete · next level' : 'Next guess'} in ${fmtCount(t.due - now)}` : ladderCaption(t);
-  el.textContent = `Level ${round.challengeLevel} · ${noteName(t.f)} · ${text}`;
+  const targetEnd = round.answerAt + 20000, notesEnd = round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000);
+  let instruction, next, until;
+  if (phase === 'listening') {
+    instruction = 'Tune to the target'; next = 'to lock in'; until = s.deadline;
+  } else if (now < targetEnd) {
+    instruction = 'Listen to the target'; next = 'until random notes'; until = targetEnd;
+  } else if (now < notesEnd) {
+    instruction = 'Random notes'; next = 'until the break'; until = notesEnd;
+  } else {
+    instruction = ltSessionTone != null ? s.mode === 'boundary' ? 'Level complete' : 'Get ready' : 'Check complete';
+    next = s.mode === 'boundary' ? `until Level ${s.level + 1}` : ltSessionTone != null ? 'until the next guess' : 'until the next check';
+    until = t.due;
+  }
+  $('ltChallengeLevel').textContent = `LEVEL ${round.challengeLevel}`;
+  if ($('ltChallengeInstruction').textContent !== instruction) $('ltChallengeInstruction').textContent = instruction;
+  $('ltChallengeTime').textContent = until > now ? fmtCount(until - now) : '0:00';
+  $('ltChallengeNext').textContent = next;
 }
 function armLadderClock(){
   clearInterval(ltPulseTimer);
@@ -2544,7 +2578,7 @@ function endLadderCheck(chk, t, openingComplete = false){
   clearInterval(ltPulseTimer); ltPulseTimer = null;
   stopAll(); lastRound = {lt: chk, tone: t};
   round = null; trial = null; last = null; phase = 'idle';
-  $('ltChallengeStatus').hidden = true;
+  renderLadderClock();
   ltSchedule();
   go(openingComplete ? 'lt' : 'summary');
 }
@@ -3167,8 +3201,9 @@ function render(){
   $('playBtn').disabled = ltSessionTone != null && phase !== 'listening';
   $('nextBtn').hidden = ltSessionTone != null;
   if (ltSessionTone != null) $('after').hidden = true;
-  $('ltChallengeStatus').hidden = !round.ladder;
-  if (round.ladder) renderLadderClock();
+  $('scr-train').dataset.ladder = round.ladder ? '1' : '0';
+  $('howto').hidden = !!round.ladder;
+  renderLadderClock();
   renderStatus();
   if (phase === 'revealed' && !card) drawStrip(L);
   startWave();

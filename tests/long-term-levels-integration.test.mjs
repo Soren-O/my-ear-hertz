@@ -19,7 +19,8 @@ function app(tone = LTLevels.createTone(1047, at)) {
     const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: false, textContent: ''}); return elements.get(id); };
     const setInterval = () => 1, clearInterval = () => {}, setTimeout = (fn, delay) => { calls.push(['timer', delay]); return 1; };
     const saveLT = () => { saved = JSON.stringify(lt); }, ltSchedule = () => {};
-    const ltArm = () => null, noteName = () => 'C6', fmtSpan = n => n / 60000 + ' min', fmtCount = n => String(n);
+    const ltArm = () => null, noteName = () => 'C6', fmtSpan = n => n / 60000 + ' min';
+    ${section('const pad2 =', 'function renderLTRow()')}
     const stopAll = () => { calls.push(['stop']); timers = []; }, noteAnchor = () => {}, setAudio = s => calls.push(['audio', s]);
     const audio = () => true, voiceReady = () => false, ampFor = () => 0;
     const tone = (f, t, dur) => calls.push(['tone', f, t, dur]), pips = (t, dur) => calls.push(['notes', t, dur]);
@@ -27,6 +28,7 @@ function app(tone = LTLevels.createTone(1047, at)) {
     const nextQuestion = () => { calls.push(['next']); phase = 'listening'; round.challengeLevel = lt.tones[0].ladder.level; trial = {voice: SINE}; };
     ${section('function appendLadderCheck(', "document.addEventListener('visibilitychange', () => { if (document.visibilityState")}
     globalThis.api = {lt, calls, refreshLadders, tickLadder, abortLadder,
+      clock() { renderLadderClock(); return ['ltChallengeLevel', 'ltChallengeInstruction', 'ltChallengeTime', 'ltChallengeNext'].map(id => $(id).textContent); },
       start() { LTLevels.begin(lt.tones[0], Date.now()); ltSessionTone = lt.tones[0].ladder.level <= 6 ? 1047 : null;
         round = {lt: 1047, ladder: true, challengeLevel: lt.tones[0].ladder.level, items: []}; trial = {voice: SINE}; phase = 'listening'; saveLT(); },
       answer(ok) { recordLadder({task: 'find', t: Date.now(), f: 1047, g: ok ? 1047 : 523, cents: ok ? 0 : -1200, ok: Number(ok)}); },
@@ -49,6 +51,23 @@ test('a correct opening guess records one check, plays target for 20s and notes 
   time(at + MIN); api.tickLadder();
   assert.equal(api.state.phase, 'listening');
   assert.equal(api.state.lt.tones[0].ladder.deadline, at + MIN + 20000);
+});
+
+test('the displayed timer counts down each phase without moving the next guess off its minute slot', () => {
+  const {api, time} = app();
+  const clock = () => Array.from(api.clock());
+  api.start(); time(at + 5000);
+  assert.deepEqual(clock(), ['LEVEL 1', 'Tune to the target', '0:15', 'to lock in']);
+  api.answer(true);
+  time(at + 10000);
+  assert.deepEqual(clock(), ['LEVEL 1', 'Listen to the target', '0:15', 'until random notes']);
+  time(at + 25000);
+  assert.deepEqual(clock(), ['LEVEL 1', 'Random notes', '0:20', 'until the break']);
+  time(at + 45000);
+  assert.deepEqual(clock(), ['LEVEL 1', 'Get ready', '0:15', 'until the next guess']);
+  assert.equal(api.state.lt.tones[0].due, at + MIN);
+  time(at + MIN); api.tickLadder();
+  assert.deepEqual(clock(), ['LEVEL 1', 'Tune to the target', '0:20', 'to lock in']);
 });
 
 test('a deadline creates one failed check without a fabricated pitch error, saves it and ends the game', () => {
