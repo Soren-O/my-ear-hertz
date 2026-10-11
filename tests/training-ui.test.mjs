@@ -19,6 +19,7 @@ function countIn() {
     setTimeout(fn, delay) { const key = ++id; timers.set(key, {fn,at:now+delay}); return key; },
     clearTimeout(key) { timers.delete(key); }
   });
+  vm.runInContext(section('const textFades =', 'let pageGhost ='), context);
   vm.runInContext(section('let introActive = false', "$('countInCancel').addEventListener"), context);
   return {$, start:context.startCountIn, cancel:context.cancelCountIn,
     advance(ms) {
@@ -64,7 +65,7 @@ function gestures() {
   const handlers = new Map(), moves = []; let allowed=true, releases=0;
   const pad={addEventListener(type,fn){handlers.set(type,fn);},setPointerCapture(){},classList:{add(){},remove(){}}};
   const context=vm.createContext({});
-  vm.runInContext(section('function bindTunePad(', "bindTunePad($('pad'),"),context);
+  vm.runInContext(section('function bindTunePad(', 'bindTunePad(document.body,'),context);
   context.bindTunePad(pad,{can:()=>allowed,move:d=>moves.push(d),release:()=>releases++});
   const event=(type,extra={})=>handlers.get(type)({pointerId:1,clientX:100,clientY:100,button:0,isPrimary:true,
     deltaX:0,deltaY:0,deltaMode:0,preventDefault(){},...extra});
@@ -108,4 +109,60 @@ test('scroll and trackpad input use the same coarse/fine directions and normaliz
   g.event('wheel',{deltaY:-10}); g.event('wheel',{deltaX:10});
   g.event('wheel',{deltaY:-10,shiftKey:true}); g.event('wheel',{deltaY:-1,deltaMode:1});
   assert.deepEqual(g.moves,[20,2,2,32]);
+});
+
+test('whole-screen swiping leaves buttons and dialogs available for normal taps', () => {
+  const g=gestures();
+  const target={closest:()=>({})};
+  g.event('pointerdown',{target}); g.event('pointermove',{clientY:20}); g.event('pointerup');
+  assert.deepEqual(g.moves,[]);
+  g.event('pointerdown',{target:{closest:()=>null}}); g.event('pointermove',{clientY:80}); g.event('pointerup');
+  assert.deepEqual(g.moves,[40]);
+});
+
+test('text fades finish the old label before revealing the new one, without restarting on clock ticks', () => {
+  const animations=[], el={textContent:'Listen',hidden:false,animate(){
+    const a={cancel(){this.cancelled=true;}}; animations.push(a); return a;
+  }};
+  const context=vm.createContext({reduceMotion:{matches:false}});
+  vm.runInContext(section('const textFades =','let pageGhost ='),context);
+  context.fadeText(el,'Tune'); context.fadeText(el,'Tune');
+  assert.equal(el.textContent,'Listen'); assert.equal(animations.length,1);
+  animations[0].onfinish();
+  assert.equal(el.textContent,'Tune'); assert.equal(animations.length,2);
+  animations[1].onfinish(); context.fadeText(el,'Tune');
+  assert.equal(animations.length,2);
+});
+
+test('a new phase cancels an unfinished text fade so a stale label cannot return', () => {
+  const animations=[], el={textContent:'Listen',hidden:false,animate(){
+    const a={cancel(){this.cancelled=true;}}; animations.push(a); return a;
+  }};
+  const context=vm.createContext({reduceMotion:{matches:false}});
+  vm.runInContext(section('const textFades =','let pageGhost ='),context);
+  context.fadeText(el,'Random notes'); context.fadeText(el,'Get ready');
+  assert.equal(animations[0].cancelled,true);
+  animations[0].onfinish(); assert.equal(el.textContent,'Listen');
+  animations[1].onfinish(); assert.equal(el.textContent,'Get ready');
+});
+
+test('waves start identically at random guesses and follow only changes to the guess, never the target', () => {
+  const context=vm.createContext({clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),reduceMotion:{matches:false}});
+  vm.runInContext(`
+    let screen='train', phase='listening', trial={task:'find',guess:200,f:1000};
+    let bandTrial=null, bandStartHz=0, bandPitch=1, bandTargetPitch=1;
+    const deckHz=t=>t.guess;
+    ${section('function syncBandPitch()', 'function placeBand()')}
+    globalThis.ui={sync:syncBandPitch,setGuess(f){trial.guess=f;},setTarget(f){trial.f=f;},
+      newTrial(f){trial={task:'find',guess:f,f:2000};},reveal(){phase='revealed';},
+      get scale(){return bandTargetPitch;}};
+  `,context);
+  const ui=context.ui;
+  ui.sync(); assert.equal(ui.scale,1);
+  ui.setTarget(8000); ui.sync(); assert.equal(ui.scale,1);
+  ui.setGuess(400); ui.sync(); assert.ok(ui.scale>1);
+  ui.setGuess(100); ui.sync(); assert.ok(ui.scale<1);
+  ui.newTrial(5000); ui.sync(); assert.equal(ui.scale,1);
+  ui.setGuess(10000); ui.sync(); assert.equal(ui.scale,Math.pow(2,.35));
+  ui.reveal(); ui.sync(); assert.equal(ui.scale,1);
 });

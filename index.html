@@ -92,15 +92,15 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{min-height:100%}
+html{overflow-x:clip}
 body{margin:0;background:radial-gradient(900px 520px at 50% -180px,var(--bg-glow),transparent 70%) no-repeat,var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
 h1,h2,h3{margin:0;text-wrap:balance}
 p{margin:0}
-.app{max-width:440px;margin:0 auto;padding-inline:20px;padding-block:8px 48px}
+.app{position:relative;z-index:1;max-width:440px;margin:0 auto;padding-inline:20px;padding-block:8px 48px}
 .screen{display:flex;flex-direction:column;gap:18px}
-.screen:not([hidden]){animation:enter .3s cubic-bezier(.2,.8,.2,1)}
-@keyframes enter{from{transform:translateY(10px)}to{transform:none}}
+.screen-ghost{position:fixed;z-index:2;pointer-events:none;overflow:hidden;contain:layout paint}
 
 .label{font-family:var(--font-label);font-size:9.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--muted)}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px}
@@ -108,8 +108,8 @@ p{margin:0}
 .icon svg{width:18px;height:18px}
 .title{flex:1;text-align:center;font-size:16px;font-weight:600}
 .spacer{flex:none;width:40px}
-#scr-home > .topbar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
-#scr-home > .topbar .icon{justify-self:end}
+:is(#scr-home,.scr-home) > .topbar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+:is(#scr-home,.scr-home) > .topbar .icon{justify-self:end}
 .echo-hero{display:grid;place-items:center;margin:8px auto 4px;width:min(40vw,150px);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 50% 40%,var(--surface),var(--surface-2));border:1px solid var(--line);color:var(--muted)}
 .echo-hero svg{width:46%;height:46%}
 #echoDaily{width:100%;padding-block:14px}
@@ -427,10 +427,6 @@ p{margin:0}
 .tabs button[aria-selected="true"]{color:var(--ink)}
 .tabs button[aria-selected="true"]::after{content:"";position:absolute;left:18%;right:18%;bottom:-1px;height:2px;border-radius:2px;background:var(--teal)}
 .tab-dot{display:inline-block;width:7px;height:7px;margin-left:4px;border-radius:50%;background:var(--teal);vertical-align:2px}
-.screen.slide-l{animation:slideL .2s ease-out}
-.screen.slide-r{animation:slideR .2s ease-out}
-@keyframes slideL{from{opacity:.4;transform:translateX(28px)}to{opacity:1;transform:none}}
-@keyframes slideR{from{opacity:.4;transform:translateX(-28px)}to{opacity:1;transform:none}}
 .chart .hit{fill:var(--good)}
 .chart .miss{fill:var(--bad)}
 .chart .tol{stroke:var(--faint);stroke-width:1.2;stroke-dasharray:4 4}
@@ -453,12 +449,13 @@ p{margin:0}
 /* Training layout: in portrait the two columns dissolve into one stack, with the after-answer row last */
 /* Training, upright: the orb and results at the top, the answer controls at the bottom of the screen */
 .app[data-screen="train"]{padding-bottom:12px}
-#scr-train{gap:12px;min-height:calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px);min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px)}
+:is(#scr-train,.scr-train){gap:12px;min-height:calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px);min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px)}
 .train-body{flex:1;display:flex;flex-direction:column;gap:12px}
 .train-left{flex:1;display:flex;flex-direction:column;gap:12px}
 .train-right{display:flex;flex-direction:column;gap:8px}
-@media not (orientation: landscape){                                    /* Find: the record right under the target, not pushed to the bottom (where Safari's bar floats) */
-  .train-body:has(#adjust:not([hidden])) > .train-left{flex:none}
+@media not (orientation: landscape){
+  :is(#scr-train,.scr-train)[data-task="find"] .stage{margin-block:auto}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .train-right{min-height:192px}
   .train-body:has(#adjust:not([hidden])) .stage{padding-block:8px 0}
 }
 .after{flex-direction:row;align-items:center}
@@ -547,7 +544,7 @@ label.lab-row{cursor:pointer;justify-content:space-between}
 .key,.rk,.wk,.bk{transition:transform .08s ease,opacity .15s ease,background .15s ease}
 /* ---------- Studio look: near-black lit by soft teal and indigo glows, hairline outlines, uppercase labels, one mint
    button per screen for the main action, and gold kept for achievements ---------- */
-body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),transparent 70%) no-repeat,radial-gradient(560px 480px at 95% 6%,var(--glow-indigo),transparent 72%) no-repeat,var(--bg)}
+body{background:var(--bg)}
 .card,.list,.tile,.seg,.confirm-bar{background:color-mix(in oklab,var(--surface) 82%,transparent)}
 .cta{border-radius:14px;background:linear-gradient(180deg,color-mix(in oklab,var(--mint) 86%,white),var(--mint));color:var(--mint-ink);text-transform:uppercase;letter-spacing:.14em;font-size:13.5px;box-shadow:0 0 0 1px color-mix(in oklab,var(--mint) 55%,transparent),0 12px 34px -12px var(--mint-glow)}
 .cta small{text-transform:none;letter-spacing:0}
@@ -560,11 +557,10 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .switch:checked{background:var(--mint)}
 .icon{background:transparent;border-color:var(--line-hi)}
 .title{font-weight:500;letter-spacing:.01em}
-/* glows behind the level ring, the orb and the record */
+/* Content sits over one fixed backdrop; navigation never moves the waves. */
 .stage,.hero,.echo-hero{position:relative;isolation:isolate}
-.stage::before,.hero::before{content:"";position:absolute;left:50%;top:50%;width:150%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:-2;border-radius:50%;background:radial-gradient(closest-side,var(--glow-teal),transparent);pointer-events:none}
-/* the wave band: slow layered waves edge to edge behind the ring, the orb and Echo */
-.band{position:absolute;top:50%;height:220px;transform:translateY(-50%);z-index:-1;pointer-events:none}
+.backdrop{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:radial-gradient(ellipse at 0% 25%,var(--glow-teal),transparent 65%),radial-gradient(ellipse at 100% 70%,var(--glow-indigo),transparent 65%),var(--bg)}
+.band{display:block;width:100%;height:100%;pointer-events:none}
 /* gold: achievements only */
 .tile.gold .v{color:var(--gold)}
 .sr.gold{stroke:var(--gold)}
@@ -577,46 +573,46 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .best-list .top .num{color:var(--gold)}
 .best-list small{color:var(--muted);font-size:12.5px}
 /* Tuning: large vertical swipes, small horizontal corrections, and distinct timed phases. */
-.tune-pad{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;width:100%;height:clamp(170px,28svh,240px);overflow:hidden;border:1px solid var(--line-hi);border-radius:24px;background:color-mix(in oklab,var(--teal) 4%,var(--surface));touch-action:none;user-select:none;-webkit-user-select:none;cursor:move}
-.tune-pad.active{border-color:var(--teal);background:var(--sel-bg)}
-.tune-pad p{position:relative;font-size:18px;color:var(--ink)}
-.tune-pad small{position:relative;font-size:15px;color:var(--muted)}
+.swipe-hint{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding-block:18px;text-align:center}
+.swipe-hint p{font-size:18px;color:var(--ink)}
+.swipe-hint small{font-size:15px;color:var(--muted)}
+body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:none;cursor:move}
 .tune-wave{width:100%;height:80px;color:var(--teal);opacity:.7;overflow:visible}
 .tune-wave path{fill:none;stroke:currentColor;stroke-width:1.4;vector-effect:non-scaling-stroke}
 .tune-wave path:last-child{opacity:.35}
-.tune-pad .tune-wave{position:absolute;inset:calc(50% - 40px) 0;opacity:.2}
-#adjust[data-off="1"] .tune-pad{opacity:.45;cursor:default}
+#adjust[data-off="1"] .swipe-hint{opacity:.45}
 .phase-wave{display:grid;place-items:center;width:min(80vw,360px);height:180px}
+.phase-display{display:grid;place-items:center}
+.phase-display > *{grid-area:1 / 1}
+:is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{min-height:max(180px,var(--challenge-dial,180px))}
 .phase-wave .tune-wave{height:120px;animation:phase-breathe 2s ease-in-out infinite}
 .phase-cue{font-size:clamp(50px,16vw,80px);font-weight:550;letter-spacing:.1em;color:var(--teal);text-align:center}
 .phase-progress{width:170px;height:3px;background:var(--line-hi);border-radius:3px;overflow:hidden;margin-bottom:8px}
 .phase-progress i{display:block;width:100%;height:100%;background:var(--teal);transform-origin:left;transition:transform .1s linear}
-.count-in{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:var(--bg);padding:max(24px,env(safe-area-inset-top,0px)) 24px max(24px,env(safe-area-inset-bottom,0px))}
+.count-in{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:color-mix(in oklab,var(--bg) 78%,transparent);padding:max(24px,env(safe-area-inset-top,0px)) 24px max(24px,env(safe-area-inset-bottom,0px))}
 .count-in .icon{position:absolute;top:max(16px,env(safe-area-inset-top,0px));left:max(20px,env(safe-area-inset-left,0px))}
 .count-in .label{font-size:15px;color:var(--muted)}
 .count-in-word{font-size:clamp(56px,18vw,100px);font-weight:500;line-height:1.1;letter-spacing:.12em;text-align:center}
-.count-in[data-step="go"]{background:color-mix(in oklab,var(--teal) 12%,var(--bg));color:var(--teal)}
-.count-in-word{animation:cue-arrive .3s ease-out}
-@keyframes cue-arrive{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+.count-in[data-step="go"]{color:var(--teal)}
 @keyframes phase-breathe{50%{opacity:.4;transform:scaleY(.7)}}
 @media (prefers-reduced-motion:reduce){.count-in-word,.phase-wave .tune-wave{animation:none}.phase-progress i{transition:none}}
 /* training: one line on what to do, and the buttons/keyboard switch */
 .howto{margin:-6px 0 0;min-height:1.4em;text-align:center;font-size:13px;color:var(--muted)}
 .howto.off{visibility:hidden}
-#scr-train[data-task="find"] .howto,#scr-train[data-task="preview"] .howto{font-size:22px;color:var(--ink);line-height:1.3}
+:is(#scr-train,.scr-train)[data-task="find"] .howto,:is(#scr-train,.scr-train)[data-task="preview"] .howto{font-size:22px;color:var(--ink);line-height:1.3}
 .challenge-heading{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding-block:4px}
 .challenge-level{font-size:26px;font-weight:650;letter-spacing:.1em;line-height:1.2}
 .challenge-instruction{font-size:23px;font-weight:450;line-height:1.25}
 .challenge-clock{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
 .challenge-time{font-family:var(--font-num);font-size:40px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
 .challenge-next{font-size:15px;color:var(--muted);line-height:1.3}
-#scr-train[data-ladder="1"] .stage{gap:32px;padding-block:18px 0}
-#scr-train[data-ladder="1"] .train-left{gap:6px}
-#scr-train[data-ladder="1"] .verdict:empty{display:none}
+:is(#scr-train,.scr-train)[data-ladder="1"] .stage{gap:32px;padding-block:8px 0}
+:is(#scr-train,.scr-train)[data-ladder="1"] .train-left{gap:6px}
+:is(#scr-train,.scr-train)[data-ladder="1"] .verdict:empty{display:none}
 @media not (orientation: landscape){
   /* Keep the timer and Lock in visible together, including below an iPhone's safe areas. */
-  #scr-train[data-ladder="1"]{--challenge-dial:min(56vw,220px,max(150px,calc((100svh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 430px)/2)))}
-  #scr-train[data-ladder="1"] .orb{width:var(--challenge-dial)}
+  :is(#scr-train,.scr-train)[data-ladder="1"]{--challenge-dial:min(56vw,220px,max(150px,calc((100svh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 430px)/2)))}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .orb{width:var(--challenge-dial)}
 }
 .answer-tools{display:flex;justify-content:flex-end;margin-bottom:-2px}
 .answer-tools .icon svg{width:18px;height:18px}
@@ -649,23 +645,23 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
    Screens split into two columns. Training puts the orb in the middle, the result to its left and the
    listen buttons to its right, with the answer controls across the bottom of the screen. */
 .halves,.half{display:contents}
-#scr-summary .actions{order:1}
+:is(#scr-summary,.scr-summary) .actions{order:1}
 @media (orientation: landscape){
   .app{max-width:1080px;padding-inline:max(20px, env(safe-area-inset-left, 0px)) max(20px, env(safe-area-inset-right, 0px));padding-bottom:20px}
   .halves{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 28px;align-items:start}
   .half{display:flex;flex-direction:column;gap:18px;min-width:0}
-  #scr-home .halves{align-items:center}
-  #scr-home .hero{width:min(62vh,300px)}
-  #scr-summary .half:first-child{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 20px;align-items:center;align-content:start}
-  #scr-summary .score-ring{grid-row:1 / span 2;width:min(40vh,220px);margin:0}
-  #scr-summary .banner,#scr-summary #sumTiles{grid-column:2}
-  #scr-summary .actions{grid-column:1 / -1}
-  #scr-summary .half:last-child .card{max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px);overflow-y:auto}   /* the list scrolls, the buttons stay on screen */
+  :is(#scr-home,.scr-home) .halves{align-items:center}
+  :is(#scr-home,.scr-home) .hero{width:min(62vh,300px)}
+  :is(#scr-summary,.scr-summary) .half:first-child{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 20px;align-items:center;align-content:start}
+  :is(#scr-summary,.scr-summary) .score-ring{grid-row:1 / span 2;width:min(40vh,220px);margin:0}
+  :is(#scr-summary,.scr-summary) .banner,:is(#scr-summary,.scr-summary) #sumTiles{grid-column:2}
+  :is(#scr-summary,.scr-summary) .actions{grid-column:1 / -1}
+  :is(#scr-summary,.scr-summary) .half:last-child .card{max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px);overflow-y:auto}   /* the list scrolls, the buttons stay on screen */
   .article{max-width:720px;margin-inline:auto}
   #levelSeg,#levelPick{max-height:calc(100vh - 110px);max-height:calc(100dvh - 110px);overflow-y:auto}   /* the long level list scrolls on its own */
 
   .app[data-screen="train"]{max-width:none;padding-block:0 10px}
-  #scr-train{gap:6px;min-height:calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px);min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px)}
+  :is(#scr-train,.scr-train){gap:6px;min-height:calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px);min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px)}
   .train-top{margin-inline:0;padding-inline:0;min-height:44px}
   .train-body{flex:1;display:flex;flex-direction:column;gap:10px}
   .train-left{flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:clamp(16px,3vw,40px);row-gap:6px;align-items:center;align-content:center}
@@ -687,24 +683,25 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
   .roll-track{height:clamp(116px,38vh,230px)}
   .piano{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
   .adjust{display:grid;grid-template-columns:auto minmax(0,340px);justify-content:center;column-gap:20px;row-gap:8px;align-items:center}
-  #scr-train[data-ladder="1"] .train-body:has(#adjust:not([hidden])){display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
-  #scr-train[data-ladder="1"] .stage{gap:16px;padding-block:8px}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .train-body{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .stage{gap:16px;padding-block:8px}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{min-height:clamp(104px,34vh,228px)}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .phase-wave{height:clamp(104px,34vh,228px)}
   #adjust{grid-template-columns:minmax(0,340px) minmax(0,340px)}
-  #adjust .tune-pad{height:clamp(130px,38vh,230px)}
 }
 @media (orientation: landscape) and (max-height: 540px){
   .app{padding-top:4px}
   .topbar{min-height:44px}
   .screen,.half{gap:10px}
   .halves{row-gap:10px}
-  #scr-home .cta{padding-block:12px}
-  #scr-home .week .bar{height:28px}
+  :is(#scr-home,.scr-home) .cta{padding-block:12px}
+  :is(#scr-home,.scr-home) .week .bar{height:28px}
   .orb::before{inset:-10px} .orb::after{inset:-20px}
   .strip{height:64px}
   .pkeys{height:46px}
   .challenge-time{font-size:34px}
   .phase-progress{margin-bottom:4px}
-  #scr-train[data-ladder="1"] .stage{gap:12px}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .stage{gap:12px}
 }
 </style>
 <style>
@@ -714,6 +711,7 @@ img{max-width:100%}
 </style>
 </head>
 <body>
+<div class="backdrop" aria-hidden="true"><canvas class="band" id="band"></canvas></div>
 <div class="app" id="app">
 
   <!-- ============ HOME ============ -->
@@ -820,6 +818,7 @@ img{max-width:100%}
     <div class="train-body">
     <div class="train-left">
     <div class="stage">
+      <div class="phase-display">
       <button class="orb" id="playBtn" type="button" data-state="idle" data-hidden="1" aria-label="Replay tone">
         <span class="orb-core">
           <canvas class="orb-wave" id="wave" aria-hidden="true"></canvas>
@@ -832,6 +831,7 @@ img{max-width:100%}
         <svg class="tune-wave" viewBox="0 0 360 120"><path d="M0 60Q15 12 30 60T60 60T90 60T120 60T150 60T180 60T210 60T240 60T270 60T300 60T330 60T360 60"/><path d="M0 60Q20 100 40 60T80 60T120 60T160 60T200 60T240 60T280 60T320 60T360 60"/></svg>
       </div>
       <p class="phase-cue" id="ltPhaseCue" hidden></p>
+      </div>
       <div class="challenge-clock" id="ltChallengeStatus" role="timer" aria-live="off" hidden>
         <div class="phase-progress" aria-hidden="true"><i id="ltPhaseMeter"></i></div>
         <span class="challenge-time" id="ltChallengeTime"></span>
@@ -861,15 +861,14 @@ img{max-width:100%}
       <div class="numpad" id="numpad" role="group" aria-label="Number pad"><button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="0">0</button><button type="button" data-k="back" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg></button></div>
     </form>
     <div class="adjust" id="adjust" hidden>
-      <div class="tune-pad" id="pad" tabindex="0" role="group" aria-label="Tune the pitch: swipe up or down for large changes, left or right for small changes">
-        <svg class="tune-wave" viewBox="0 0 360 120" aria-hidden="true"><path d="M0 60Q15 12 30 60T60 60T90 60T120 60T150 60T180 60T210 60T240 60T270 60T300 60T330 60T360 60"/><path d="M0 60Q20 100 40 60T80 60T120 60T160 60T200 60T240 60T280 60T320 60T360 60"/></svg>
+      <div class="swipe-hint" id="pad">
         <p>↕ Large changes</p>
         <p>↔ Small changes</p>
-        <small id="tuneMovement" aria-live="polite">Swipe to tune</small>
+        <small id="tuneMovement" aria-live="polite">Swipe anywhere to tune</small>
       </div>
       <div class="tip" id="findTip" role="dialog" aria-label="Tip" hidden>
         <button class="tip-x" id="tipClose" type="button" aria-label="Close tip">×</button>
-        <p>Swipe up or down for large pitch changes. Swipe left or right for small changes.</p>
+        <p>Swipe anywhere on the screen: up or down for large pitch changes, left or right for small changes.</p>
         <label class="tip-check"><input type="checkbox" id="tipNever"> Don't show again</label>
       </div>
       <button class="cta" id="lockBtn" type="button">Lock in</button>
@@ -1070,7 +1069,7 @@ img{max-width:100%}
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
-      <p>Swipe up or down in the tuning area for large pitch changes, or left and right for small corrections. Your swipe keeps its starting direction until you lift your finger.</p>
+      <p>Swipe anywhere on the training screen: up or down for large pitch changes, or left and right for small corrections. Your swipe keeps its starting direction until you lift your finger.</p>
       <p>On an instrument, pausing or releasing a swipe plays the new pitch. A sine tone follows your movement continuously. Within a quarter tone passes. The pitch starts at random within a random range, so the screen never gives away how far you are from the target. The first one-tone rounds play the target once before you start.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
@@ -1174,7 +1173,6 @@ img{max-width:100%}
     </div>
   </div>
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
-  <canvas class="band" id="band" aria-hidden="true" hidden></canvas>
 </div>
 
 <div class="count-in" id="countIn" role="dialog" aria-modal="true" aria-label="Get ready" hidden>
@@ -1864,25 +1862,74 @@ function startAdj(kind){                         // kind: the interference first
 /* ---------- navigation ---------- */
 let screen = 'home', progMode = 'pick', progTone = null;
 let ltSessionTone = null, ltPulseTimer = null, ltWake = null, ltWakeToken = 0;
+/* ---------- motion ----------
+   Only content moves. Text fades never delay the audio, deadlines or saved answers. */
+const textFades = new WeakMap();
+function fadeText(el, text){
+  const pending = textFades.get(el);
+  if ((pending?.text ?? el.textContent) === text) return;
+  pending?.animation?.cancel();
+  textFades.delete(el);
+  if (reduceMotion.matches || !el.animate || el.hidden || !el.textContent) { el.textContent = text; return; }
+  const state = {text}, opts = {duration: 120, fill: 'forwards'};
+  textFades.set(el, state);
+  const out = el.animate([{opacity: 1}, {opacity: 0}], opts);
+  state.animation = out;
+  out.onfinish = () => {
+    if (textFades.get(el) !== state) return;
+    el.textContent = text; out.cancel();
+    const into = el.animate([{opacity: 0}, {opacity: 1}], {duration: 220, easing: 'ease-out'});
+    state.animation = into;
+    into.onfinish = () => { if (textFades.get(el) === state) textFades.delete(el); };
+  };
+}
+let pageGhost = null, pageAnimations = [];
+function clearPageMotion(){
+  pageAnimations.forEach(a => a.cancel()); pageAnimations = [];
+  pageGhost?.remove(); pageGhost = null;
+}
+function snapshotPage(el){
+  if (!el || el.hidden || reduceMotion.matches || !el.animate) return null;
+  const rect = el.getBoundingClientRect(), clone = el.cloneNode(true);
+  clone.classList.add(el.id);                         // retain page-specific layout without duplicate DOM ids
+  clone.removeAttribute('id'); clone.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+  clone.classList.add('screen-ghost'); clone.inert = true; clone.setAttribute('aria-hidden', 'true');
+  Object.assign(clone.style, {top: `${rect.top}px`, left: `${rect.left}px`, width: `${rect.width}px`, height: `${rect.height}px`});
+  const originalCanvases = el.querySelectorAll('canvas');
+  clone.querySelectorAll('canvas').forEach((c, i) => { c.width = originalCanvases[i].width; c.height = originalCanvases[i].height; if (c.width && c.height) c.getContext('2d')?.drawImage(originalCanvases[i], 0, 0); });
+  return clone;
+}
+function glidePage(clone, incoming){
+  if (!clone) return;
+  pageGhost = clone; document.body.append(clone);
+  const width = window.innerWidth, options = {duration: 420, easing: 'cubic-bezier(.22,.75,.2,1)'};
+  const out = clone.animate([{transform: 'translateX(0)', opacity: 1}, {transform: `translateX(${-width}px)`, opacity: 0.35}], options);
+  const into = incoming.animate([{transform: `translateX(${width}px)`}, {transform: 'translateX(0)'}], options);
+  pageAnimations = [out, into];
+  into.onfinish = () => { if (pageGhost === clone) clearPageMotion(); };
+}
 /* The five main pages share a header with tabs: Train (with the levels), Long-term, Echo, Progress, Lab. */
 const TABS = ['home', 'lt', 'echo', 'progress', 'lab'];
 function go(name){
   if (introActive) cancelCountIn();
   if (ltSessionTone != null && name !== 'train') return;
+  clearPageMotion();
+  const outgoing = name !== screen ? snapshotPage($('scr-' + screen)) : null;
   if ((screen === 'train' || screen === 'lab') && name !== screen) stopAll();
   if (name !== 'train') showTip(false);
-  const from = TABS.indexOf(screen), to = TABS.indexOf(name);
+  const to = TABS.indexOf(name);
   screen = name;
   $('app').dataset.screen = name;
-  document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + name; s.classList.remove('slide-l', 'slide-r'); });
+  document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== 'scr-' + name; });
   $('tabhead').hidden = to < 0;
   $('tabs').querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
-  if (from >= 0 && to >= 0 && from !== to && !reduceMotion.matches) $('scr-' + name).classList.add(to > from ? 'slide-l' : 'slide-r');
   window.scrollTo(0, 0);
   if (name === 'progress') { if (progMode !== 'lt') progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
   if (name === 'lt') ltStopping = false;
   ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, lt: renderLT, lab: renderLab, echo: renderEcho})[name]?.();
   placeBand();
+  renderStatus();
+  glidePage(outgoing, $('scr-' + name));
 }
 document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
 $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b && b.dataset.tab !== screen) go(b.dataset.tab); });
@@ -1899,6 +1946,8 @@ function cancelCountIn(){
   introTimers.forEach(clearTimeout); introTimers = [];
   introActive = false;
   $('countIn').hidden = true;
+  const word = $('countInWord');
+  textFades.get(word)?.animation?.cancel(); textFades.delete(word); word.textContent = 'READY';
   $('app').inert = false;
   introFocus?.focus?.({preventScroll: true}); introFocus = null;
 }
@@ -1908,11 +1957,11 @@ function startCountIn(begin, label){
   introActive = true; introFocus = document.activeElement;
   $('countInLabel').textContent = label;
   $('app').inert = true; $('countIn').hidden = false;
+  if (!reduceMotion.matches) $('countIn').animate?.([{opacity: 0}, {opacity: 1}], {duration: 180, easing: 'ease-out'});
   $('countInCancel').focus({preventScroll: true});
   const cue = (text, step) => {
     if (!introActive || token !== introToken) return;
-    $('countIn').dataset.step = step; word.textContent = text;
-    if (!reduceMotion.matches) word.animate?.([{opacity: 0, transform: 'translateY(14px)'}, {opacity: 1, transform: 'none'}], {duration: 250});
+    $('countIn').dataset.step = step; fadeText(word, text);
   };
   cue('READY', 'ready');
   introTimers.push(setTimeout(() => cue('SET', 'set'), 800));
@@ -2576,7 +2625,7 @@ function renderLadderClock(){
     until = t.due; stage = 'wait'; duration = Math.max(1, t.due - notesEnd);
     if (ltSessionTone != null && until - now <= 2400) {
       stage = 'countdown';
-      $('ltPhaseCue').textContent = until - now > 1600 ? 'READY' : until - now > 800 ? 'SET' : 'GO!';
+      fadeText($('ltPhaseCue'), until - now > 1600 ? 'READY' : until - now > 800 ? 'SET' : 'GO!');
     }
   }
   $('playBtn').hidden = stage === 'notes' || stage === 'wait' || stage === 'countdown';
@@ -2585,12 +2634,12 @@ function renderLadderClock(){
   const scr = $('scr-train');
   if (scr.dataset.stage !== stage) {
     scr.dataset.stage = stage;
-    if (!reduceMotion.matches) scr.querySelector('.train-left')?.animate?.([{opacity: 0, transform: 'translateY(12px)'}, {opacity: 1, transform: 'none'}], {duration: 250});
+    if (!reduceMotion.matches) scr.querySelector('.phase-display')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
   }
   $('ltChallengeLevel').textContent = `LEVEL ${round.challengeLevel}`;
-  if ($('ltChallengeInstruction').textContent !== instruction) $('ltChallengeInstruction').textContent = instruction;
+  fadeText($('ltChallengeInstruction'), instruction);
   $('ltChallengeTime').textContent = until > now ? fmtCount(until - now) : '0:00';
-  $('ltChallengeNext').textContent = next;
+  fadeText($('ltChallengeNext'), next);
   $('ltPhaseMeter').style.transform = `scaleX(${Math.max(0, Math.min(1, (until - now) / duration))})`;
 }
 function armLadderClock(){
@@ -2890,6 +2939,7 @@ function nudge(du){
   trial.x = ((trial.x + du) % C + C) % C;
   const after = deckPos(trial);
   if (after.i !== before.i) { trial.mv++; clearTimeout(trial.turnTimer); trial.turnTimer = setTimeout(showTurn, SETTLE * 1000); }
+  syncBandPitch();
   if (sineFind() && (after.i !== before.i || Math.abs(after.g - before.g) > 0.01)) sineFollow();
   armIdle();
 }
@@ -3040,7 +3090,7 @@ function bindTunePad(pad, h){
     if (moved) h.release?.();
   };
   pad.addEventListener('pointerdown', e => {
-    if (!h.can() || drag || e.isPrimary === false || e.button > 0) return;
+    if (!h.can() || drag || e.isPrimary === false || e.button > 0 || e.target?.closest?.('button, input, select, textarea, a, [role="dialog"]')) return;
     e.preventDefault();
     drag = {id: e.pointerId, x: e.clientX, y: e.clientY, axis: null, moved: false};
     try { pad.setPointerCapture(e.pointerId); } catch(err) {}
@@ -3060,14 +3110,14 @@ function bindTunePad(pad, h){
   });
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => pad.addEventListener(type, end));
   pad.addEventListener('wheel', e => {
-    if (!h.can()) return;
+    if (!h.can() || e.target?.closest?.('button, input, select, textarea, a, [role="dialog"]')) return;
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
     const change = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX * 0.2 : -e.deltaY * (e.shiftKey ? 0.2 : 2);
     h.grab?.(); h.move(change * unit); h.release?.();
   }, {passive: false});
 }
-bindTunePad($('pad'), {
+bindTunePad(document.body, {
   can: canAdjust,
   grab: () => showTip(false),
   move: du => { hush(); nudge(du); soundSoon(0.04); },
@@ -3154,6 +3204,7 @@ function renderWeek(){
 /* ---------- training ---------- */
 function renderStatus(){
   const can = canAdjust();
+  document.body.dataset.tuning = can ? '1' : '0';
   $('adjust').dataset.off = can ? '0' : '1';
   $('lockBtn').disabled = !can;
 }
@@ -3170,7 +3221,7 @@ function howto(){                                               // one short lin
   if (trial.task === 'type') return 'Type the frequency you hear';
   return notes ? 'Name the note you hear' : 'Name the frequency you hear';
 }
-function updateHowto(){ const t = howto(); if (t) $('howto').textContent = t; $('howto').classList.toggle('off', !t); }
+function updateHowto(){ fadeText($('howto'), howto()); $('howto').classList.remove('off'); }
 function roundProgress(){
   if (round.ladder) {
     const s = lt.tones.find(t => t.f === round.lt).ladder, n = roundLen();
@@ -3208,6 +3259,7 @@ function nextButtonLabel(){
   }
   return round.items.length >= roundLen() ? 'Results' : 'Next';
 }
+let renderedTrial = null, renderedPhase = '';
 function render(){
   if (!round || !trial) return;
   updateHowto();
@@ -3220,6 +3272,7 @@ function render(){
 
   const orb = $('playBtn'), sub = $('sub');
   $('scr-train').dataset.task = task;
+  $('scr-train').dataset.phase = phase;
   sub.hidden = !!round.ladder && phase === 'revealed';
   if (card) {                                                            // front: the note or the frequency; back: the other, and other tunings
     const back = phase === 'revealed', hz = trial.side === 'hz', showHz = back ? hz : !hz;
@@ -3267,7 +3320,7 @@ function render(){
   input.setAttribute('aria-label', noteCard ? 'Your answer, a note' : 'Your answer in hertz');
   $('after').querySelector('.pair').hidden = card || preview;             // nothing to compare after a card, or before a round
   $('adjust').hidden = !find || phase === 'revealed' || trial.echo && !trial.heard;
-  if (find && phase === 'listening' && !trial.mv) $('tuneMovement').textContent = 'Swipe to tune';
+  if (find && phase === 'listening' && !trial.mv) $('tuneMovement').textContent = 'Swipe anywhere to tune';
   if (roll) { renderRoll(L); if (phase === 'revealed' && !last.ok) showActualKey(); }
   else if (task === 'pick' || task === 'notes') renderChoices(L, task);
   else if (task === 'piano') renderPiano(L);
@@ -3288,6 +3341,13 @@ function render(){
   renderStatus();
   if (phase === 'revealed' && !card) drawStrip(L);
   startWave();
+  syncBandPitch();
+  const view = `${phase}:${!!trial.heard}`;
+  if (!round.ladder && (renderedTrial !== trial || renderedPhase !== view) && !reduceMotion.matches) {
+    $('playBtn').querySelector('.orb-core')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
+    $('scr-train').querySelector('.train-right')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
+  }
+  renderedTrial = trial; renderedPhase = view;
 }
 const fitNum = (el, px) => { const n = el.textContent.length; el.style.fontSize = n > 5 ? `${Math.round(px * 5.5 / n)}px` : ''; };   // long numbers shrink to fit the orb
 
@@ -4301,45 +4361,69 @@ $('shDir').addEventListener('click', e => {
   document.querySelectorAll('#shDir [data-dir]').forEach(x => x.setAttribute('aria-pressed', String(+x.dataset.dir === lab.shDir)));
 });
 
-/* ---------- the wave band: slow layered waves running edge to edge behind the level ring, the orb and Echo.
-   Decoration only: it never follows the pitch being played. ---------- */
-const band = $('band'), BAND_HOST = {home: '.hero', train: '.stage', echo: '.echo-hero'};
-const STRANDS = Array.from({length: 6}, (_, k) => ({f: 1.1 + 0.37 * k + Math.random() * 0.2, s: (k % 2 ? -1 : 1) * (0.025 + 0.012 * k), ph: Math.random() * 6.3, a: 0.35 + 0.6 * Math.random(), c: k % 3}));
-let bandRaf = 0, bandLast = 0;
+/* ---------- fixed wave backdrop ----------
+   Every random starting guess has the same appearance. Only changes to the user's guess tighten the waves;
+   reference/target tones never set their wavelength. Interference adds an unpitched, fuzzy texture. */
+const band = $('band');
+let bandRaf = 0, bandLast = 0, bandPitch = 1, bandTargetPitch = 1, bandFuzz = 0;
+let bandTrial = null, bandStartHz = 0;
+function syncBandPitch(){
+  const tuning = screen === 'train' && trial?.task === 'find' && phase === 'listening' && (!trial.echo || trial.heard);
+  if (tuning) {
+    if (bandTrial !== trial) { bandTrial = trial; bandStartHz = deckHz(trial); bandPitch = 1; }
+    bandTargetPitch = clamp(Math.pow(deckHz(trial) / bandStartHz, 0.35), 0.5, 3.5);
+  } else bandTargetPitch = 1;
+  if (reduceMotion.matches) { bandPitch = bandTargetPitch; drawBand(0); }
+}
 function placeBand(){
-  const sel = BAND_HOST[screen], host = sel && document.querySelector(`#scr-${screen} ${sel}`);
-  if (!host) { band.hidden = true; return; }
-  if (band.parentNode !== host) host.prepend(band);
-  band.hidden = false;
-  const w = document.documentElement.clientWidth, dpr = Math.min(2, window.devicePixelRatio || 1);
-  band.style.left = `${-host.getBoundingClientRect().left}px`; band.style.width = `${w}px`;
-  band.width = Math.round(w * dpr); band.height = Math.round(band.clientHeight * dpr);
-  drawBand(performance.now());
-  if (!bandRaf && !reduceMotion.matches) bandRaf = requestAnimationFrame(bandLoop);
+  const rect = band.getBoundingClientRect(), dpr = Math.min(1.5, window.devicePixelRatio || 1);
+  const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
+  if (band.width !== w || band.height !== h) { band.width = w; band.height = h; }
+  syncBandPitch(); drawBand(reduceMotion.matches ? 0 : performance.now());
+  if (!bandRaf && !document.hidden && !reduceMotion.matches) bandRaf = requestAnimationFrame(bandLoop);
 }
 function bandLoop(now){
   bandRaf = 0;
-  if (band.hidden || document.hidden) return;
-  if (now - bandLast > 33) { bandLast = now; drawBand(now); }           // about 30 frames a second is plenty
+  if (document.hidden || reduceMotion.matches) return;
+  if (now - bandLast >= 32) {
+    const dt = Math.min(0.08, (now - bandLast) / 1000); bandLast = now;
+    bandPitch += (bandTargetPitch - bandPitch) * Math.min(1, dt * 10);
+    const noisy = screen === 'train' && (audioState === 'interfere' || round?.ladder && $('scr-train').dataset.stage === 'notes');
+    bandFuzz += (Number(noisy) - bandFuzz) * Math.min(1, dt * 8);
+    drawBand(now);
+  }
   bandRaf = requestAnimationFrame(bandLoop);
 }
 function drawBand(now){
   const c = band.getContext('2d'), W = band.width, H = band.height, t = now / 1000;
-  const cols = settings.light ? ['20,130,140', '80,70,200', '20,150,110'] : ['70,205,200', '125,115,255', '110,230,170'];
+  if (!W || !H) return;
+  const cols = settings.light ? ['20,130,140', '80,70,200', '20,150,110'] : ['70,215,215', '145,130,255', '110,230,190'];
   c.clearRect(0, 0, W, H);
-  c.lineWidth = Math.max(1, W / 900);
-  STRANDS.forEach((S, k) => {
-    c.beginPath();
-    for (let i = 0; i <= 160; i++) {
-      const x = i / 160, env = Math.pow(Math.sin(Math.PI * x), 0.8);  // tapering off at the screen's edges
-      const y = H / 2 + H * 0.36 * S.a * env * (0.75 + 0.25 * Math.sin(t * 0.3 + k)) * Math.sin(2 * Math.PI * (S.f * x + S.s * t) + S.ph);
-      i ? c.lineTo(x * W, y) : c.moveTo(x * W, y);
+  // Three ribbons stay anchored to the viewport while their strands flow sideways.
+  [0.26, 0.49, 0.73].forEach((mid, row) => {
+    const A = Math.min(H * 0.075, W * 0.15), cycles = (2.8 + row * 0.7) * bandPitch;
+    for (let k = 0; k < 5; k++) {
+      const main = k === 0, amp = 1 - k * 0.12, ph = k * 0.8 + row * 1.7;
+      c.beginPath();
+      for (let i = 0; i <= 240; i++) {
+        const x = i / 240, envelope = 0.45 + 0.55 * Math.sin(Math.PI * x);
+        let y = amp * Math.sin(2 * Math.PI * (cycles * (1 + k * 0.13) * x - t * (0.08 + k * 0.018)) + ph);
+        y += 0.12 * Math.sin(2 * Math.PI * x * 11 + t * 0.4 + ph);
+        y += bandFuzz * (0.3 * Math.sin(x * 430 + t * 11 + ph) + 0.16 * Math.sin(x * 770 - t * 17 + ph));
+        const Y = H * mid + A * envelope * y;
+        i ? c.lineTo(x * W, Y) : c.moveTo(x * W, Y);
+      }
+      const alpha = (settings.light ? 0.26 : 0.42) * (main ? 1 : 0.3 + bandFuzz * 0.15);
+      c.strokeStyle = `rgba(${cols[row]},${alpha})`; c.lineWidth = main ? Math.max(1.4, W / 700) : 0.8;
+      c.shadowColor = `rgba(${cols[row]},0.35)`; c.shadowBlur = main && !reduceMotion.matches ? 8 : 0;
+      c.stroke();
     }
-    c.strokeStyle = `rgba(${cols[S.c]},${(settings.light ? 0.16 : 0.2) * (0.5 + 0.5 * S.a)})`;
-    c.stroke();
   });
+  c.shadowBlur = 0;
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden && !band.hidden && !bandRaf && !reduceMotion.matches) bandRaf = requestAnimationFrame(bandLoop); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) placeBand(); });
+reduceMotion.addEventListener?.('change', () => { clearPageMotion(); cancelAnimationFrame(bandRaf); bandRaf = 0; placeBand(); });
+window.addEventListener('resize', placeBand);
 $('phonesOk').addEventListener('click', () => { renderProfile(); go('profile'); });
 
 /* ---------- profile: asked once, on first launch ---------- */
