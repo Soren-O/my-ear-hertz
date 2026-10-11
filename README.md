@@ -6,7 +6,7 @@ Play it at **https://soren-o.github.io/my-ear-hertz/** (earbuds recommended; on 
 
 Still in beta. 
 
-The app is the single file `index.html`. `sounds/` holds the instrument recordings, one file per instrument,
+The app's UI is `index.html`; `long-term-levels.js` owns the per-note level and daily-check state. `sounds/` holds the instrument recordings, one file per instrument,
 loaded only when that instrument is used; `tools/make_sounds.py` rebuilds them.
 
 Instrument sounds: [FluidR3 GM SoundFont](https://github.com/gleitz/midi-js-soundfonts) by Frank Wen,

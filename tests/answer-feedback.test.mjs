@@ -22,7 +22,7 @@ function app() {
   });
   vm.runInContext(`
     let ctx = audioClock, timers = [], instToken = 0, adjIdle = null, pulseTimer = null, sineTone = null, labActive = null;
-    let round, trial, last, phase, history = [], anchors = [];
+    let round, trial, last, phase, history = [], anchors = [], ltSessionTone = null;
     const settings = {dur: 2}, SINE = {id: 'sine'}, COLD_GAP = 600000, reduceMotion = {matches: true};
     const elements = new Map();
     const $ = id => {

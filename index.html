@@ -770,6 +770,7 @@ img{max-width:100%}
       <div class="progress" id="dots" aria-hidden="true"></div>
       <span class="count" id="trCount">1/20</span>
     </header>
+    <p class="howto" id="ltChallengeStatus" role="timer" hidden></p>
     <p class="howto" id="howto" aria-live="polite"></p>
     <div class="confirm-bar" id="quitConfirm" hidden>
       <span>End round?</span>
@@ -928,6 +929,7 @@ img{max-width:100%}
     <div class="halves"><div class="half">
     <h1 class="page-head">Long-term <span>(perfect pitch)</span></h1>
     <p class="lt-reminders" id="ltReminderStatus"></p>
+    <div class="confirm" id="ltRestartWrap" hidden></div>
     <div id="ltList"></div>
     <div class="tiles" id="ltTiles"></div>
     <div class="list" id="ltExactRow" hidden>
@@ -1109,9 +1111,9 @@ img{max-width:100%}
       <div class="lt-copy">
         <p>You just found C6 ten times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
         <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
-        <p>So we&rsquo;ll check on C6 right away, then at gradually longer intervals, from minutes to hours to days to weeks. At every check-in, get two correct pitch answers in a row: after the first success, re-tune once more. Miss either pitch answer, and you&rsquo;ll practise until you get two right in a row. Missing the initial tune brings the next check sooner.</p>
+        <p>Start with six ten-minute levels: 10, 5, 4, 3, 2, then 1 correct pitch guesses. You have 20 seconds for each guess. After a correct answer, listen to the target for 20 seconds, then random notes. A wrong answer or timeout ends the attempt.</p>
         <p id="ltReminderNote"></p>
-        <p class="heads-up">Day one is busy: checks every 2 minutes at first, gradually spreading to once an hour until bedtime. Check-ins are just Tune and Re-tune that day; flashcards start on day two. A missed pitch check drops you one interval level and restarts that level. Best started in the morning. After two or three days it gets much quieter.</p>
+        <p class="heads-up">Keep this screen open for the first hour. Tabs unlock after level 6; you can quit at any time. Levels 7–10 need an hour of checks at 10, 15, 20, then 30-minute intervals. Level 11 repeats every 45 minutes for the rest of the day. Reach it on two different days to earn a badge and start there on later mornings. Then build through 1, 2, 4, and 8-hour gaps to level 16: one check each calendar day, at any time. A daily miss returns you to level 11.</p>
       </div>
       <div class="sleep-row"><b>Asleep</b><span class="sleep"><input type="time" id="ltBed" aria-label="Bedtime"><span aria-hidden="true">–</span><input type="time" id="ltWake" aria-label="Wake-up time"></span></div>
       <p class="lt-msg" id="ltMsg" hidden></p>
@@ -1132,6 +1134,7 @@ img{max-width:100%}
   <canvas class="band" id="band" aria-hidden="true" hidden></canvas>
 </div>
 
+<script src="long-term-levels.js"></script>
 <script>
 (() => {
 const $ = id => document.getElementById(id);
@@ -1811,9 +1814,11 @@ function startAdj(kind){                         // kind: the interference first
 
 /* ---------- navigation ---------- */
 let screen = 'home', progMode = 'pick', progTone = null;
+let ltSessionTone = null, ltPulseTimer = null, ltWake = null, ltWakeToken = 0;
 /* The five main pages share a header with tabs: Train (with the levels), Long-term, Echo, Progress, Lab. */
 const TABS = ['home', 'lt', 'echo', 'progress', 'lab'];
 function go(name){
+  if (ltSessionTone != null && name !== 'train') return;
   if ((screen === 'train' || screen === 'lab') && name !== screen) stopAll();
   if (name !== 'train') showTip(false);
   const from = TABS.indexOf(screen), to = TABS.indexOf(name);
@@ -1842,6 +1847,14 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
   const lv = extra && extra.lv || settings.level;                        // L: a one-note level standing in for LEVELS[lv - 1]
   const V = roundVoice(echo ? ECHO_L : extra && extra.L || LEVELS[lv - 1]);
   const begin = v => {
+    if (extra?.ladder) {
+      if (round) return;
+      const t = lt.tones.find(t => t.f === extra.lt);
+      if (!t || !LTLevels.begin(t, Date.now())) return go('lt');
+      ltSessionTone = t.ladder.level <= 6 ? t.f : null;
+      saveLT();
+      holdLadderScreen();
+    }
     round = Object.assign({id: Date.now(), lv, items: [], voice: v, echo: echo || null}, extra);
     $('quitConfirm').hidden = true;
     go('train');
@@ -1856,6 +1869,7 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
   });
 }
 function nextQuestion(){
+  if (round.ladder) round.challengeLevel = lt.tones.find(t => t.f === round.lt).ladder.level;
   if (round.lt && round.ltCard == null) round.ltCard = round.items.some(x => x.task === 'card') || checkHasCard(lt.tones.find(t => t.f === round.lt));
   if (round.practiceTone && !round.practiceCard) round.retune = !!lt.tones.find(t => t.f === round.practiceTone)?.retune?.streak;
   const L = levelOf();
@@ -1882,6 +1896,7 @@ function nextQuestion(){
     if (round.lt || round.checkFlow) trial.show = (round.items[0]?.task === 'card' ? round.items[0].side : round.checkFlow?.check.card?.side) || 'note';
     render();
     if (round.echo) startEchoTone(); else startAdj(round.lt ? null : trainItf());   // a long-term check is cold: no interference
+    if (round.ladder) armLadderClock();
     if (!settings.hideFindTip && !round.tipShown && !round.lt) { round.tipShown = true; showTip(true); }
   } else {
     const style = CHOICE_TASKS.includes(task) && settings.answer !== 'buttons' ? 'roll' : 'classic';   // the full keyboard, or buttons
@@ -1894,6 +1909,7 @@ function nextQuestion(){
 }
 const playPreview = () => play(trial.f, {dur: 2, rove: false, labeled: true, voice: true});   // the round's target, labeled
 function record(rec){
+  if (round.ladder) return recordLadder(rec);
   rec.rd = round.id;
   rec.k = round.items.length;                                            // position in the round
   if (!round.echo && (round.lt ? rec.task === 'find' : rec.k === 0)) {   // cold: nothing labeled heard for 10+ minutes
@@ -1991,7 +2007,7 @@ const ECHO_N = 5, ECHO_TONE = 2, ECHO_GAP = 0.6;
 const ECHO_L = {name: 'Echo', short: 'Echo', task: 'find', choices: null, wrap: 'both', tier: -1, div: DIVISIONS.length};
 let echoStats = Object.assign({best: null, days: {}, games: []}, store.get('hbe3.echo', {}) || {});
 const levelOf = () => round && round.echo ? ECHO_L : round && round.L ? round.L : LEVELS[(round ? round.lv : settings.level) - 1];
-const roundLen = () => !round ? ROUND : round.echo ? ECHO_N : round.checkFlow ? round.checkFlow.hasCard ? 3 : 2 : round.lt ? round.ltCard ? 3 : 2 : round.practice ? round.practiceGoal || 1 : ROUND;
+const roundLen = () => !round ? ROUND : round.ladder ? LTLevels.spec(round.challengeLevel).count || 1 : round.echo ? ECHO_N : round.checkFlow ? round.checkFlow.hasCard ? 3 : 2 : round.lt ? round.ltCard ? 3 : 2 : round.practice ? round.practiceGoal || 1 : ROUND;
 const echoPts = cents => Math.max(0, Math.round((10 - Math.abs(cents) / 10) * 10) / 10);
 const centsTxt = c => `${c > 0.5 ? '+' : c < -0.5 ? '−' : '±'}${Math.abs(Math.round(c))}¢`;
 const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -2055,18 +2071,11 @@ function nextRound(){                      // the results screen's main button
 }
 
 /* ---------- long-term training ----------
-   The first perfect round of Find C6 opens it (the invitation below). The native app asks for notifications, then the checks
-   begin: one cold Find of the tone, scored in cents, with a silent flashcard before it from Day 2 onward. Cold means nothing plays first, no interference either: no pitch
-   was heard, so there is no short-term memory to wipe. A new tone's first two or three days run on fixed check-in
-   times (the block, below). After that, a hit grows the wait 1.5× and a miss cuts it about 10×, with half credit for
-   late checks in log time and a 2-minute minimum: a staircase that settles where 85% of checks hit. Tones likely fade faster than
-   the words on ordinary flashcards (whose usual 2.5× is too coarse here), so the wait climbs more gently.
-   Each check keeps the gap it tested and whether it hit, so the factor can be fitted from real data later. Reminders are silent (the app's "checks" channel; a ding would be a reference tone), come only in waking
-   hours, and tapping one opens straight into the check. Every check-in needs two correct pitch answers in a row,
-   counting a correct initial Find; the second is a re-tune. A miss resets the streak. The next tone
-   (C5, then C7) is offered once every tone in training has reached a wait of a day (LT_READY) and its own Find step in
-   the ladder is passed; the player chooses whether to add it. Checks stay out of training's history; they live in
-   hbe3.lt. Only the app can remind: the website shows a due check while it is open. */
+   New and migrated notes use the persisted level ladder in long-term-levels.js. Levels 1–6 are a timed hour;
+   levels 7–11 build to a 45-minute checkpoint on two distinct local dates, then 1/2/4/8-hour checks lead to a
+   calendar-daily final level. Initial pitch answers decide progression; feedback replaces warm re-tunes.
+   The legacy functions below finish corrections already saved by an older version before migration.
+   All check history is retained. Research arm labels remain recorded; the new ladder is identical in every arm. */
 const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 const LT_FIRST = 2 * MIN;
 /* The staircase (after the block): a hit multiplies the wait by `up`, a miss divides it by up^(p/(1-p)), so in log
@@ -2217,7 +2226,7 @@ lt.tones.forEach(t => {                                         // migrate an ex
   else t.due = b.slots[b.k];
   saveLT();
 });
-if (lt.on && !lt.tones.length) { lt.tones = [blockTone(C6, Date.now())]; saveLT(); }   // opted in before the checks existed
+if (lt.on && !lt.tones.length) { lt.tones = [LTLevels.createTone(C6, Date.now())]; saveLT(); }
 const practiceTone = () => lt.on ? lt.tones.find(t => t.practice && t.practice.length) : null;
 const nextTone = () => lt.on ? practiceTone() || [...lt.tones].sort((a, b) => a.due - b.due)[0] || null : null;
 const dueTone = () => { const t = nextTone(); return t && (t.practice || t.due <= Date.now()) ? t : null; };
@@ -2226,8 +2235,8 @@ const fmtIn = t => `in ${fmtSpan(t - Date.now())}`;
 function ltBegin(){
   const now = Date.now();
   lt.on = true; lt.started = lt.started || now;
-  if (!lt.tones.length) lt.tones = [blockTone(C6, now)];
-  else nextTone().due = now;                                     // back after a stop: check immediately too
+  if (!lt.tones.length) lt.tones = [LTLevels.createTone(C6, now)];
+  else if (!nextTone().ladder) nextTone().due = now;
   saveLT(); ltSchedule();
 }
 function ltOffer(){                        // the tone that may join now: every tone has reached a day's wait, and its ladder step is passed
@@ -2241,7 +2250,7 @@ function ltOfferOnce(){                    // the sheet comes once, when the off
   setTimeout(() => openToneSheet(f), 1400);
 }
 function ltAdd(f){
-  const now = Date.now(), lastCheck = lt.checks.length ? lt.checks[lt.checks.length - 1].t : 0, t = blockTone(f, now);
+  const now = Date.now(), lastCheck = lt.checks.length ? lt.checks[lt.checks.length - 1].t : 0, t = LTLevels.createTone(f, now);
   t.due = Math.max(t.due, lastCheck + LT_GAP);                         // not right after another tone's check
   lt.tones.push(t);
   saveLT(); ltSchedule();
@@ -2258,6 +2267,7 @@ function nextCardSide(){
   return side;
 }
 function checkHasCard(t, now = Date.now()){   // the first morning after Day 1 may still have blk.day === 1 until its Find is answered
+  if (t?.ladder) return false;
   return !t?.blk || t.blk.day > 1 || now >= t.blk.end;
 }
 function checkFlowFor(t){
@@ -2321,10 +2331,12 @@ function submitCard(){
   record({task: 'card', side: trial.side, f: trial.f, g, typed: v, t: Date.now(), lt: 1, ok: ok ? 1 : 0});
 }
 function startCheck(f){                    // f: a particular note's check (from its row), else the most overdue
+  if (lt.tones.some(t => t.ladder)) refreshLadders();
   const pending = practiceTone();
   if (pending) return startLTPractice(pending);
   const t = f ? lt.tones.find(x => x.f === f && x.due <= Date.now()) : dueTone();
   if (!t) return go('lt');
+  if (t.ladder) return startRound(undefined, {lv: practiceLv(t.f), lt: t.f, L: ltLevel(t.f), ladder: true});
   startRound(undefined, {lv: practiceLv(t.f), lt: t.f, L: ltLevel(t.f), items: t.card ? [t.card] : []});
 }
 function saveCheckAnswer(rec){               // a card survives interruption; a Find commits the check immediately
@@ -2400,6 +2412,7 @@ async function ltSchedule(){                // the app keeps one pending reminde
     await LN.removeDeliveredNotificationsById({ids: [LT_NOTE]});
     const t = nextTone();
     if (!t) return;
+    if (t.f === ltSessionTone) return;
     const at = remindAt(t.practice ? Date.now() + LT_AGAIN : Math.max(t.due, t.due <= Date.now() ? Date.now() + LT_AGAIN : 0));   // already due or needs practice: again in an hour
     // Exact only once "Alarms & reminders" is allowed (the Exact timing row): asking for exact without it makes the
     // plugin open that settings page on every schedule.
@@ -2410,11 +2423,141 @@ async function ltSchedule(){                // the app keeps one pending reminde
 }
 setInterval(renderLTRow, 15000);             // web check-ins appear in the app; background reminders are native
 function ltRefresh(){                       // on start and whenever the app comes back
+  refreshLadders();
   ltSchedule();
   renderLTRow();
   if (screen === 'lt') renderLT();
   if (screen === 'progress' && progMode === 'lt') renderProgress();
 }
+
+/* New level training. The legacy scheduler above only finishes previously saved card/re-tune corrections. */
+function holdLadderScreen(){
+  if (ltSessionTone == null || !navigator.wakeLock) return;
+  const f = ltSessionTone, token = ++ltWakeToken;
+  navigator.wakeLock.request('screen').then(lock => {
+    if (ltSessionTone !== f || token !== ltWakeToken) lock.release().catch(() => {});
+    else ltWake = lock;
+  }).catch(() => {});
+}
+function appendLadderCheck(t, rec, level, due){
+  const now = rec.t ?? Date.now(), chk = {t: now, f: t.f, g: rec.g ?? null, cents: rec.cents ?? null,
+    ok: rec.ok ? 1 : 0, gap: now - (t.last || t.start || now), due, level, v: rec.v, mv: rec.mv, show: 'note'};
+  if (rec.reason) chk.reason = rec.reason;
+  if (ltArm()) chk.arm = ltArm().id;
+  lt.checks.push(chk);
+  if (lt.checks.length > 3000) lt.checks = lt.checks.slice(-3000);
+  t.last = now;
+  return chk;
+}
+function refreshLadders(){
+  const now = Date.now();
+  let changed = false;
+  for (const t of lt.tones) {
+    changed = LTLevels.migrate(t, now) || changed;
+    if (!t.ladder || !lt.on || t.f === ltSessionTone || round?.ladder && round.lt === t.f) continue;
+    const before = JSON.stringify(t), due = t.due;
+    const event = t.ladder.running || t.ladder.mode === 'guess' ? LTLevels.fail(t, now, 'interrupted') : LTLevels.update(t, now);
+    if (event?.type === 'failed') appendLadderCheck(t, {t: now, ok: 0, reason: event.reason}, event.tested, due);
+    changed = changed || before !== JSON.stringify(t);
+  }
+  if (changed) saveLT();
+  return changed;
+}
+function ladderCaption(t){
+  const s = t.ladder, l = LTLevels.spec(s.level);
+  if (s.level === 16) return s.dailyOn === LTLevels.key(Date.now()) ? 'Level 16 · daily check complete · come back tomorrow' : 'Level 16 · daily check · any time today';
+  if (s.mode === 'failed') return `Level ${s.level} · try again`;
+  const progress = l.count ? ` · ${s.count}/${l.count} correct` : '';
+  return `Level ${s.level} · every ${l.gap === 200000 ? '3⅓ min' : l.gap === 150000 ? '2½ min' : fmtSpan(l.gap)}${progress}`;
+}
+function renderLadderClock(){
+  const el = $('ltChallengeStatus');
+  el.hidden = !round?.ladder;
+  if (!round?.ladder) return;
+  const t = lt.tones.find(t => t.f === round.lt), now = Date.now(), s = t.ladder;
+  let text;
+  if (phase === 'listening') text = `Guess within ${Math.max(0, Math.ceil((s.deadline - now) / 1000))} seconds`;
+  else if (now < round.answerAt + 20000) text = `Target · ${Math.ceil((round.answerAt + 20000 - now) / 1000)} seconds`;
+  else if (now < round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000)) text = 'Random notes';
+  else text = ltSessionTone != null ? `${s.mode === 'boundary' ? 'Level complete · next level' : 'Next guess'} in ${fmtCount(t.due - now)}` : ladderCaption(t);
+  el.textContent = `Level ${round.challengeLevel} · ${noteName(t.f)} · ${text}`;
+}
+function armLadderClock(){
+  clearInterval(ltPulseTimer);
+  ltPulseTimer = setInterval(tickLadder, 100);
+  renderLadderClock();
+}
+function tickLadder(){
+  if (!round?.ladder) { clearInterval(ltPulseTimer); ltPulseTimer = null; return; }
+  const t = lt.tones.find(t => t.f === round.lt), now = Date.now();
+  if (phase === 'listening' && now >= t.ladder.deadline) {
+    return recordLadder({task: 'find', t: now, f: t.f, g: null, cents: null, ok: 0, reason: 'timeout'});
+  }
+  if (ltSessionTone != null && phase === 'revealed') {
+    const event = LTLevels.update(t, now);
+    if (event?.type === 'failed') {
+      const chk = appendLadderCheck(t, {t: now, ok: 0, reason: event.reason}, event.tested, now);
+      saveLT(); return endLadderCheck(chk, t);
+    }
+    if (t.ladder.level > 6) { saveLT(); endLadderCheck(round.check, t, true); return; }
+    if (t.ladder.mode === 'guess') {
+      round.items = []; delete round.check; saveLT(); return nextQuestion();
+    }
+  }
+  renderLadderClock();
+}
+function ladderFeedback(f, V, seconds, notes = 0){
+  if (!audio()) return;
+  stopAll();
+  const at = ctx.currentTime + 0.03;
+  if (V === SINE || !voiceReady(V)) tone(f, at, seconds, ampFor(f, 0), 0.06);
+  else for (let k = 0; k < seconds; k += 2) strike(V, f, at + k, {dur: Math.min(2, seconds - k), rove: 0});
+  noteAnchor(f); setAudio('tone');
+  if (notes) {
+    pips(at + seconds, notes, [f], 600, voiceReady(V) ? V : null);
+    timers.push(setTimeout(() => setAudio('interfere'), seconds * 1000));
+  }
+  timers.push(setTimeout(() => setAudio('idle'), (seconds + notes) * 1000 + 50));
+}
+function recordLadder(rec){
+  const t = lt.tones.find(t => t.f === round.lt), level = t.ladder.level, due = t.due, V = trial.voice || SINE;
+  const result = rec.reason === 'interrupted' ? LTLevels.fail(t, rec.t, rec.reason) : LTLevels.answer(t, rec.t, !!rec.ok);
+  if (!result) return;
+  if (result.type === 'failed') { rec.ok = 0; rec.reason = result.reason; }
+  rec.f = t.f; rec.v = V.id;
+  const chk = appendLadderCheck(t, rec, level, due);
+  round.items.push(rec); round.check = chk; round.answerAt = rec.t;
+  last = rec; phase = 'revealed'; input.blur(); saveLT(); ltSchedule();
+  if (!rec.ok) {
+    endLadderCheck(chk, t);
+    if (!rec.silent) ladderFeedback(t.f, V, 2);
+    return;
+  }
+  render();
+  ladderFeedback(t.f, V, 20, level === 1 ? 20 : 2);
+  renderLadderClock();
+}
+function endLadderCheck(chk, t, openingComplete = false){
+  ltSessionTone = null;
+  ltWakeToken++;
+  if (ltWake) { ltWake.release().catch(() => {}); ltWake = null; }
+  clearInterval(ltPulseTimer); ltPulseTimer = null;
+  stopAll(); lastRound = {lt: chk, tone: t};
+  round = null; trial = null; last = null; phase = 'idle';
+  $('ltChallengeStatus').hidden = true;
+  ltSchedule();
+  go(openingComplete ? 'lt' : 'summary');
+}
+function abortLadder(){
+  if (!round?.ladder) return;
+  const t = lt.tones.find(t => t.f === round.lt), now = Date.now();
+  if (phase === 'listening') return recordLadder({task: 'find', t: now, ok: 0, reason: 'interrupted', silent: true});
+  const level = t.ladder.level, due = t.due;
+  LTLevels.fail(t, now, 'interrupted');
+  const chk = appendLadderCheck(t, {t: now, ok: 0, reason: 'interrupted'}, level, due);
+  saveLT(); endLadderCheck(chk, t);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && ltSessionTone != null) abortLadder(); });
 
 /* the Long-term screen: every note in ladder order, as training (with a countdown to its next check; tap it when it's
    due), the one that may join next (tap to add it), or locked (with the ladder step that opens it); then the checks */
@@ -2442,13 +2585,13 @@ function renderLTList(){
   LT_NOTES.forEach(n => { (stages[n.stage] = stages[n.stage] || []).push(n); });
   $('ltList').innerHTML = stages.map((ns, si) => `<p class="label group-label">${DIVISIONS[si].name}</p><div class="list">${ns.map(n => {
     const {state, t} = ltNoteState(n.f), due = state === 'training' && (t.practice || t.due <= Date.now());
-    const sub = state === 'training' ? (t.practice ? ltPracticeLabel(t) === 'Re-tune' ? 'Re-tune once more' : t.retune && t.practice[0] === 'find' ? 'Two correct pitches in a row' : 'Practise until correct' : due ? 'Check now' : 'Training') : state === 'offer' ? (lt.on ? 'Tap to add' : 'Tap to start') : levelTitle(n.lv);
-    const right = state === 'training' && !t.practice ? `<span class="lt-count" data-due="${t.due}">${fmtCount(t.due - Date.now())}</span>` : '';
-    return `<button class="row lt-note ${state}${due ? ' due' : ''}" type="button" data-f="${n.f}"${state === 'locked' ? ' aria-disabled="true"' : ''}><span class="lt-name">${noteName(n.f)}</span><span class="row-main"><small>${sub}</small></span>${right}</button>`;
+    const sub = state === 'training' ? (t.ladder ? ladderCaption(t) : t.practice ? ltPracticeLabel(t) === 'Re-tune' ? 'Re-tune once more' : t.retune && t.practice[0] === 'find' ? 'Two correct pitches in a row' : 'Practise until correct' : due ? 'Check now' : 'Training') : state === 'offer' ? (lt.on ? 'Tap to add' : 'Tap to start') : levelTitle(n.lv);
+    const right = state === 'training' && !t.practice && t.ladder?.level !== 16 ? `<span class="lt-count" data-due="${t.due}">${fmtCount(t.due - Date.now())}</span>` : '';
+    return `<button class="row lt-note ${state}${due ? ' due' : ''}" type="button" data-f="${n.f}"${state === 'locked' ? ' aria-disabled="true"' : ''}><span class="lt-name">${noteName(n.f)}</span><span class="row-main"><small>${sub}</small>${t?.ladder?.badge ? '<small>★ Level 11 badge</small>' : ''}</span>${right}</button>${t ? `<button class="textbtn" type="button" data-restart="${n.f}" aria-label="Restart ${noteName(n.f)} from level 1">Restart ${noteName(n.f)}</button>` : ''}`;
   }).join('')}</div>`).join('');
 }
 function tickLTList(){                                       // every second on this screen: the countdowns, and a row coming due
-  let changed = false;
+  let changed = refreshLadders();
   $('ltList').querySelectorAll('[data-due]').forEach(el => {
     const left = +el.dataset.due - Date.now();
     el.textContent = fmtCount(left);
@@ -2458,12 +2601,28 @@ function tickLTList(){                                       // every second on 
 }
 setInterval(() => { if (screen === 'lt') tickLTList(); }, 1000);
 $('ltList').addEventListener('click', e => {
+  const restart = e.target.closest('[data-restart]');
+  if (restart) {
+    const f = +restart.dataset.restart, wrap = $('ltRestartWrap');
+    wrap.hidden = false;
+    wrap.innerHTML = `<span>Restart ${noteName(f)} at level 1? Level progress and its badge reset; check history stays.</span><button class="ghost" type="button" id="ltRestartYes">Restart</button><button class="ghost" type="button" id="ltRestartNo">Cancel</button>`;
+    $('ltRestartNo').onclick = () => { wrap.hidden = true; };
+    $('ltRestartYes').onclick = () => {
+      const i = lt.tones.findIndex(t => t.f === f);
+      if (i < 0) return;
+      lt.tones[i] = LTLevels.createTone(f, Date.now());
+      wrap.hidden = true; saveLT(); renderLT(); startCheck(f);
+    };
+    wrap.scrollIntoView({block: 'center'});
+    return;
+  }
   const b = e.target.closest('.lt-note'); if (!b) return;
   const f = +b.dataset.f, {state, t} = ltNoteState(f);
   if (state === 'training' && (t.practice || t.due <= Date.now())) return startCheck(f);
   if (state === 'offer') return lt.on ? openToneSheet(f) : openLTSheet();
 });
 function renderLT(){
+  refreshLadders();
   renderLTReminders();
   renderLTList();
   const show = lt.on || lt.checks.length > 0;                    // the totals and the chart, once there is something
@@ -2478,15 +2637,15 @@ function renderLT(){
 function drawLTChart(checks = lt.checks, svg = $('ltChart'), started = lt.started){   // all checks, or one note's checks, over time since Start
   const W = Math.max(260, Math.round(svg.clientWidth || 340)), H = 190, L = 34, R = 10, T = 12, B = 24;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  const t0 = started || (checks[0] ? checks[0].t : Date.now()), span = Math.max(7 * DAY, Date.now() - t0);
+  const t0 = Math.min(started || Date.now(), ...checks.map(c => c.t)), span = Math.max(7 * DAY, Date.now() - t0);
   const X = t => L + Math.log1p(Math.max(0, t - t0) / MIN) / Math.log1p(span / MIN) * (W - L - R);
-  const cap = Math.min(600, Math.max(100, Math.ceil(Math.max(0, ...checks.map(c => Math.abs(ltCheckCents(c)))) / 50) * 50));
+  const cap = Math.min(600, Math.max(100, Math.ceil(Math.max(0, ...checks.map(c => Math.abs(ltCheckCents(c))).filter(Number.isFinite)) / 50) * 50));
   const Y = c => T + (1 - Math.min(Math.abs(c), cap) / cap) * (H - T - B);
   let s = `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(0)}" y2="${Y(0)}"/><line class="tol" x1="${L}" x2="${W - R}" y1="${Y(50)}" y2="${Y(50)}"/>`;
   s += [0, 50, cap].map(c => `<text x="${L - 6}" y="${Y(c) + 4}" text-anchor="end">${c}</text>`).join('');
   s += [[HOUR, '1 h'], [DAY, '1 d'], [7 * DAY, '1 wk'], [30 * DAY, '1 mo']].filter(([d]) => d <= span)
     .map(([d, l]) => `<line class="grid" x1="${X(t0 + d)}" x2="${X(t0 + d)}" y1="${T}" y2="${Y(0)}"/><text x="${X(t0 + d)}" y="${H - 6}" text-anchor="${X(t0 + d) > W - R - 16 ? 'end' : 'middle'}">${l}</text>`).join('');
-  s += checks.map(c => `<circle class="${c.ok ? 'hit' : 'miss'}" cx="${X(c.t).toFixed(1)}" cy="${Y(ltCheckCents(c)).toFixed(1)}" r="4"/>`).join('');
+  s += checks.map(c => `<circle class="${c.ok ? 'hit' : 'miss'}" cx="${X(c.t).toFixed(1)}" cy="${Y(Number.isFinite(ltCheckCents(c)) ? ltCheckCents(c) : cap).toFixed(1)}" r="4"><title>${c.reason || centsTxt(ltCheckCents(c))}</title></circle>`).join('');
   s += `<text class="axl" x="${L + 4}" y="${T + 10}">¢ off ↑</text>`;
   svg.innerHTML = s;
 }
@@ -2588,6 +2747,7 @@ async function shareDaily(game, btn){
 }
 $('echoShare').addEventListener('click', () => { const g = countedDaily(todayKey()); if (g) shareDaily(g, $('echoShare')); });
 function quitRound(){
+  if (round?.ladder) return abortLadder();
   stopAll();
   round = null; phase = 'idle'; trial = null; last = null;
   go('home');
@@ -2709,6 +2869,10 @@ $('piano').addEventListener('click', onKey);
 $('roll').addEventListener('click', onKey);
 const advance = () => {
   if (!round || phase !== 'revealed' && trial.task !== 'preview') return;
+  if (round.ladder) {
+    if (ltSessionTone != null) return;
+    return endLadderCheck(round.check, lt.tones.find(t => t.f === round.lt), true);
+  }
   if (round.practice) {
     if (round.practiceTone && last) completeLTPractice();
     const done = round.practiceTone ? round.practiceSaved : last && last.ok;
@@ -2724,6 +2888,7 @@ const advance = () => {
 };
 $('nextBtn').addEventListener('click', advance);
 function hearOne(which){                           // the answer's target, or a tap on Actual / My guess: play only that tone
+  if (ltSessionTone != null) return;
   if (!last) return;
   play(which === 'you' ? clamp(last.g, 20, 20000) : last.f, {dur: 2, rove: false, labeled: true, voice: true});
   CMP_BOXES.forEach(id => $(id).classList.add('cmp'));
@@ -2896,6 +3061,11 @@ function howto(){                                               // one short lin
 }
 function updateHowto(){ const t = howto(); if (t) $('howto').textContent = t; $('howto').classList.toggle('off', !t); }
 function roundProgress(){
+  if (round.ladder) {
+    const s = lt.tones.find(t => t.f === round.lt).ladder, n = roundLen();
+    const done = s.level === round.challengeLevel ? Math.min(n, s.count) : n;
+    return {n, k: Math.min(n, done + (phase === 'listening' ? 1 : 0)), marks: Array.from({length: n}, (_, i) => i < done ? 'y' : i === done && phase === 'listening' ? 'cur' : '')};
+  }
   const n = roundLen();
   if (round.checkFlow) {
     const card = round.checkFlow.hasCard;
@@ -2917,6 +3087,7 @@ function roundProgress(){
   return {n, k: Math.min(n, done + (phase === 'revealed' ? 0 : 1)), marks};
 }
 function nextButtonLabel(){
+  if (round.ladder) return 'Done';
   if (trial.task === 'preview') return 'Start';
   const t = lt.tones.find(t => t.f === (round.lt || round.practiceTone));
   if (round.lt && round.check && t?.practice) return ltPracticeLabel(t);
@@ -2993,6 +3164,11 @@ function render(){
   $('numpad').hidden = phase === 'revealed';
   $('nextBtn').textContent = nextButtonLabel();
   $('playBtn').setAttribute('aria-label', card ? 'Flashcard' : preview ? 'Play target' : phase === 'listening' ? (find ? 'Resume tone' : 'Replay tone') : (find ? 'Play target' : 'Replay actual tone'));
+  $('playBtn').disabled = ltSessionTone != null && phase !== 'listening';
+  $('nextBtn').hidden = ltSessionTone != null;
+  if (ltSessionTone != null) $('after').hidden = true;
+  $('ltChallengeStatus').hidden = !round.ladder;
+  if (round.ladder) renderLadderClock();
   renderStatus();
   if (phase === 'revealed' && !card) drawStrip(L);
   startWave();
@@ -3195,7 +3371,21 @@ function renderEchoSummary(){
     return `<li><span class="hd" style="--h:${hueOf(x.f)}"></span><span>${fmtFreq(x.f)}</span><span class="you">${fmtFreq(x.g)}</span><span class="ratio">${centsTxt(x.cents)}</span><span class="mark ${cls}">${MARK[cls]}</span></li>`;
   }).join('');
 }
+function renderLadderSummary(){
+  const {lt: k, tone} = lastRound;
+  $('sumSub').textContent = `Long-term · ${noteName(k.f)} · Level ${k.level}`;
+  $('sumNext').textContent = 'Done';
+  const pitched = Number.isFinite(k.cents), num = pitched ? centsTxt(k.cents).slice(0, -1) : k.reason === 'timeout' ? 'Time up' : k.reason === 'missed-day' ? 'Missed day' : 'Stopped';
+  $('sumScore').innerHTML = pitched ? `${num}<span>¢</span>` : num;
+  $('sumScore').classList.remove('gold'); $('sumScore').classList.toggle('wide', num.length > 3);
+  $('scoreRing').innerHTML = `<path class="sr ${k.ok ? 'y' : 'n'}" d="${arcPath(120, 120, 108, -87.75, 267.75)}"/>`;
+  $('sumBanner').hidden = false; $('sumBanner').className = 'banner';
+  $('sumBanner').textContent = k.ok ? ladderCaption(tone) : `Attempt ended. ${ladderCaption(tone)}.`;
+  $('sumTiles').innerHTML = [['Level', tone.ladder.level, 'next attempt'], ['Next', tone.ladder.level === 16 ? 'Tomorrow' : tone.due <= Date.now() ? 'Ready' : fmtIn(tone.due).replace('in ', ''), '']].map(tileHtml).join('');
+  $('sumList').innerHTML = `<li><span class="hd" style="--h:${hueOf(k.f)}"></span><span>${noteName(k.f)}</span><span class="you">${k.g > 0 ? noteCents(k.g) : '–'}</span><span class="ratio">${pitched ? centsTxt(k.cents) : '–'}</span><span class="mark ${k.ok ? 'good' : 'bad'}">${MARK[k.ok ? 'good' : 'bad']}</span></li>`;
+}
 function renderCheckSummary(){              // one long-term check: how far off, and when the next one comes
+  if (lastRound.tone.ladder) return renderLadderSummary();
   const {lt: k, tone} = lastRound, cls = grade(k);
   $('sumSub').textContent = `Long-term · ${noteName(k.f)}`;
   $('sumNext').textContent = tone.practice ? ltPracticeLabel(tone) : 'Done';
@@ -3322,7 +3512,7 @@ function renderProgress(){
   $('scSlope').textContent = F ? `slope ${F.b.toFixed(2)}` : '';
 }
 
-const ltCheckCents = c => Number.isFinite(c.cents) ? c.cents : 1200 * oct(c.g, c.f);
+const ltCheckCents = c => Number.isFinite(c.cents) ? c.cents : c.g > 0 ? 1200 * oct(c.g, c.f) : NaN;
 const ltGapLabel = gap => gap > 0 ? gap < MIN ? `${Math.max(1, Math.round(gap / 1000))} s` : fmtSpan(gap) : '–';
 function ltProgressStats(f){
   const checks = lt.checks.filter(c => c.f === f).sort((a, b) => a.t - b.t);
@@ -3342,7 +3532,7 @@ function renderLTProgress(){
   if (!hasNote) return;
   const f = progTone, tone = lt.tones.find(t => t.f === f), stats = ltProgressStats(f), n = stats.checks.length;
   $('ltProgressTitle').innerHTML = `${noteName(f)} <span>${fmtHz(f)} Hz</span>`;
-  $('ltProgressStatus').textContent = !tone ? 'Saved check-ins' : !lt.on ? 'Training paused' : tone.practice ?
+  $('ltProgressStatus').textContent = !tone ? 'Saved check-ins' : !lt.on ? 'Training paused' : tone.ladder ? ladderCaption(tone) + (tone.ladder.badge ? ' · ★ Level 11 badge' : '') : tone.practice ?
     `${ltPracticeLabel(tone)} pending` : tone.due <= Date.now() ? 'Next check: due now' : `Next check ${fmtIn(tone.due)} · ${fmtWhen(tone.due)}`;
   $('ltProgressSchedule').innerHTML = [
     ['Wait', tone?.wait ? fmtSpan(tone.wait) : '–', 'current interval'],
@@ -3363,7 +3553,7 @@ function renderLTProgress(){
   ].map(tileHtml).join('');
   $('ltProgressRecent').hidden = !n;
   $('ltProgressChecks').innerHTML = `<li class="head"><span></span><span>When</span><span>Miss</span><span>Gap</span><span></span></li>` + stats.checks.slice(-10).reverse().map(c =>
-    `<li><span class="hd" style="--h:${hueOf(f)}"></span><span>${fmtWhen(c.t)}</span><span>${centsTxt(ltCheckCents(c))}</span><span class="ratio">${ltGapLabel(c.gap)}</span><span class="mark ${c.ok ? 'good' : 'bad'}">${MARK[c.ok ? 'good' : 'bad']}</span></li>`).join('');
+    `<li><span class="hd" style="--h:${hueOf(f)}"></span><span>${fmtWhen(c.t)}</span><span>${Number.isFinite(ltCheckCents(c)) ? centsTxt(ltCheckCents(c)) : c.reason === 'timeout' ? 'Time up' : c.reason === 'missed-day' ? 'Missed day' : 'Stopped'}</span><span class="ratio">${ltGapLabel(c.gap)}</span><span class="mark ${c.ok ? 'good' : 'bad'}">${MARK[c.ok ? 'good' : 'bad']}</span></li>`).join('');
 }
 
 // Pull: regress each answer's error on the previous tone's pitch, controlling for the current tone's pitch
@@ -3529,10 +3719,10 @@ const EXPORT_FIELDS = {
   levels: 'levels[i] names level number i + 1: its set, then its step.',
   rounds: 'One per finished training round: lv level, score of n, ch up/down if it moved a level, p 1 for long-term practice (each check-in needs two consecutive pitch successes, counting a correct initial check), pf the tone practised; n includes retries.',
   history: 'One per training answer (the last 5,000). task: pick/notes/piano (named), type (typed in Hz), find (tuned); f target Hz; g answer Hz; ok 1 if within a quarter tone; exact 1 if tuned exactly; lv level; rd round id (its start time); k position in the round; c 1 if cold (nothing labeled heard for 10+ minutes; first answer of a round only); rp replays; mv record moves (find); ui roll/classic answer view. Conditions: itf interference before the question (both/noise/notes/none), v instrument, rove 1 if loudness varied, pv 1 if the round began by playing its target.',
-  lt: 'Long-term training. tones: per tone f (Hz), wait (ms to the next check), due, last (its last check), ready (its wait has reached a day), start when it joined, probed the probes done (days), probe set while its next check is one, card an answered flashcard awaiting its Find (preserved across reloads), practice pending tasks (hz/note for a missed card, find for re-tuning), retune while the check-in needs two consecutive pitch successes (streak: 0 or 1 correct so far), blk while in its first days of fixed check-in times (at when they began, day, slots that day\'s times, k the next, levels each Day 1 slot\'s interval level (0-based), x a later-day miss\'s extra one, end that day\'s bedtime). cardSide the next alternating flashcard side. checks: one per check: t when the Find was answered, f target Hz, g tuned Hz, cents off (positive is sharp), ok 1 if within 50 cents, gap ms since that tone\'s previous check, due when it was due, blk the day of the fixed check-ins it fell on, x 1 for a miss\'s extra check-in, arm the study arm in effect, probe 14 or 30 for a study probe, c cold flag, mv record moves, v instrument, show target shown as note or hz, card the optional flashcard before it (from Day 2; side hz: typed the frequency of a note; side note: typed the note of a frequency; typed; ok).',
+  lt: 'Long-term training. tones: f (Hz), start, last, due (ms), wait, ready when daily is reached. ladder: version, level (1–16), count, anchor (level start), day (local date), mode, running during the timed opening, deadline, days (distinct dates reaching level 11), badge and badgeDay, extended after the checkpoint, dailyOn (local date last completed). Legacy blk/card/practice/retune records finish pending corrections before migration. checks: t, f, g (null for an unanswered check), cents (null without a guess), ok, gap, due, level, reason (timeout/interrupted/missed-day), v instrument, mv moves, show. Historical checks may also have card, blk, arm, probe and c fields.',
   echo: 'Echo, a short-term memory game kept apart from training: per game t, daily (its date, or null), itf interference, score out of 50, cents (the error on each of its five tones).',
   settings: 'The app\'s settings at export, without the name. study: on for an install in the study; arm: its arm; wake, bed: sleep hours.',
-  arms: 'The study\'s arms: id; p, the share of checks the staircase aims to have hit; up, the wait\'s growth after a hit (a miss divides it by up^(p/(1-p))). Outside the study p is 0.85 and up 1.5. After fixed check-ins, late checks step from sqrt(wait * max(wait, gap)); misses are capped at the previous wait and floored at 2 minutes.'
+  arms: 'Historical adaptive study arms: id, p (target hit rate), up (growth factor). The current level ladder and daily checks use the same schedule in every arm; arm labels remain in exported checks.'
 };
 function buildExport(){
   const {name, ...shared} = settings;                                   // the name stays on the phone

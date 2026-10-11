@@ -64,6 +64,17 @@ const sample = () => [
   {f: 1047, g: 1047, t: now - 4 * HOUR, cents: 0, ok: 1, gap: HOUR},
 ];
 
+test('unanswered level checks count as misses without fabricating pitch error or invalid chart coordinates', () => {
+  const api = app([], [{f: 1047, g: null, cents: null, ok: 0, t: now, gap: MIN, reason: 'timeout'}, ...sample()]);
+  const stats = api.stats(1047);
+  assert.equal(stats.checks.length, 4);
+  assert.equal(stats.hits, 2);
+  assert.equal(stats.miss, 20);
+  api.render();
+  assert.match(api.element('ltProgressChecks').innerHTML, /Time up/);
+  assert.doesNotMatch(api.element('ltProgressChart').innerHTML, /NaN|Infinity/);
+});
+
 test('per-note statistics use only that note’s initial checks and successful remembered gaps', () => {
   const checks = sample(), before = plain(checks), api = app([], checks);
   api.setHistory(Array.from({length: 20}, () => ({f: 1047, g: 1047, ok: 1, m: 'match'})));

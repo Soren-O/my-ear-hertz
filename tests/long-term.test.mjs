@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import LTLevels from '../long-term-levels.js';
 
 // Exercise the real single-file app's functions without the audio engine or DOM.
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -17,7 +18,7 @@ const morning = new Date(2026, 9, 10, 7).getTime();
 function app(at = morning, persisted = {}) {
   let now = at;
   class Clock extends Date { static now() { return now; } }
-  const context = vm.createContext({Date: Clock, persisted});
+  const context = vm.createContext({Date: Clock, persisted, LTLevels});
   vm.runInContext(`
     let settings = {wake: '07:00', bed: '22:00', auto: true, level: 1, top: 1};
     let lt = persisted['hbe3.lt'] ? JSON.parse(persisted['hbe3.lt']) : {on: true, started: Date.now(), tones: [], checks: []};
@@ -30,6 +31,7 @@ function app(at = morning, persisted = {}) {
     const $ = id => { if (!elements.has(id)) elements.set(id, {focus() {}, classList: {remove() {}, add() {}}}); return elements.get(id); };
     let CAP = null;
     const ltSchedule = () => calls.push('schedule');
+    const refreshLadders = () => {};
     const ltOfferOnce = () => calls.push('offer');
     const stopAll = () => calls.push('stop');
     const go = name => calls.push(name);
@@ -268,14 +270,14 @@ test('flashcards alternate and their next direction survives reload', () => {
   assert.equal(loaded.nextCardSide(), 'note');
 });
 
-test('starting and resuming training makes the first check due immediately', () => {
+test('starting a level ladder is immediate and resuming preserves its scheduled wait', () => {
   const {api} = app();
   api.ltBegin();
   assert.equal(api.dueTone().due, morning);
   api.state.lt.on = false;
   api.state.lt.tones[0].due = morning + DAY;
   api.ltBegin();
-  assert.equal(api.dueTone().due, morning);
+  assert.equal(api.state.lt.tones[0].due, morning + DAY);
 });
 
 test('an already answered Day 1 card from an older version keeps its pending correction', () => {
