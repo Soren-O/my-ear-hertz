@@ -263,8 +263,8 @@ test('waves start identically at random guesses and follow only changes to the g
     const deckHz=t=>t.guess;
     ${section('function syncBandPitch()', 'function placeBand()')}
     globalThis.ui={sync:syncBandPitch,setGuess(f){trial.guess=f;},setTarget(f){trial.f=f;},
-      newTrial(f){trial={task:'find',guess:f,f:2000};},reveal(){phase='revealed';},
-      get scale(){return bandTargetPitch;}};
+      newTrial(f){phase='listening';trial={task:'find',guess:f,f:2000};},reveal(){phase='revealed';},
+      get scale(){return bandTargetPitch;},get paintedScale(){return bandPitch;},paint(f){bandPitch=f;}};
   `,context);
   const ui=context.ui;
   ui.sync(); assert.equal(ui.scale,1);
@@ -273,7 +273,9 @@ test('waves start identically at random guesses and follow only changes to the g
   ui.setGuess(100); ui.sync(); assert.ok(ui.scale<1);
   ui.newTrial(5000); ui.sync(); assert.equal(ui.scale,1);
   ui.setGuess(10000); ui.sync(); assert.equal(ui.scale,Math.pow(2,.35));
-  ui.reveal(); ui.sync(); assert.equal(ui.scale,1);
+  ui.paint(1.2); ui.reveal(); ui.sync();
+  assert.equal(ui.scale,Math.pow(2,.35)); assert.equal(ui.paintedScale,1.2);
+  ui.newTrial(3000); ui.sync(); assert.equal(ui.scale,1); assert.equal(ui.paintedScale,1.2);
 });
 
 test('ordinary rounds keep finite background waves and random-note phases turn the fuzz on and off', () => {
@@ -296,7 +298,7 @@ test('the shared note display hides Echo targets until submission and offers bot
     if (!elements.has(id)) elements.set(id,{hidden:false,textContent:'',dataset:{},setAttribute(){}});
     return elements.get(id);
   };
-  const context=vm.createContext({$,noteName:f=>f===1047?'C6':'A5',noteOffsetLabel:()=> 'A5 + 15c',fmtFreq:String,canAdjust:()=>true});
+  const context=vm.createContext({$,fadePhase:(el,key,update)=>update(),fadeVisibility:(el,visible)=>{el.hidden=!visible;},noteName:f=>f===1047?'C6':'A5',noteOffsetLabel:()=> 'A5 + 15c',fmtFreq:String,canAdjust:()=>true});
   vm.runInContext(`
     let round={echo:true,tuneCount:1}, trial={task:'find',f:1047,echo:true,heard:true}, phase='listening',last=null;
     ${section('function renderTrainingPitches(', 'function howto()')}
@@ -313,4 +315,40 @@ test('the shared note display hides Echo targets until submission and offers bot
   context.ui.newFind(); context.ui.render(true,false);
   assert.equal($('ltTargetNote').textContent,'C6'); assert.equal($('ltGuessPitch').hidden,true);
   assert.equal($('ltSwipeHint').hidden,true);
+});
+
+
+test('phase fades retain outgoing text, use the latest clock tick, and do not restart on repeated renders', () => {
+  const animations=[], el={hidden:false,textContent:'0:13',animate(frames,options){
+    const a={frames,options,cancel(){this.cancelled=true;}}; animations.push(a); return a;
+  }};
+  const context=vm.createContext({reduceMotion:{matches:false}});
+  vm.runInContext(section('const textFades =','let pageGhost ='),context);
+  context.fadePhase(el,'find',()=>{el.textContent='0:13';});
+  context.fadePhase(el,'listen',()=>{el.textContent='0:20';});
+  context.fadePhase(el,'listen',()=>{el.textContent='0:19';});
+  assert.equal(el.textContent,'0:13'); assert.equal(animations.length,1);
+  assert.deepEqual(Array.from(animations[0].frames,f=>f.opacity),[1,0]);
+  animations[0].onfinish();
+  assert.equal(el.textContent,'0:19'); assert.equal(animations.length,2);
+  assert.deepEqual(Array.from(animations[1].frames,f=>f.opacity),[0,1]);
+  context.fadePhase(el,'listen',()=>{el.textContent='0:18';});
+  assert.equal(el.textContent,'0:18'); assert.equal(animations.length,2);
+});
+
+test('disappearing controls fade before hiding, reject taps immediately, and can be restored without a stale hide', () => {
+  const animations=[], el={hidden:false,setAttribute(){},animate(frames,options){
+    const a={frames,options,cancel(){this.cancelled=true;}}; animations.push(a); return a;
+  }};
+  const context=vm.createContext({reduceMotion:{matches:false},getComputedStyle:()=>({opacity:'0.5'})});
+  vm.runInContext(section('const textFades =','let pageGhost ='),context);
+  context.fadeVisibility(el,false); context.fadeVisibility(el,false);
+  assert.equal(el.hidden,false); assert.equal(el.inert,true); assert.equal(animations.length,1);
+  context.fadeVisibility(el,true);
+  assert.equal(animations[0].cancelled,true); assert.equal(el.inert,false);
+  animations[0].onfinish(); assert.equal(el.hidden,false);
+  animations[1].onfinish(); assert.equal(el.hidden,false);
+  context.fadeVisibility(el,false); animations[2].onfinish(); assert.equal(el.hidden,true);
+  context.reduceMotion.matches=true; context.fadeVisibility(el,true);
+  assert.equal(el.hidden,false); assert.equal(animations.length,3);
 });

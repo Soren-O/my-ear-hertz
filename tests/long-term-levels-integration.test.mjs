@@ -8,19 +8,19 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const script = html.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
 const section = (from, to) => script.slice(script.indexOf(from), script.indexOf(to, script.indexOf(from)));
 const at = +new Date(2026, 9, 11, 7), MIN = 60000;
-function app(tone = LTLevels.createTone(1047, at)) {
+function app(tone = LTLevels.createTone(1047, at), animated = false) {
   let now = at, timerId = 0;
   const pending = new Map();
   class Clock extends Date { static now() { return now; } }
-  const context = vm.createContext({Date: Clock, LTLevels, initialTone: tone,
+  const context = vm.createContext({Date: Clock, LTLevels, initialTone: tone, animated,
     schedule(fn, delay) { const id = ++timerId; pending.set(id, {fn, at: now + delay}); return id; },
     clearTimeout(id) { pending.delete(id); }
   });
   vm.runInContext(`
     let lt = {on: true, tones: [initialTone], checks: []}, round = null, trial = null, last = null, lastRound = null, phase = 'idle';
     let ltSessionTone = null, ltPulseTimer = null, ltWake = null, ltWakeToken = 0, timers = [], ctx = {currentTime: 0}, calls = [], saved = null, screen = 'train';
-    const SINE = {id: 'sine'}, input = {blur() {}}, elements = new Map(), reduceMotion = {matches:true};
-    const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: true, textContent: '', dataset:{}, style:{}, focus(){}, setAttribute(){}}); return elements.get(id); };
+    const SINE = {id: 'sine'}, input = {blur() {}}, elements = new Map(), animations = [], reduceMotion = {matches:!animated};
+    const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: true, textContent: '', dataset:{}, style:{}, focus(){}, setAttribute(){}, animate(frames,options){const a={frames,options,cancel(){this.cancelled=true;}};animations.push(a);return a;}}); return elements.get(id); };
     ${section('const textFades =', 'let pageGhost =')}
     const document = {activeElement: null}, sfx = step => calls.push(['cue', step]);
     ${section('let introActive = false', "$('countInCancel').addEventListener")}
@@ -35,7 +35,7 @@ function app(tone = LTLevels.createTone(1047, at)) {
     const render = () => {}, go = name => calls.push(['go', name]);
     const nextQuestion = () => { calls.push(['next']); phase = 'listening'; round.tuneCount++; round.challengeLevel = lt.tones[0].ladder.level; trial = {f: 1047, voice: SINE}; };
     ${section('function appendLadderCheck(', "document.addEventListener('visibilitychange', () => { if (document.visibilityState")}
-    globalThis.api = {lt, calls, refreshLadders, tickLadder, abortLadder,
+    globalThis.api = {lt, calls, animations, refreshLadders, tickLadder, abortLadder,
       clock() { renderLadderClock(); return ['ltChallengeLevel', 'ltChallengeInstruction', 'ltChallengeTime'].map(id => $(id).textContent); },
       get cue() { return {hidden: $('countIn').hidden, word: $('countInWord').textContent, inert: $('app').inert}; },
       start() { LTLevels.begin(lt.tones[0], Date.now()); ltSessionTone = lt.tones[0].ladder.level <= 6 ? 1047 : null;
@@ -230,4 +230,22 @@ test('reloading an unanswered daily check cannot restart its decision deadline o
   assert.equal(api.state.lt.checks[0].reason, 'interrupted');
   assert.equal(api.state.lt.tones[0].ladder.mode, 'failed');
   assert.equal(api.state.lt.tones[0].ladder.level, 11);
+});
+
+
+test('submission saves immediately while the hint and old timer fade out before the answer and new timer appear', () => {
+  const {api,time}=app(undefined,true);
+  api.start(); time(at+7000); assert.equal(api.clock()[2],'0:13');
+  assert.equal(api.hintVisible,true);
+  api.answer(true);
+  assert.equal(api.state.lt.checks.length,1);
+  assert.equal(api.clock()[2],'0:13'); assert.equal(api.hintVisible,true);
+  assert.equal(api.pitches()[1].hidden,true);
+  const outgoing=api.animations.filter(a=>a.frames.at(-1).opacity===0 && !a.cancelled);
+  assert.equal(outgoing.length,2); // the note display and the clock
+  time(at+7250); api.clock();
+  for (const a of outgoing) a.onfinish();
+  assert.equal(api.clock()[2],'0:20'); assert.equal(api.hintVisible,false);
+  assert.equal(api.pitches()[1].hidden,false);
+  assert.equal(api.state.lt.tones[0].due,at+MIN);
 });

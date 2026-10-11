@@ -584,7 +584,9 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .howto{margin:-6px 0 0;min-height:1.4em;text-align:center;font-size:13px;color:var(--muted)}
 .howto.off{visibility:hidden}
 :is(#scr-train,.scr-train)[data-task="find"] .howto,:is(#scr-train,.scr-train)[data-task="preview"] .howto{font-size:22px;color:var(--ink);line-height:1.3}
-.challenge-heading{display:flex;justify-content:center;align-items:baseline;gap:12px;text-align:center;padding-block:4px;white-space:nowrap}
+.challenge-heading{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-self:center;align-items:baseline;gap:12px;width:min(88vw,400px);padding-block:4px;white-space:nowrap}
+.challenge-heading .challenge-level{justify-self:end;text-align:right}
+.challenge-heading .challenge-instruction{justify-self:start;text-align:left}
 .challenge-level{font-size:26px;font-weight:650;letter-spacing:.1em;line-height:1.2}
 .challenge-instruction{font-size:23px;font-weight:450;line-height:1.25}
 .challenge-clock{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
@@ -1905,6 +1907,54 @@ function fadeText(el, text){
     into.onfinish = () => { if (textFades.get(el) === state) textFades.delete(el); };
   };
 }
+// Keep outgoing content in place until it has faded, then reveal the new content.
+// Clock ticks update the pending content without restarting its phase transition.
+const phaseFades = new WeakMap(), visibilityFades = new WeakMap();
+function fadePhase(el, key, update){
+  const previous = phaseFades.get(el);
+  if (previous?.key === key) {
+    if (previous.outgoing) previous.update = update; else update();
+    return;
+  }
+  const opacity = previous?.animation && typeof getComputedStyle === 'function' ? Number(getComputedStyle(el).opacity) : 1;
+  previous?.animation?.cancel();
+  const state = {key, update, outgoing: false};
+  phaseFades.set(el, state);
+  if (!previous || reduceMotion.matches || !el.animate || el.hidden) { update(); return; }
+  state.outgoing = true;
+  const out = el.animate([{opacity}, {opacity: 0}], {duration: 160, easing: 'ease-in', fill: 'forwards'});
+  state.animation = out;
+  out.onfinish = () => {
+    if (phaseFades.get(el) !== state) return;
+    state.update(); state.outgoing = false; out.cancel();
+    state.animation = el.animate([{opacity: 0}, {opacity: 1}], {duration: 240, easing: 'ease-out'});
+  };
+}
+function fadeVisibility(el, visible){
+  const previous = visibilityFades.get(el);
+  if (previous?.visible === visible || !previous && el.hidden === !visible) return;
+  const opacity = previous?.animation && typeof getComputedStyle === 'function' ? Number(getComputedStyle(el).opacity) : visible ? 0 : 1;
+  previous?.animation?.cancel();
+  const state = {visible}; visibilityFades.set(el, state);
+  el.inert = !visible;
+  el.setAttribute('aria-hidden', String(!visible));
+  if (reduceMotion.matches || !el.animate) { el.hidden = !visible; return; }
+  el.hidden = false;
+  const animation = el.animate([{opacity}, {opacity: visible ? 1 : 0}], {duration: visible ? 240 : 160, easing: visible ? 'ease-out' : 'ease-in', fill: 'forwards'});
+  state.animation = animation;
+  animation.onfinish = () => {
+    if (visibilityFades.get(el) !== state) return;
+    el.hidden = !visible; animation.cancel(); state.animation = null;
+  };
+}
+function clearTrainingMotion(){
+  ['ltPitchPair', 'ltChallengeStatus', 'adjust'].forEach(id => {
+    const el = $(id), phase = phaseFades.get(el), visibility = visibilityFades.get(el);
+    phase?.animation?.cancel(); phaseFades.delete(el);
+    visibility?.animation?.cancel(); visibilityFades.delete(el);
+    if (visibility) el.hidden = !visibility.visible;
+  });
+}
 let pageGhost = null, pageAnimations = [];
 function clearPageMotion(){
   pageAnimations.forEach(a => a.cancel()); pageAnimations = [];
@@ -1936,6 +1986,7 @@ function go(name){
   if (introActive) cancelCountIn();
   else hideCountInCue('ladder');
   if (ltSessionTone != null && name !== 'train') return;
+  if (screen === 'train' && name !== 'train') clearTrainingMotion();
   clearPageMotion();
   const outgoing = name !== screen ? snapshotPage($('scr-' + screen)) : null;
   if ((screen === 'train' || screen === 'lab') && name !== screen) stopAll();
@@ -2708,22 +2759,26 @@ function placeLadderContent(){
 }
 function renderLadderPitches(){
   if (!round?.ladder || !trial) return;
-  const answered = phase === 'revealed' && last?.g > 0;
-  const replay = answered && Date.now() >= round.answerAt + 3000 && Date.now() < round.answerAt + 20000;
-  $('ltPitchPair').dataset.result = answered && last.ok ? 'good' : '';
-  $('ltTargetNote').textContent = noteName(trial.f);
-  $('ltGuessNote').textContent = answered ? noteOffsetLabel(last.g) : '';
-  $('ltTargetCaption').textContent = 'Target';
-  $('ltGuessCaption').textContent = 'Your guess';
-  $('ltTargetPitch').setAttribute('aria-label', 'Replay target');
-  $('ltGuessPitch').setAttribute('aria-label', 'Replay your guess');
-  $('ltGuessPitch').hidden = !answered;
-  $('ltSwipeHint').hidden = phase !== 'listening' || round.challengeLevel !== 1 || round.tuneCount !== 1;
-  ['true', 'you'].forEach(which => {
-    const button = $(which === 'true' ? 'ltTargetPitch' : 'ltGuessPitch');
-    button.disabled = !replay;
-    button.dataset.playing = round.playingPitch === which ? '1' : '0';
-    button.setAttribute('aria-pressed', String(round.playingPitch === which));
+  const currentRound = round, currentTrial = trial;
+  fadePhase($('ltPitchPair'), phase === 'revealed' ? round.check : trial, () => {
+    if (round !== currentRound || trial !== currentTrial) return;
+    const answered = phase === 'revealed' && last?.g > 0;
+    const replay = answered && Date.now() >= round.answerAt + 3000 && Date.now() < round.answerAt + 20000;
+    $('ltPitchPair').dataset.result = answered && last.ok ? 'good' : '';
+    $('ltTargetNote').textContent = noteName(trial.f);
+    $('ltGuessNote').textContent = answered ? noteOffsetLabel(last.g) : '';
+    $('ltTargetCaption').textContent = 'Target';
+    $('ltGuessCaption').textContent = 'Your guess';
+    $('ltTargetPitch').setAttribute('aria-label', 'Replay target');
+    $('ltGuessPitch').setAttribute('aria-label', 'Replay your guess');
+    $('ltGuessPitch').hidden = !answered;
+    $('ltSwipeHint').hidden = phase !== 'listening' || round.challengeLevel !== 1 || round.tuneCount !== 1;
+    ['true', 'you'].forEach(which => {
+      const button = $(which === 'true' ? 'ltTargetPitch' : 'ltGuessPitch');
+      button.disabled = !replay;
+      button.dataset.playing = round.playingPitch === which ? '1' : '0';
+      button.setAttribute('aria-pressed', String(round.playingPitch === which));
+    });
   });
 }
 function renderLadderClock(){
@@ -2744,18 +2799,19 @@ function renderLadderClock(){
     until = t.due; stage = 'wait'; duration = Math.max(1, t.due - notesEnd);
   }
   $('playBtn').hidden = true;
-  $('ltPitchPair').hidden = stage !== 'tune' && stage !== 'listen';
   renderLadderPitches();
+  fadeVisibility($('ltPitchPair'), stage === 'tune' || stage === 'listen');
   const scr = $('scr-train');
   if (scr.dataset.stage !== stage) {
     scr.dataset.stage = stage;
     if (stage === 'notes' && screen === 'train') ladderRandomNotes(until - now);
-    if (!reduceMotion.matches) scr.querySelector('.phase-display')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
   }
   $('ltChallengeLevel').textContent = `LEVEL ${round.challengeLevel}`;
   fadeText($('ltChallengeInstruction'), instruction);
-  $('ltChallengeTime').textContent = until > now ? fmtCount(until - now) : '0:00';
-  $('ltPhaseMeter').style.transform = `scaleX(${Math.max(0, Math.min(1, (until - now) / duration))})`;
+  fadePhase($('ltChallengeStatus'), `${round.id}:${stage}`, () => {
+    $('ltChallengeTime').textContent = until > now ? fmtCount(until - now) : '0:00';
+    $('ltPhaseMeter').style.transform = `scaleX(${Math.max(0, Math.min(1, (until - now) / duration))})`;
+  });
   placeLadderContent();
 }
 function armLadderClock(){
@@ -3357,24 +3413,28 @@ function renderTrainingPitches(notes, both){
   if (round.ladder) return;
   const answered = phase === 'revealed', card = trial.task === 'card';
   const finding = trial.task === 'find' && (!trial.echo || trial.heard);
-  const pair = $('ltPitchPair');
-  pair.hidden = !answered && !finding;
-  $('playBtn').hidden = !pair.hidden;
-  $('ltSwipeHint').hidden = !finding || answered || round.tuneCount !== 1;
-  $('ltGuessPitch').hidden = !answered;
-  pair.dataset.result = answered ? last.ok ? 'good' : 'bad' : '';
-  if (pair.hidden) return;
-  const unknown = finding && trial.echo && !answered;
-  $('ltTargetNote').textContent = card ? $('bigVal').textContent : unknown ? '?' : notes ? noteName(trial.f) : fmtFreq(trial.f);
-  $('ltGuessNote').textContent = !answered ? '' : card ? $('guessVal').textContent : notes ? trial.task === 'find' ? noteOffsetLabel(last.g) : noteName(last.g) : fmtFreq(last.g);
-  const unit = card ? $('bigUnit').textContent : notes || unknown ? '' : both ? `Hz · ${noteName(trial.f)}` : 'Hz';
-  $('ltTargetCaption').textContent = unknown ? 'Hidden target' : `Target${unit ? ' · ' + unit : ''}`;
-  const guessUnit = card ? unit : notes ? '' : both ? `Hz · ${noteName(last?.g || trial.f)}` : 'Hz';
-  $('ltGuessCaption').textContent = `Your guess${guessUnit ? ' · ' + guessUnit : ''}`;
-  $('ltTargetPitch').setAttribute('aria-label', card ? 'Target answer' : 'Replay target');
-  $('ltGuessPitch').setAttribute('aria-label', card ? 'Your answer' : 'Replay your guess');
-  $('ltTargetPitch').disabled = card || !answered;
-  $('ltGuessPitch').disabled = card || !answered;
+  const pair = $('ltPitchPair'), visible = answered || finding;
+  $('playBtn').hidden = visible;
+  if (!visible) { fadeVisibility(pair, false); return; }
+  const currentRound = round, currentTrial = trial;
+  fadePhase(pair, answered ? last : trial, () => {
+    if (round !== currentRound || trial !== currentTrial) return;
+    $('ltSwipeHint').hidden = !finding || answered || round.tuneCount !== 1;
+    $('ltGuessPitch').hidden = !answered;
+    pair.dataset.result = answered ? last.ok ? 'good' : 'bad' : '';
+    const unknown = finding && trial.echo && !answered;
+    $('ltTargetNote').textContent = card ? $('bigVal').textContent : unknown ? '?' : notes ? noteName(trial.f) : fmtFreq(trial.f);
+    $('ltGuessNote').textContent = !answered ? '' : card ? $('guessVal').textContent : notes ? trial.task === 'find' ? noteOffsetLabel(last.g) : noteName(last.g) : fmtFreq(last.g);
+    const unit = card ? $('bigUnit').textContent : notes || unknown ? '' : both ? `Hz · ${noteName(trial.f)}` : 'Hz';
+    $('ltTargetCaption').textContent = unknown ? 'Hidden target' : `Target${unit ? ' · ' + unit : ''}`;
+    const guessUnit = card ? unit : notes ? '' : both ? `Hz · ${noteName(last?.g || trial.f)}` : 'Hz';
+    $('ltGuessCaption').textContent = `Your guess${guessUnit ? ' · ' + guessUnit : ''}`;
+    $('ltTargetPitch').setAttribute('aria-label', card ? 'Target answer' : 'Replay target');
+    $('ltGuessPitch').setAttribute('aria-label', card ? 'Your answer' : 'Replay your guess');
+    $('ltTargetPitch').disabled = card || !answered;
+    $('ltGuessPitch').disabled = card || !answered;
+  });
+  fadeVisibility(pair, true);
 }
 function howto(){                                               // one short line on what to do; none once answered
   if (!trial || phase !== 'listening') return '';
@@ -3488,7 +3548,7 @@ function render(){
   $('guessUnit').textContent = noteCard ? '' : 'Hz';
   input.setAttribute('aria-label', noteCard ? 'Your answer, a note' : 'Your answer in hertz');
   $('after').querySelector('.pair').hidden = true;                       // replay controls are the target and guess themselves
-  $('adjust').hidden = !find || phase === 'revealed' || trial.echo && !trial.heard;
+  fadeVisibility($('adjust'), find && phase !== 'revealed' && (!trial.echo || trial.heard));
   $('pad').hidden = true;                                               // first-round guidance sits beside the displayed note
   if (find && phase === 'listening' && !trial.mv) $('tuneMovement').textContent = 'Swipe anywhere to tune';
   if (roll) { renderRoll(L); if (phase === 'revealed' && !last.ok) showActualKey(); }
@@ -3514,8 +3574,8 @@ function render(){
   syncBandPitch();
   const view = `${phase}:${!!trial.heard}`;
   if (!round.ladder && (renderedTrial !== trial || renderedPhase !== view) && !reduceMotion.matches) {
-    $('scr-train').querySelector('.phase-display')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
-    $('scr-train').querySelector('.train-right')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
+    if (!$('playBtn').hidden) $('playBtn').animate?.([{opacity: 0}, {opacity: 1}], {duration: 240, easing: 'ease-out'});
+    if (phase === 'listening') $('scr-train').querySelector('.train-right')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 240, easing: 'ease-out'});
   }
   placeLadderContent();
   renderedTrial = trial; renderedPhase = view;
@@ -4492,9 +4552,9 @@ let bandTrial = null, bandStartHz = 0;
 function syncBandPitch(){
   const tuning = screen === 'train' && trial?.task === 'find' && phase === 'listening' && (!trial.echo || trial.heard);
   if (tuning) {
-    if (bandTrial !== trial) { bandTrial = trial; bandStartHz = deckHz(trial); bandPitch = 1; }
+    if (bandTrial !== trial) { bandTrial = trial; bandStartHz = deckHz(trial); }
     bandTargetPitch = clamp(Math.pow(deckHz(trial) / bandStartHz, 0.35), 0.5, 3.5);
-  } else bandTargetPitch = 1;
+  } // Keep the wavelength after a guess; the next question eases back to its starting scale.
   if (reduceMotion.matches) { bandPitch = bandTargetPitch; drawBand(0); }
 }
 function placeBand(){
@@ -4502,6 +4562,7 @@ function placeBand(){
   backdrop.hidden = screen !== 'train';
   if (backdrop.hidden) {
     cancelAnimationFrame(bandRaf); bandRaf = 0; bandLast = 0; bandFuzz = 0;
+    bandTrial = null; bandStartHz = 0; bandPitch = bandTargetPitch = 1;
     return;
   }
   const rect = band.getBoundingClientRect(), dpr = Math.min(1.5, window.devicePixelRatio || 1);
