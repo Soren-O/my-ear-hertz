@@ -33,17 +33,18 @@ function app(tone = LTLevels.createTone(1047, at)) {
     const audio = () => true, voiceReady = () => false, ampFor = () => 0;
     const tone = (f, t, dur) => calls.push(['tone', f, t, dur]), pips = (t, dur) => calls.push(['notes', t, dur]);
     const render = () => {}, go = name => calls.push(['go', name]);
-    const nextQuestion = () => { calls.push(['next']); phase = 'listening'; round.challengeLevel = lt.tones[0].ladder.level; trial = {f: 1047, voice: SINE}; };
+    const nextQuestion = () => { calls.push(['next']); phase = 'listening'; round.tuneCount++; round.challengeLevel = lt.tones[0].ladder.level; trial = {f: 1047, voice: SINE}; };
     ${section('function appendLadderCheck(', "document.addEventListener('visibilitychange', () => { if (document.visibilityState")}
     globalThis.api = {lt, calls, refreshLadders, tickLadder, abortLadder,
       clock() { renderLadderClock(); return ['ltChallengeLevel', 'ltChallengeInstruction', 'ltChallengeTime'].map(id => $(id).textContent); },
       get cue() { return {hidden: $('countIn').hidden, word: $('countInWord').textContent, inert: $('app').inert}; },
       start() { LTLevels.begin(lt.tones[0], Date.now()); ltSessionTone = lt.tones[0].ladder.level <= 6 ? 1047 : null;
-        round = {lt: 1047, ladder: true, challengeLevel: lt.tones[0].ladder.level, items: []}; trial = {f: 1047, voice: SINE}; phase = 'listening'; saveLT(); },
+        round = {lt: 1047, ladder: true, tuneCount: 1, challengeLevel: lt.tones[0].ladder.level, items: []}; trial = {f: 1047, voice: SINE}; phase = 'listening'; saveLT(); },
       answer(ok, g = ok ? 1047 : 523) { recordLadder({task: 'find', t: Date.now(), f: 1047, g, cents: 1200 * Math.log2(g / 1047), ok: Number(ok)}); },
       replay: hearLadderPitch,
       pitches() { renderLadderPitches(); return ['ltTargetPitch', 'ltGuessPitch'].map(id => ({disabled: $(id).disabled, playing: $(id).dataset.playing, hidden: $(id).hidden, note: $(id === 'ltTargetPitch' ? 'ltTargetNote' : 'ltGuessNote').textContent})); },
       get pairHidden() { return $('ltPitchPair').hidden; },
+      get hintVisible() { return !$('ltSwipeHint').hidden; },
       reload() { lt = JSON.parse(saved); round = null; trial = null; ltSessionTone = null; refreshLadders(); },
       get state() { return {lt, round, phase, lastRound, ltSessionTone, saved}; }
     };
@@ -142,6 +143,17 @@ test('the displayed timer counts down each phase without moving the next guess o
   assert.equal(api.state.lt.tones[0].due, at + MIN);
   time(at + MIN); api.tickLadder();
   assert.deepEqual(clock(), ['LEVEL 1', 'FIND', '0:20']);
+});
+
+test('swipe instructions occupy the guess slot only before the first answer and do not return for later checks', () => {
+  const {api,time}=app(); api.start(); api.clock();
+  assert.equal(api.hintVisible,true); assert.equal(api.pitches()[1].hidden,true);
+  time(at+5000); api.answer(true);
+  assert.equal(api.hintVisible,false); assert.equal(api.pitches()[1].hidden,false);
+  time(at+MIN); api.tickLadder(); api.clock();
+  assert.equal(api.hintVisible,false); assert.equal(api.pitches()[1].hidden,true);
+  const later=LTLevels.createTone(1047,at); Object.assign(later.ladder,{level:7,mode:'ready'});
+  const next=app(later).api; next.start(); next.clock(); assert.equal(next.hintVisible,false);
 });
 
 test('a deadline creates one failed check without a fabricated pitch error, saves it and ends the game', () => {

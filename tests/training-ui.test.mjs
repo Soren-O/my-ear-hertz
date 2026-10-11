@@ -19,19 +19,28 @@ test('guessed notes keep their octave and use a spaced signed cents offset', () 
 
 function countIn(reduced = true) {
   let now = 0, id = 0;
-  const timers = new Map(), elements = new Map(), animations = [], sounds = [];
+  const timers = new Map(), elements = new Map(), animations = [], sounds = [], pitches = [], errors = [];
+  let resumeAudio, rejectAudio, stops = 0;
+  const sine = {id:'sine'}, engine = {state:'running',currentTime:0,
+    resume() { return new Promise((resolve,reject)=>{resumeAudio=()=>{engine.state='running';resolve();};rejectAudio=reject;}); }
+  };
   const $ = name => {
     if (!elements.has(name)) elements.set(name, {hidden:true,dataset:{},textContent:'',focus(){},setAttribute(){},
-      querySelector(){return {animate(frames,options){const a={frames,options,cancel(){this.cancelled=true;}};animations.push(a);return a;}};}});
+      querySelector(){return name==='cue-target'?null:{animate(frames,options){const a={frames,options,cancel(){this.cancelled=true;}};animations.push(a);return a;}};}});
     return elements.get(name);
   };
-  const context = vm.createContext({$, document:{activeElement:null}, reduceMotion:{matches:reduced}, sfx:step=>sounds.push([step,now]),
+  const context = vm.createContext({$, document:{activeElement:null}, reduceMotion:{matches:reduced},
+    sfx:step=>{if(engine.state==='running')sounds.push([step,now]);}, audio:()=>engine, SINE:sine,
+    stopAll:()=>stops++, voiceReady:voice=>voice!==sine, ampFor:()=>0, noteName:()=> 'C6',
+    tone:(f,at,dur)=>pitches.push(['sine',f,at,dur]), strike:(voice,f,at,opts)=>pitches.push([voice.id,f,at,opts.dur]),
+    noteAnchor(){}, setAudio(){}, showError:message=>errors.push(message),
     setTimeout(fn, delay) { const key = ++id; timers.set(key, {fn,at:now+delay}); return key; },
     clearTimeout(key) { timers.delete(key); }
   });
   vm.runInContext(section('const textFades =', 'let pageGhost ='), context);
   vm.runInContext(section('let introActive = false', "$('countInCancel').addEventListener"), context);
-  return {$, animations, sounds, start:context.startCountIn, cancel:context.cancelCountIn, cue:context.showCountInCue, hide:context.hideCountInCue,
+  return {$, animations, sounds, pitches, errors, sine, start:context.startCountIn, cancel:context.cancelCountIn, cue:context.showCountInCue, hide:context.hideCountInCue,
+    suspend(){engine.state='suspended';}, resume(){resumeAudio();}, reject(){rejectAudio(new Error('blocked'));}, get stops(){return stops;},
     advance(ms) {
       const end = now+ms;
       for (;;) {
@@ -102,6 +111,62 @@ test('each count-in sound starts with its word, and Go finishes before the quest
   for (const [step,at] of ui.sounds) assert.ok(at+context.effects[step].dur*1000+50<began);
 });
 
+test('the first Ready waits for the suspended audio engine, so its sound is not skipped', async () => {
+  const ui=countIn(); let starts=0;
+  ui.suspend(); ui.start(()=>starts++,'ECHO'); ui.advance(1000);
+  assert.equal(ui.$('countIn').hidden,true);
+  assert.deepEqual(ui.sounds,[]); assert.equal(starts,0);
+  ui.resume(); await Promise.resolve();
+  assert.equal(ui.$('countInWord').textContent,'READY');
+  assert.deepEqual(ui.sounds,[['ready',1000]]);
+  ui.advance(2400); assert.equal(starts,1);
+  assert.deepEqual(ui.sounds,[['ready',1000],['set',1800],['go',2600]]);
+});
+
+test('cancelling or failing audio startup cannot produce delayed cues or start a guess', async () => {
+  const cancelled=countIn(); let starts=0;
+  cancelled.suspend(); cancelled.start(()=>starts++,'LEVEL 1'); cancelled.cancel(); cancelled.resume();
+  await Promise.resolve(); cancelled.advance(5000);
+  assert.equal(starts,0); assert.deepEqual(cancelled.sounds,[]);
+  const failed=countIn(); failed.suspend(); failed.start(()=>starts++,'LEVEL 1'); failed.reject();
+  await Promise.resolve(); await Promise.resolve(); failed.advance(5000);
+  assert.equal(starts,0); assert.deepEqual(failed.sounds,[]);
+  assert.equal(failed.$('app').inert,false); assert.equal(failed.errors.length,1);
+});
+
+test('one target preview precedes Ready, Set, Go and the guess deadline starts only afterward', () => {
+  const ui=countIn(), tone=LTLevels.createTone(1047,0);
+  ui.start(()=>LTLevels.begin(tone,ui.now),'LEVEL 1',{f:1047,voice:ui.sine});
+  assert.equal(ui.$('cue-target').hidden,false); assert.equal(ui.$('countInWord').textContent,'LISTEN');
+  assert.deepEqual(ui.pitches,[['sine',1047,.03,3]]); assert.deepEqual(ui.sounds,[]);
+  ui.advance(3099); assert.equal(tone.ladder.deadline,undefined);
+  ui.advance(1); assert.equal(ui.$('cue-target').hidden,true); assert.equal(ui.$('cue-ready').hidden,false);
+  ui.advance(2399); assert.equal(tone.ladder.deadline,undefined);
+  ui.advance(1); assert.equal(tone.ladder.deadline,25500);
+  assert.deepEqual(ui.sounds,[['ready',3100],['set',3900],['go',4700]]);
+  LTLevels.answer(tone,6500,true); assert.equal(tone.due,65500);
+});
+
+test('an instrument target is struck once, and cancelling its preview stops playback and all later cues', () => {
+  const ui=countIn(); let starts=0;
+  ui.start(()=>starts++,'LEVEL 1',{f:1047,voice:{id:'piano'}});
+  assert.deepEqual(ui.pitches,[['piano',1047,.03,3]]);
+  const stops=ui.stops; ui.advance(1000); ui.cancel(); ui.advance(5000);
+  assert.equal(ui.stops,stops+1); assert.equal(starts,0); assert.deepEqual(ui.sounds,[]);
+  assert.equal(ui.$('cue-target').hidden,true); assert.equal(ui.$('app').inert,false);
+});
+
+test('only starting Level 1 receives a target preview, while later long-term checks begin cold', () => {
+  const references=[], tone=LTLevels.createTone(1047,0), sine={id:'sine'};
+  const context=vm.createContext({SINE:sine, lt:{tones:[tone]}, audio:()=>({state:'running'}), roundVoice:()=>sine,
+    startCountIn:(begin,label,reference)=>references.push(reference)});
+  vm.runInContext(`let introActive=false, round=null; const settings={level:1}, LEVELS=[{short:'Find'}];
+    ${section('function startRound(', 'function nextQuestion()')}
+    globalThis.start=()=>startRound(undefined,{ladder:true,lt:1047,L:{choices:[1047]}});`,context);
+  context.start(); assert.equal(references[0].f,1047); assert.equal(references[0].voice,sine);
+  tone.ladder.level=7; context.start(); assert.equal(references[1],null);
+});
+
 function gestures() {
   const handlers = new Map(), moves = []; let allowed=true, releases=0;
   const pad={addEventListener(type,fn){handlers.set(type,fn);},setPointerCapture(){},classList:{add(){},remove(){}}};
@@ -117,10 +182,10 @@ test('vertical and horizontal swipes raise/lower pitch, with ten times the range
   const g=gestures();
   g.event('pointerdown'); g.event('pointermove',{clientY:80}); g.event('pointerup');
   g.event('pointerdown'); g.event('pointermove',{clientX:120}); g.event('pointerup');
-  assert.deepEqual(g.moves,[20,2]);
+  assert.deepEqual(g.moves,[10,1]);
   g.event('pointerdown'); g.event('pointermove',{clientY:120}); g.event('pointerup');
   g.event('pointerdown'); g.event('pointermove',{clientX:80}); g.event('pointerup');
-  assert.deepEqual(g.moves,[20,2,-20,-2]);
+  assert.deepEqual(g.moves,[10,1,-10,-1]);
 });
 
 test('a fine swipe stays fine across diagonal drift, ignores other fingers, and releases on cancellation', () => {
@@ -132,7 +197,7 @@ test('a fine swipe stays fine across diagonal drift, ignores other fingers, and 
   g.event('pointermove',{pointerId:2,clientX:300});
   g.event('pointerup',{pointerId:2});
   g.event('pointermove',{clientX:120,clientY:160});
-  assert.deepEqual(g.moves,[1,1]);
+  assert.deepEqual(g.moves,[.5,.5]);
   g.event('pointercancel'); assert.equal(g.releases,1);
   g.event('pointermove',{clientX:300}); assert.equal(g.moves.length,2);
 });
@@ -142,14 +207,14 @@ test('a deadline or feedback screen prevents continued pitch changes from a held
   g.event('pointerdown'); g.event('pointermove',{clientY:80});
   g.allow(false); g.event('pointermove',{clientY:60});
   g.event('pointerdown'); g.event('wheel',{deltaY:-10});
-  assert.deepEqual(g.moves,[20]);
+  assert.deepEqual(g.moves,[10]);
 });
 
 test('scroll and trackpad input use the same coarse/fine directions and normalize line scrolling', () => {
   const g=gestures();
   g.event('wheel',{deltaY:-10}); g.event('wheel',{deltaX:10});
   g.event('wheel',{deltaY:-10,shiftKey:true}); g.event('wheel',{deltaY:-1,deltaMode:1});
-  assert.deepEqual(g.moves,[10,1,1,16]);
+  assert.deepEqual(g.moves,[5,.5,.5,8]);
 });
 
 test('whole-screen swiping leaves buttons and dialogs available for normal taps', () => {
@@ -158,7 +223,7 @@ test('whole-screen swiping leaves buttons and dialogs available for normal taps'
   g.event('pointerdown',{target}); g.event('pointermove',{clientY:20}); g.event('pointerup');
   assert.deepEqual(g.moves,[]);
   g.event('pointerdown',{target:{closest:()=>null}}); g.event('pointermove',{clientY:80}); g.event('pointerup');
-  assert.deepEqual(g.moves,[20]);
+  assert.deepEqual(g.moves,[10]);
 });
 
 test('text fades finish the old label before revealing the new one, without restarting on clock ticks', () => {

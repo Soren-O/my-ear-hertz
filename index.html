@@ -455,7 +455,7 @@ p{margin:0}
 .train-right{display:flex;flex-direction:column;gap:8px}
 @media not (orientation: landscape){
   :is(#scr-train,.scr-train)[data-task="find"] .stage{margin-block:auto}
-  :is(#scr-train,.scr-train)[data-ladder="1"] .train-right{min-height:192px}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .train-right{min-height:192px;justify-content:flex-end}
   .train-body:has(#adjust:not([hidden])) .stage{padding-block:8px 0}
 }
 .after{flex-direction:row;align-items:center}
@@ -590,6 +590,9 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .cue-screen{position:absolute;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 48%,color-mix(in oklab,var(--glow-indigo) 18%,transparent),transparent 65%),var(--bg)}
 .cue-screen[data-cue="go"]{background:radial-gradient(ellipse at 50% 48%,color-mix(in oklab,var(--glow-teal) 35%,transparent),transparent 75%),color-mix(in oklab,var(--teal) 10%,var(--bg));color:var(--teal)}
 .count-in-word{font-size:clamp(50px,15vw,88px);font-weight:550;line-height:1.1;letter-spacing:.1em;text-align:center;transform-origin:center}
+.count-in-reference{display:flex;flex-direction:column;align-items:center;gap:18px;color:var(--ink)}
+.count-in-reference strong{font-family:var(--font-num);font-size:64px;font-weight:300;line-height:1.1}
+.count-in-reference span{font-size:18px;letter-spacing:.12em;color:var(--muted)}
 .cue-announcement{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.count-in-word{animation:none}.phase-progress i{transition:none}}
 /* training: one line on what to do, and the buttons/keyboard switch */
@@ -605,6 +608,9 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .ladder-pitches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:min(88vw,400px)}
 .pitch-choice{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:112px;padding:14px 0;border:0;background:none;color:var(--ink);cursor:pointer;touch-action:manipulation}
 .pitch-choice:disabled{cursor:default}
+.ladder-swipe-hint{grid-column:2;grid-row:1;align-self:center;min-width:0;padding:0;gap:clamp(4px,1vh,8px)}
+.ladder-swipe-hint p{font-size:clamp(11px,1.55vh,13px);line-height:1.3;letter-spacing:.04em}
+.ladder-swipe-hint span{font-size:clamp(9px,1.3vh,11px);letter-spacing:.03em}
 .pitch-note{font-family:var(--font-num);font-size:clamp(26px,7.5vw,36px);font-weight:200;letter-spacing:-.05em;line-height:1.1;white-space:nowrap}
 .pitch-caption{font-size:13px;color:var(--muted)}
 .ladder-pitches[data-result="good"] .pitch-note{color:var(--win)}
@@ -839,6 +845,7 @@ img{max-width:100%}
       <div class="ladder-pitches" id="ltPitchPair" hidden>
         <button class="pitch-choice" id="ltTargetPitch" type="button" disabled aria-label="Replay target" aria-pressed="false"><span class="pitch-note" id="ltTargetNote"></span><span class="pitch-caption">Target</span></button>
         <button class="pitch-choice" id="ltGuessPitch" type="button" disabled aria-label="Replay your guess" aria-pressed="false" hidden><span class="pitch-note" id="ltGuessNote"></span><span class="pitch-caption">Your guess</span></button>
+        <div class="swipe-hint ladder-swipe-hint" id="ltSwipeHint" hidden><p>Up or down<br><span>Larger changes</span></p><p>Left or right<br><span>Finer changes</span></p></div>
       </div>
       </div>
       <div class="challenge-clock" id="ltChallengeStatus" role="timer" aria-live="off" hidden>
@@ -1184,6 +1191,7 @@ img{max-width:100%}
 </div>
 
 <div class="count-in" id="countIn" role="dialog" aria-modal="true" aria-label="Get ready" hidden>
+  <div class="cue-screen" id="cue-target" data-cue="target" hidden><p class="count-in-reference"><strong id="countInTargetNote"></strong><span>LISTEN</span></p></div>
   <div class="cue-screen" id="cue-ready" data-cue="ready" hidden><p class="count-in-word">READY</p></div>
   <div class="cue-screen" id="cue-set" data-cue="set" hidden><p class="count-in-word">SET</p></div>
   <div class="cue-screen" id="cue-go" data-cue="go" hidden><p class="count-in-word">GO!</p></div>
@@ -1957,26 +1965,26 @@ let phase = 'idle', trial = null, last = null;
 const input = $('guessInput');
 const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'interfere' && (!trial.echo || trial.heard);
 
-let introActive = false, introToken = 0, introTimers = [], introFocus = null;
+let introActive = false, introToken = 0, introTimers = [], introFocus = null, introReferencePlaying = false;
 let activeCue = null, cueAnimation = null;
 function showCountInCue(step, label, mode = 'intro'){
   const overlay = $('countIn'), card = $('cue-' + step);
   if (!overlay.hidden && overlay.dataset.mode === mode && activeCue === step) return;
   // Each cue owns its own static text node. Hide the previous screen before cancelling its animation,
   // so Safari cannot retain its old letters when a new word is painted.
-  ['ready', 'set', 'go'].forEach(s => { $('cue-' + s).hidden = true; });
+  ['target', 'ready', 'set', 'go'].forEach(s => { $('cue-' + s).hidden = true; });
   cueAnimation?.cancel(); cueAnimation = null;
   const opening = overlay.hidden;
   if (opening) introFocus = document.activeElement;
   activeCue = step;
   overlay.dataset.step = step; overlay.dataset.mode = mode;
   $('countInLabel').textContent = label;
-  $('countInWord').textContent = {ready: 'READY', set: 'SET', go: 'GO!'}[step];
+  $('countInWord').textContent = {target: 'LISTEN', ready: 'READY', set: 'SET', go: 'GO!'}[step];
   $('countInCancel').setAttribute('aria-label', mode === 'intro' ? 'Cancel start' : 'End round');
   $('app').inert = true; overlay.hidden = false; card.hidden = false;
   if (opening) $('countInCancel').focus({preventScroll: true});
-  sfx(step);
-  if (!reduceMotion.matches) cueAnimation = card.querySelector('.count-in-word').animate?.([
+  if (step !== 'target') sfx(step);
+  if (!reduceMotion.matches) cueAnimation = card.querySelector('.count-in-word')?.animate?.([
     {opacity: 0, transform: 'scale(1.35)', offset: 0},
     {opacity: 1, transform: 'scale(1.14)', offset: 0.22},
     {opacity: 1, transform: 'scale(1)', offset: 0.78},
@@ -1987,7 +1995,7 @@ function hideCountInCue(mode){
   const overlay = $('countIn');
   if (mode && overlay.dataset.mode !== mode) return;
   overlay.hidden = true;
-  ['ready', 'set', 'go'].forEach(s => { $('cue-' + s).hidden = true; });
+  ['target', 'ready', 'set', 'go'].forEach(s => { $('cue-' + s).hidden = true; });
   cueAnimation?.cancel(); cueAnimation = null; activeCue = null;
   $('app').inert = false;
   introFocus?.focus?.({preventScroll: true}); introFocus = null;
@@ -1995,10 +2003,11 @@ function hideCountInCue(mode){
 function cancelCountIn(){
   introToken++;
   introTimers.forEach(clearTimeout); introTimers = [];
+  if (introReferencePlaying) { introReferencePlaying = false; stopAll(); }
   introActive = false;
   hideCountInCue();
 }
-function startCountIn(begin, label){
+function startCountIn(begin, label, reference){
   cancelCountIn();
   const token = ++introToken;
   introActive = true;
@@ -2006,13 +2015,38 @@ function startCountIn(begin, label){
     if (!introActive || token !== introToken) return;
     showCountInCue(step, label);
   };
-  cue('ready');
-  introTimers.push(setTimeout(() => cue('set'), 800));
-  introTimers.push(setTimeout(() => cue('go'), 1600));
-  introTimers.push(setTimeout(() => {
+  const count = () => {
     if (!introActive || token !== introToken) return;
-    cancelCountIn(); begin();
-  }, 2400));
+    cue('ready');
+    introTimers.push(setTimeout(() => cue('set'), 800));
+    introTimers.push(setTimeout(() => cue('go'), 1600));
+    introTimers.push(setTimeout(() => {
+      if (!introActive || token !== introToken) return;
+      cancelCountIn(); begin();
+    }, 2400));
+  };
+  const engine = audio();
+  const start = () => {
+    if (!introActive || token !== introToken) return;
+    if (!reference || !engine) return count();
+    $('countInTargetNote').textContent = noteName(reference.f);
+    showCountInCue('target', label);
+    stopAll(); introReferencePlaying = true;
+    const at = engine.currentTime + 0.03;
+    if (reference.voice === SINE || !voiceReady(reference.voice)) tone(reference.f, at, 3, ampFor(reference.f, 0), 0.06);
+    else strike(reference.voice, reference.f, at, {dur: 3, rove: 0});
+    noteAnchor(reference.f); setAudio('tone');
+    introTimers.push(setTimeout(() => {
+      if (!introActive || token !== introToken) return;
+      introReferencePlaying = false; stopAll(); count();
+    }, 3100));
+  };
+  // On the first tap, resume() is asynchronous. Start the words only once their sounds can play.
+  if (!engine || engine.state === 'running') start();
+  else engine.resume().then(start).catch(() => {
+    if (token !== introToken) return;
+    cancelCountIn(); showError('Tap Start again to enable sound.');
+  });
 }
 $('countInCancel').addEventListener('click', () => {
   if (introActive) cancelCountIn();
@@ -2041,7 +2075,8 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
   const ready = v => {
     audio();                                                   // initialize on the starting tap, before the visual count-in
     const t = extra?.ladder && lt.tones.find(t => t.f === extra.lt);
-    startCountIn(() => begin(v), t ? `LEVEL ${t.ladder.level}` : echo ? 'ECHO' : L.short || L.name || 'TRAINING');
+    startCountIn(() => begin(v), t ? `LEVEL ${t.ladder.level}` : echo ? 'ECHO' : L.short || L.name || 'TRAINING',
+      t && t.ladder.level === 1 ? {f: t.f, voice: v} : null);
   };
   if (V === SINE || voiceReady(V)) return ready(V);
   const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily'].map($);
@@ -2074,6 +2109,7 @@ function nextQuestion(){
     return playPreview();
   }
   if (task === 'find') {
+    round.tuneCount = (round.tuneCount || 0) + 1;
     const w = makeStops(target, voiceRange(voice));
     trial = {task, f: target, lv: round.lv, w, x: Math.floor(Math.random() * w.n), rove: newRove(), mv: 0, voice, off, echo: !!round.echo};   // start on any stop, the target included; rove: a sine's level
     if (round.lt || round.checkFlow) trial.show = (round.items[0]?.task === 'card' ? round.items[0].side : round.checkFlow?.check.card?.side) || 'note';
@@ -2668,6 +2704,7 @@ function renderLadderPitches(){
   $('ltTargetNote').textContent = noteName(trial.f);
   $('ltGuessNote').textContent = answered ? noteOffsetLabel(last.g) : '';
   $('ltGuessPitch').hidden = !answered;
+  $('ltSwipeHint').hidden = phase !== 'listening' || round.challengeLevel !== 1 || round.tuneCount !== 1;
   ['true', 'you'].forEach(which => {
     const button = $(which === 'true' ? 'ltTargetPitch' : 'ltGuessPitch');
     button.disabled = !replay;
@@ -3189,7 +3226,7 @@ function bindTunePad(pad, h){
       if (Math.hypot(dx, dy) < 6) return;
       drag.axis = Math.abs(dy) > Math.abs(dx) ? 'large' : 'small';
     }
-    const change = drag.axis === 'large' ? -dy : dx * 0.1;
+    const change = drag.axis === 'large' ? -dy * 0.5 : dx * 0.05;
     drag.x = e.clientX; drag.y = e.clientY;
     if (change) { drag.moved = true; h.move(change); }
   });
@@ -3198,7 +3235,7 @@ function bindTunePad(pad, h){
     if (!h.can() || e.target?.closest?.('button, input, select, textarea, a, [role="dialog"]')) return;
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
-    const change = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX * 0.1 : -e.deltaY * (e.shiftKey ? 0.1 : 1);
+    const change = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX * 0.05 : -e.deltaY * (e.shiftKey ? 0.05 : 0.5);
     h.grab?.(); h.move(change * unit); h.release?.();
   }, {passive: false});
 }
@@ -3406,6 +3443,7 @@ function render(){
   input.setAttribute('aria-label', noteCard ? 'Your answer, a note' : 'Your answer in hertz');
   $('after').querySelector('.pair').hidden = card || preview;             // nothing to compare after a card, or before a round
   $('adjust').hidden = !find || phase === 'revealed' || trial.echo && !trial.heard;
+  $('pad').hidden = !!round.ladder || round.tuneCount !== 1;
   if (find && phase === 'listening' && !trial.mv) $('tuneMovement').textContent = 'Swipe anywhere to tune';
   if (roll) { renderRoll(L); if (phase === 'revealed' && !last.ok) showActualKey(); }
   else if (task === 'pick' || task === 'notes') renderChoices(L, task);
