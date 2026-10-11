@@ -350,6 +350,11 @@ p{margin:0}
 .chart svg{display:block;width:100%}
 .chart-sub{font-size:13px;color:var(--muted);margin-top:-6px;margin-bottom:10px}
 #progChart{height:200px}
+#ltProgressChart{height:190px}
+.progress-panel{display:contents}
+#ltProgressNotes{max-height:240px;overflow-y:auto}
+#ltProgressNotes button{min-height:40px}
+#ltProgressNotes button[aria-pressed="true"]{border-color:var(--teal);background:var(--sel-bg);color:var(--teal)}
 #scatter{aspect-ratio:1;max-width:100%;height:auto}
 .chart text{font-family:var(--font-num);font-size:10.5px;fill:var(--muted)}
 .chart .grid{stroke:var(--line);stroke-width:1}
@@ -382,8 +387,8 @@ p{margin:0}
 .trim-row{display:flex;align-items:center;gap:12px}
 .trim-row input[type=range]{flex:1;min-width:0;accent-color:var(--ink)}
 .trim-row output{font-family:var(--font-num);font-size:13px;min-width:4em;text-align:right;font-variant-numeric:tabular-nums}
-.probes{display:flex;flex-wrap:wrap;gap:6px}
-.probes button{font-family:var(--font-num);font-size:13px;padding:7px 11px;border-radius:999px;border:1px solid var(--line-hi);background:transparent;cursor:pointer;font-variant-numeric:tabular-nums}
+.probes,.note-bank{display:flex;flex-wrap:wrap;gap:6px}
+.probes button,.note-bank button{font-family:var(--font-num);font-size:13px;padding:7px 11px;border-radius:999px;border:1px solid var(--line-hi);background:transparent;cursor:pointer;font-variant-numeric:tabular-nums}
 .probes button.on{border-color:var(--ink);background:var(--surface-2)}
 
 .article{display:flex;flex-direction:column;gap:12px;font-size:15.5px;line-height:1.6}
@@ -860,15 +865,30 @@ img{max-width:100%}
   <!-- ============ PROGRESS ============ -->
   <section class="screen" id="scr-progress" aria-label="Progress" hidden>
     <div class="halves"><div class="half">
-    <div class="seg" id="progModes" role="group" aria-label="Mode">
+    <div class="seg" id="progModes" style="--n:3" role="group" aria-label="Progress mode">
       <button type="button" data-mode="pick" aria-pressed="true">Name the tone</button>
       <button type="button" data-mode="match" aria-pressed="false">Find the tone</button>
+      <button type="button" data-mode="lt" aria-pressed="false">Long-term</button>
     </div>
-    <div class="card">
+    <div class="card" id="trainingMemory">
       <div class="card-head"><span class="label">Memory</span><span></span></div>
       <div class="tiles two" id="memTiles"></div>
     </div>
+    <div class="card" id="ltProgressBank" hidden>
+      <div class="card-head"><span class="label">Note bank</span><span id="ltProgressCount"></span></div>
+      <div class="note-bank" id="ltProgressNotes" role="group" aria-label="Long-term note"></div>
+      <div class="mem-note" id="ltProgressEmpty" hidden>
+        <p>Your notes will appear here when long-term training starts.</p>
+        <button class="ghost" type="button" data-go="lt">Open long-term training</button>
+      </div>
+    </div>
+    <div class="progress-panel" id="ltProgressDetail" hidden>
+      <h2 class="page-head" id="ltProgressTitle"></h2>
+      <p class="chart-sub" id="ltProgressStatus"></p>
+      <div class="tiles two" id="ltProgressSchedule"></div>
+    </div>
     </div><div class="half">
+    <div class="progress-panel" id="trainingProgress">
     <div class="note-row" id="exampleRow"><span class="badge">Example data</span></div>
     <div class="tiles" id="tiles"></div>
     <div class="card chart">
@@ -884,6 +904,24 @@ img{max-width:100%}
       <ol class="rounds" id="roundList"></ol>
     </div>
     <div class="confirm" id="clearWrap"></div>
+    </div>
+    <div class="progress-panel" id="ltProgressResults" hidden>
+      <div class="tiles" id="ltProgressTiles"></div>
+      <div class="card chart">
+        <div class="card-head"><span class="label">Pitch checks</span><span>50¢ to pass</span></div>
+        <p class="chart-sub">The first Tune of each check-in.</p>
+        <svg id="ltProgressChart" role="img" aria-label="Pitch error for the selected long-term note over time"></svg>
+        <p class="mem-note" id="ltProgressNoChecks" hidden>No check-ins for this note yet.</p>
+      </div>
+      <div class="card" id="ltProgressCards" hidden>
+        <div class="card-head"><span class="label">Flashcards</span><span></span></div>
+        <div class="tiles two" id="ltProgressCardTiles"></div>
+      </div>
+      <div class="card" id="ltProgressRecent" hidden>
+        <div class="card-head"><span class="label">Recent checks</span><span>Latest 10</span></div>
+        <ol class="answers" id="ltProgressChecks"></ol>
+      </div>
+    </div>
     </div></div>
   </section>
 
@@ -1774,7 +1812,7 @@ function startAdj(kind){                         // kind: the interference first
 }
 
 /* ---------- navigation ---------- */
-let screen = 'home', progMode = 'pick';
+let screen = 'home', progMode = 'pick', progTone = null;
 /* The five main pages share a header with tabs: Train (with the levels), Long-term, Echo, Progress, Lab. */
 const TABS = ['home', 'lt', 'echo', 'progress', 'lab'];
 function go(name){
@@ -1788,7 +1826,7 @@ function go(name){
   $('tabs').querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   if (from >= 0 && to >= 0 && from !== to && !reduceMotion.matches) $('scr-' + name).classList.add(to > from ? 'slide-l' : 'slide-r');
   window.scrollTo(0, 0);
-  if (name === 'progress') { progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
+  if (name === 'progress') { if (progMode !== 'lt') progMode = LEVELS[settings.level-1].task === 'find' ? 'match' : 'pick'; confirming = false; }
   if (name === 'lt') ltStopping = false;
   ({home: renderHome, train: render, summary: renderSummary, progress: renderProgress, settings: renderSettings, lt: renderLT, lab: renderLab, echo: renderEcho})[name]?.();
   placeBand();
@@ -2384,6 +2422,7 @@ function ltRefresh(){                       // on start and whenever the app com
   ltSchedule();
   renderLTRow();
   if (screen === 'lt') renderLT();
+  if (screen === 'progress' && progMode === 'lt') renderProgress();
 }
 
 /* the Long-term screen: every note in ladder order, as training (with a countdown to its next check; tap it when it's
@@ -2445,18 +2484,18 @@ function renderLT(){
   $('ltExactRow').hidden = true;                                  // the app needs "Alarms & reminders" for checks on the minute
   if (lt.on) CAP?.LocalNotifications?.checkExactNotificationSetting().then(r => { $('ltExactRow').hidden = r.exact_alarm === 'granted'; }, () => {});
 }
-function drawLTChart(){                     // how far off each check was, over time since Start (log scale, like the forgetting curve)
-  const svg = $('ltChart'), W = Math.max(260, Math.round(svg.clientWidth || 340)), H = 190, L = 34, R = 10, T = 12, B = 24;
+function drawLTChart(checks = lt.checks, svg = $('ltChart'), started = lt.started){   // all checks, or one note's checks, over time since Start
+  const W = Math.max(260, Math.round(svg.clientWidth || 340)), H = 190, L = 34, R = 10, T = 12, B = 24;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  const t0 = lt.started || (lt.checks[0] ? lt.checks[0].t : Date.now()), span = Math.max(7 * DAY, Date.now() - t0);
+  const t0 = started || (checks[0] ? checks[0].t : Date.now()), span = Math.max(7 * DAY, Date.now() - t0);
   const X = t => L + Math.log1p(Math.max(0, t - t0) / MIN) / Math.log1p(span / MIN) * (W - L - R);
-  const cap = Math.min(600, Math.max(100, Math.ceil(Math.max(0, ...lt.checks.map(c => Math.abs(c.cents))) / 50) * 50));
+  const cap = Math.min(600, Math.max(100, Math.ceil(Math.max(0, ...checks.map(c => Math.abs(ltCheckCents(c)))) / 50) * 50));
   const Y = c => T + (1 - Math.min(Math.abs(c), cap) / cap) * (H - T - B);
   let s = `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(0)}" y2="${Y(0)}"/><line class="tol" x1="${L}" x2="${W - R}" y1="${Y(50)}" y2="${Y(50)}"/>`;
   s += [0, 50, cap].map(c => `<text x="${L - 6}" y="${Y(c) + 4}" text-anchor="end">${c}</text>`).join('');
   s += [[HOUR, '1 h'], [DAY, '1 d'], [7 * DAY, '1 wk'], [30 * DAY, '1 mo']].filter(([d]) => d <= span)
     .map(([d, l]) => `<line class="grid" x1="${X(t0 + d)}" x2="${X(t0 + d)}" y1="${T}" y2="${Y(0)}"/><text x="${X(t0 + d)}" y="${H - 6}" text-anchor="${X(t0 + d) > W - R - 16 ? 'end' : 'middle'}">${l}</text>`).join('');
-  s += lt.checks.map(c => `<circle class="${c.ok ? 'hit' : 'miss'}" cx="${X(c.t).toFixed(1)}" cy="${Y(c.cents).toFixed(1)}" r="4"/>`).join('');
+  s += checks.map(c => `<circle class="${c.ok ? 'hit' : 'miss'}" cx="${X(c.t).toFixed(1)}" cy="${Y(ltCheckCents(c)).toFixed(1)}" r="4"/>`).join('');
   s += `<text class="axl" x="${L + 4}" y="${T + 10}">¢ off ↑</text>`;
   svg.innerHTML = s;
 }
@@ -2614,6 +2653,10 @@ $('quitYes').addEventListener('click', quitRound);
 $('progModes').addEventListener('click', e => {
   const b = e.target.closest('[data-mode]'); if (!b) return;
   progMode = b.dataset.mode; renderProgress();
+});
+$('ltProgressNotes').addEventListener('click', e => {
+  const b = e.target.closest('[data-tone]'); if (!b) return;
+  progTone = +b.dataset.tone; renderLTProgress();
 });
 
 $('playBtn').addEventListener('click', () => {
@@ -3255,8 +3298,12 @@ function exampleMatch(){
 const EXAMPLE = {pick: examplePick(), match: exampleMatch()};
 
 function renderProgress(){
-  const match = progMode === 'match';
+  const match = progMode === 'match', longTerm = progMode === 'lt';
   document.querySelectorAll('#progModes [data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === progMode)));
+  $('trainingMemory').hidden = $('trainingProgress').hidden = longTerm;
+  $('ltProgressBank').hidden = !longTerm;
+  if (longTerm) return renderLTProgress();
+  $('ltProgressDetail').hidden = $('ltProgressResults').hidden = true;
 
   const rs = rounds.slice(-10).reverse();
   $('roundList').innerHTML = rs.length
@@ -3285,6 +3332,50 @@ function renderProgress(){
   const F = fit(data.slice(-60));
   drawScatter(data, F, match);
   $('scSlope').textContent = F ? `slope ${F.b.toFixed(2)}` : '';
+}
+
+const ltCheckCents = c => Number.isFinite(c.cents) ? c.cents : 1200 * oct(c.g, c.f);
+const ltGapLabel = gap => gap > 0 ? gap < MIN ? `${Math.max(1, Math.round(gap / 1000))} s` : fmtSpan(gap) : '–';
+function ltProgressStats(f){
+  const checks = lt.checks.filter(c => c.f === f).sort((a, b) => a.t - b.t);
+  const hits = checks.filter(c => c.ok), errors = checks.map(c => Math.abs(ltCheckCents(c))).filter(Number.isFinite);
+  const cards = checks.filter(c => c.card).map(c => c.card);
+  return {checks, hits: hits.length, miss: errors.length ? median(errors) : null,
+    held: Math.max(0, ...hits.map(c => c.gap || 0)), cards: cards.length, cardHits: cards.filter(c => c.ok).length};
+}
+function renderLTProgress(){
+  const notes = [...new Set([...lt.tones.map(t => t.f), ...lt.checks.map(c => c.f)])];
+  if (!notes.includes(progTone)) progTone = notes[0] ?? null;
+  const hasNote = progTone != null;
+  $('ltProgressCount').textContent = `${notes.length} note${notes.length === 1 ? '' : 's'}`;
+  $('ltProgressEmpty').hidden = hasNote;
+  $('ltProgressDetail').hidden = $('ltProgressResults').hidden = !hasNote;
+  $('ltProgressNotes').innerHTML = notes.map(f => `<button type="button" data-tone="${f}" aria-pressed="${f === progTone}">${noteName(f)}</button>`).join('');
+  if (!hasNote) return;
+  const f = progTone, tone = lt.tones.find(t => t.f === f), stats = ltProgressStats(f), n = stats.checks.length;
+  $('ltProgressTitle').innerHTML = `${noteName(f)} <span>${fmtHz(f)} Hz</span>`;
+  $('ltProgressStatus').textContent = !tone ? 'Saved check-ins' : !lt.on ? 'Training paused' : tone.practice ?
+    `${ltPracticeLabel(tone)} pending` : tone.due <= Date.now() ? 'Next check: due now' : `Next check ${fmtIn(tone.due)} · ${fmtWhen(tone.due)}`;
+  $('ltProgressSchedule').innerHTML = [
+    ['Wait', tone?.wait ? fmtSpan(tone.wait) : '–', 'current interval'],
+    ['Longest held', ltGapLabel(stats.held), 'successful check'],
+  ].map(tileHtml).join('');
+  $('ltProgressTiles').innerHTML = [
+    ['Checks', n.toLocaleString('en-US'), 'first Tunes'],
+    ['Right', n ? `${Math.round(100 * stats.hits / n)}%` : '–', `${stats.hits} correct`],
+    ['Miss', stats.miss != null ? `${Math.round(stats.miss)}¢` : '–', 'typical'],
+  ].map(tileHtml).join('');
+  $('ltProgressChart').toggleAttribute('hidden', !n);
+  $('ltProgressNoChecks').hidden = !!n;
+  if (n) drawLTChart(stats.checks, $('ltProgressChart'), tone?.start || stats.checks[0].t);
+  $('ltProgressCards').hidden = !stats.cards;
+  $('ltProgressCardTiles').innerHTML = [
+    ['Cards', stats.cards, 'answered'],
+    ['Right', stats.cards ? `${Math.round(100 * stats.cardHits / stats.cards)}%` : '–', `${stats.cardHits} correct`],
+  ].map(tileHtml).join('');
+  $('ltProgressRecent').hidden = !n;
+  $('ltProgressChecks').innerHTML = `<li class="head"><span></span><span>When</span><span>Miss</span><span>Gap</span><span></span></li>` + stats.checks.slice(-10).reverse().map(c =>
+    `<li><span class="hd" style="--h:${hueOf(f)}"></span><span>${fmtWhen(c.t)}</span><span>${centsTxt(ltCheckCents(c))}</span><span class="ratio">${ltGapLabel(c.gap)}</span><span class="mark ${c.ok ? 'good' : 'bad'}">${MARK[c.ok ? 'good' : 'bad']}</span></li>`).join('');
 }
 
 // Pull: regress each answer's error on the previous tone's pitch, controlling for the current tone's pitch
