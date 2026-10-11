@@ -10,19 +10,19 @@ const section = (from, to) => script.slice(script.indexOf(from), script.indexOf(
 
 function countIn(reduced = true) {
   let now = 0, id = 0;
-  const timers = new Map(), elements = new Map(), animations = [];
+  const timers = new Map(), elements = new Map(), animations = [], sounds = [];
   const $ = name => {
     if (!elements.has(name)) elements.set(name, {hidden:true,dataset:{},textContent:'',focus(){},setAttribute(){},
       querySelector(){return {animate(frames,options){const a={frames,options,cancel(){this.cancelled=true;}};animations.push(a);return a;}};}});
     return elements.get(name);
   };
-  const context = vm.createContext({$, document:{activeElement:null}, reduceMotion:{matches:reduced},
+  const context = vm.createContext({$, document:{activeElement:null}, reduceMotion:{matches:reduced}, sfx:step=>sounds.push([step,now]),
     setTimeout(fn, delay) { const key = ++id; timers.set(key, {fn,at:now+delay}); return key; },
     clearTimeout(key) { timers.delete(key); }
   });
   vm.runInContext(section('const textFades =', 'let pageGhost ='), context);
   vm.runInContext(section('let introActive = false', "$('countInCancel').addEventListener"), context);
-  return {$, animations, start:context.startCountIn, cancel:context.cancelCountIn, cue:context.showCountInCue, hide:context.hideCountInCue,
+  return {$, animations, sounds, start:context.startCountIn, cancel:context.cancelCountIn, cue:context.showCountInCue, hide:context.hideCountInCue,
     advance(ms) {
       const end = now+ms;
       for (;;) {
@@ -56,6 +56,7 @@ test('cancelling a count-in cannot start an abandoned attempt or keep the app in
   const ui=countIn(); let starts=0;
   ui.start(()=>starts++,'LEVEL 1'); ui.advance(900); ui.cancel(); ui.advance(5000);
   assert.equal(starts,0);
+  assert.deepEqual(ui.sounds,[['ready',0],['set',800]]);
   assert.equal(ui.$('app').inert,false);
   assert.equal(ui.$('countIn').hidden,true);
   ui.start(()=>starts++,'ECHO'); ui.advance(2400);
@@ -76,10 +77,20 @@ test('long-term cue ticks do not restart the shrink animation, and hiding them r
   const ui=countIn(false);
   ui.cue('ready','LEVEL 1','ladder'); ui.cue('ready','LEVEL 1','ladder');
   assert.equal(ui.animations.length,1);
+  assert.deepEqual(ui.sounds,[['ready',0]]);
   assert.equal(ui.$('app').inert,true);
   ui.cue('set','LEVEL 1','ladder'); assert.equal(ui.$('cue-ready').hidden,true);
   assert.equal(ui.$('cue-set').hidden,false);
   ui.hide('ladder'); assert.equal(ui.$('countIn').hidden,true); assert.equal(ui.$('app').inert,false);
+});
+
+test('each count-in sound starts with its word, and Go finishes before the question begins', () => {
+  const ui=countIn(); let began;
+  ui.start(()=>began=ui.now,'LEVEL 1'); ui.advance(2400);
+  assert.deepEqual(ui.sounds,[['ready',0],['set',800],['go',1600]]);
+  const context=vm.createContext({});
+  vm.runInContext(section('const SFX =', 'let tickAt =')+'globalThis.effects=SFX;',context);
+  for (const [step,at] of ui.sounds) assert.ok(at+context.effects[step].dur*1000+50<began);
 });
 
 function gestures() {

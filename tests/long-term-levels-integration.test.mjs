@@ -18,7 +18,7 @@ function app(tone = LTLevels.createTone(1047, at)) {
     const SINE = {id: 'sine'}, input = {blur() {}}, elements = new Map(), reduceMotion = {matches:true};
     const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: true, textContent: '', dataset:{}, style:{}, focus(){}, setAttribute(){}}); return elements.get(id); };
     ${section('const textFades =', 'let pageGhost =')}
-    const document = {activeElement: null};
+    const document = {activeElement: null}, sfx = step => calls.push(['cue', step]);
     ${section('let introActive = false', "$('countInCancel').addEventListener")}
     const setInterval = () => 1, clearInterval = () => {}, setTimeout = (fn, delay) => { calls.push(['timer', delay]); return 1; };
     const saveLT = () => { saved = JSON.stringify(lt); }, ltSchedule = () => {};
@@ -61,17 +61,17 @@ test('the displayed timer counts down each phase without moving the next guess o
   const {api, time} = app();
   const clock = () => Array.from(api.clock());
   api.start(); time(at + 5000);
-  assert.deepEqual(clock(), ['LEVEL 1', 'Tune to the target', '0:15', 'to lock in']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'FIND', '0:15', 'to lock in']);
   api.answer(true);
   time(at + 10000);
-  assert.deepEqual(clock(), ['LEVEL 1', 'Listen to the target', '0:15', 'until random notes']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'LISTEN', '0:15', 'until random notes']);
   time(at + 25000);
-  assert.deepEqual(clock(), ['LEVEL 1', 'Random notes', '0:20', 'until the break']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'RANDOM', '0:20', 'until the break']);
   time(at + 45000);
-  assert.deepEqual(clock(), ['LEVEL 1', 'Get ready', '0:15', 'until the next guess']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'WAIT', '0:15', 'until the next guess']);
   assert.equal(api.state.lt.tones[0].due, at + MIN);
   time(at + MIN); api.tickLadder();
-  assert.deepEqual(clock(), ['LEVEL 1', 'Tune to the target', '0:20', 'to lock in']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'FIND', '0:20', 'to lock in']);
 });
 
 test('a deadline creates one failed check without a fabricated pitch error, saves it and ends the game', () => {
@@ -97,6 +97,7 @@ test('full-screen cues fill only the final 2.4 seconds of a long-term gap and le
     assert.equal(api.state.lt.tones[0].due,at+MIN);
   }
   time(at+MIN); api.tickLadder(); api.clock();
+  assert.deepEqual(Array.from(api.calls.filter(c=>c[0]==='cue'),c=>c[1]),['ready','set','go']);
   assert.equal(api.cue.hidden,true); assert.equal(api.cue.inert,false);
   assert.equal(api.state.lt.tones[0].ladder.deadline,at+MIN+20000);
 });

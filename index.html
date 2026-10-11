@@ -602,13 +602,16 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .howto{margin:-6px 0 0;min-height:1.4em;text-align:center;font-size:13px;color:var(--muted)}
 .howto.off{visibility:hidden}
 :is(#scr-train,.scr-train)[data-task="find"] .howto,:is(#scr-train,.scr-train)[data-task="preview"] .howto{font-size:22px;color:var(--ink);line-height:1.3}
-.challenge-heading{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding-block:4px}
+.challenge-heading{display:flex;justify-content:center;align-items:baseline;gap:12px;text-align:center;padding-block:4px;white-space:nowrap}
 .challenge-level{font-size:26px;font-weight:650;letter-spacing:.1em;line-height:1.2}
 .challenge-instruction{font-size:23px;font-weight:450;line-height:1.25}
 .challenge-clock{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
 .challenge-time{font-family:var(--font-num);font-size:40px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
 .challenge-next{font-size:15px;color:var(--muted);line-height:1.3}
 :is(#scr-train,.scr-train)[data-ladder="1"] .stage{gap:32px;padding-block:8px 0}
+:is(#scr-train,.scr-train)[data-ladder="1"] .orb{background:none;box-shadow:none;border-radius:0;animation:none}
+:is(#scr-train,.scr-train)[data-ladder="1"] .orb::before,:is(#scr-train,.scr-train)[data-ladder="1"] .orb::after{content:none}
+:is(#scr-train,.scr-train)[data-ladder="1"] .orb-core{transform:translateY(-18px)}
 :is(#scr-train,.scr-train)[data-ladder="1"] .train-left{gap:6px}
 :is(#scr-train,.scr-train)[data-ladder="1"] .verdict:empty{display:none}
 @media not (orientation: landscape){
@@ -1601,12 +1604,15 @@ function setAudio(s){
 }
 
 /* ---------- sound effects: unpitched noise whose filter moves at random every time, so none can serve as a
-   reference tone; they play on answers, results and the record, never while a question is sounding ---------- */
+   reference tone; count-in cues finish before the next question starts ---------- */
 const SFX = {
   pop:    {dur: 0.08, type: 'bandpass', f: 2400, q: 0.6, amp: 0.11, tau: 0.02},     // right
   thud:   {dur: 0.26, type: 'lowpass',  f: 420,  q: 0.5, amp: 0.32, tau: 0.06},     // wrong
   tick:   {dur: 0.03, type: 'highpass', f: 3000, q: 0.5, amp: 0.035, tau: 0.006},   // the record and the arrows
   whoosh: {dur: 0.8,  type: 'bandpass', f: 500,  f2: 4500, q: 0.8, amp: 0.07},      // results
+  ready:  {dur: 0.18, type: 'bandpass', f: 1400, q: 0.8, amp: 0.16, tau: 0.035},
+  set:    {dur: 0.18, type: 'bandpass', f: 2200, q: 0.8, amp: 0.16, tau: 0.035},
+  go:     {dur: 0.32, type: 'bandpass', f: 3200, f2: 1800, q: 0.7, amp: 0.2, tau: 0.07},
 };
 let tickAt = 0;
 function sfx(kind){
@@ -1963,6 +1969,7 @@ function showCountInCue(step, label, mode = 'intro'){
   $('countInCancel').setAttribute('aria-label', mode === 'intro' ? 'Cancel start' : 'End round');
   $('app').inert = true; overlay.hidden = false; card.hidden = false;
   if (opening) $('countInCancel').focus({preventScroll: true});
+  sfx(step);
   if (!reduceMotion.matches) cueAnimation = card.querySelector('.count-in-word').animate?.([
     {opacity: 0, transform: 'scale(1.35)', offset: 0},
     {opacity: 1, transform: 'scale(1.14)', offset: 0.22},
@@ -2647,13 +2654,13 @@ function renderLadderClock(){
   const targetEnd = round.answerAt + 20000, notesEnd = round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000);
   let instruction, next, until, stage, duration, cueStep;
   if (phase === 'listening') {
-    instruction = 'Tune to the target'; next = 'to lock in'; until = s.deadline; stage = 'tune'; duration = 20000;
+    instruction = 'FIND'; next = 'to lock in'; until = s.deadline; stage = 'tune'; duration = 20000;
   } else if (now < targetEnd) {
-    instruction = 'Listen to the target'; next = 'until random notes'; until = targetEnd; stage = 'listen'; duration = 20000;
+    instruction = 'LISTEN'; next = 'until random notes'; until = targetEnd; stage = 'listen'; duration = 20000;
   } else if (now < notesEnd) {
-    instruction = 'Random notes'; next = 'until the break'; until = notesEnd; stage = 'notes'; duration = notesEnd - targetEnd;
+    instruction = 'RANDOM'; next = 'until the break'; until = notesEnd; stage = 'notes'; duration = notesEnd - targetEnd;
   } else {
-    instruction = ltSessionTone != null ? s.mode === 'boundary' ? 'Level complete' : 'Get ready' : 'Check complete';
+    instruction = ltSessionTone != null && s.mode !== 'boundary' ? 'WAIT' : 'COMPLETE';
     next = s.mode === 'boundary' ? `until Level ${s.level + 1}` : ltSessionTone != null ? 'until the next guess' : 'until the next check';
     until = t.due; stage = 'wait'; duration = Math.max(1, t.due - notesEnd);
     if (ltSessionTone != null && until - now <= 2400) {
@@ -4441,7 +4448,7 @@ function drawBand(now){
   c.clearRect(0, 0, W, H);
   // Three ribbons stay anchored to the viewport while their strands flow sideways.
   [0.26, 0.49, 0.73].forEach((mid, row) => {
-    const A = Math.min(H * 0.075, W * 0.15), cycles = (2.8 + row * 0.7) * bandPitch;
+    const A = Math.min(H * 0.075, W * 0.15) * (round?.ladder && row < 2 ? 0.7 : 1), cycles = (2.8 + row * 0.7) * bandPitch;
     for (let k = 0; k < 5; k++) {
       const main = k === 0, amp = 1 - k * 0.12, ph = k * 0.8 + row * 1.7;
       c.beginPath();
