@@ -61,13 +61,13 @@ function app(tone = LTLevels.createTone(1047, at)) {
   };
 }
 
-test('a correct opening guess plays target for five seconds, starts random notes with their phase, and keeps the fixed slot', () => {
+test('a correct opening guess plays target for three seconds, starts random notes with their phase, and keeps the fixed slot', () => {
   const {api, time} = app();
   api.start(); time(at + 5000); api.answer(true);
   assert.equal(api.state.lt.checks.length, 1);
   assert.equal(api.state.lt.tones[0].practice, undefined);
   assert.deepEqual(JSON.parse(JSON.stringify(api.calls.filter(c => c[0] === 'tone' || c[0] === 'notes'))),
-    [['tone', 1047, 0.03, 5]]);
+    [['tone', 1047, 0.03, 3]]);
   time(at + 25000); api.clock();
   assert.deepEqual(JSON.parse(JSON.stringify(api.calls.filter(c => c[0] === 'notes'))), [['notes', 0.03, 20]]);
   time(at + MIN - 1); api.tickLadder();
@@ -77,7 +77,7 @@ test('a correct opening guess plays target for five seconds, starts random notes
   assert.equal(api.state.lt.tones[0].ladder.deadline, at + MIN + 20000);
 });
 
-test('feedback becomes silent after five seconds and does not reveal or replay a guess before submission', () => {
+test('feedback becomes silent after three seconds and does not reveal or replay a guess before submission', () => {
   const {api, advance} = app();
   api.start(); api.clock(); api.replay('true'); api.replay('you');
   assert.equal(api.pitches()[1].hidden, true);
@@ -85,7 +85,7 @@ test('feedback becomes silent after five seconds and does not reveal or replay a
   advance(5000); api.answer(true);
   assert.ok(api.pitches().every(p => p.disabled));
   api.replay('you');
-  advance(5050);
+  advance(3050);
   assert.equal(api.calls.at(-1)[1], 'idle');
   assert.ok(api.pitches().every(p => !p.disabled && p.playing === '0'));
   advance(10000); api.clock();
@@ -95,18 +95,18 @@ test('feedback becomes silent after five seconds and does not reveal or replay a
 
 test('either pitch can be replayed and switching cancels the previous playback without changing progress', () => {
   const {api, advance} = app(), guess = 1047 * 2 ** (15 / 1200);
-  api.start(); advance(5000); api.answer(true, guess); advance(5050);
+  api.start(); advance(5000); api.answer(true, guess); advance(3050);
   assert.deepEqual(Array.from(api.pitches(), p => p.note), ['C6', 'C6 + 15c']);
   const due = api.state.lt.tones[0].due;
   api.replay('you');
   assert.deepEqual(Array.from(api.pitches(), p => p.playing), ['0', '1']);
   advance(1000); api.replay('true');
   assert.deepEqual(Array.from(api.pitches(), p => p.playing), ['1', '0']);
-  advance(4050);
+  advance(2050);
   assert.equal(api.pitches()[0].playing, '1');
   advance(1000);
   assert.ok(api.pitches().every(p => p.playing === '0'));
-  assert.deepEqual(Array.from(api.calls.filter(c => c[0] === 'tone'), c => [c[1], c[3]]), [[1047, 5], [guess, 5], [1047, 5]]);
+  assert.deepEqual(Array.from(api.calls.filter(c => c[0] === 'tone'), c => [c[1], c[3]]), [[1047, 3], [guess, 3], [1047, 3]]);
   assert.equal(api.state.lt.checks.length, 1);
   assert.equal(api.state.lt.tones[0].due, due);
 });

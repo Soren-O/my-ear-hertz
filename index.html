@@ -2663,7 +2663,7 @@ function placeLadderContent(){
 function renderLadderPitches(){
   if (!round?.ladder || !trial) return;
   const answered = phase === 'revealed' && last?.g > 0;
-  const replay = answered && Date.now() >= round.answerAt + 5000 && Date.now() < round.answerAt + 20000;
+  const replay = answered && Date.now() >= round.answerAt + 3000 && Date.now() < round.answerAt + 20000;
   $('ltPitchPair').dataset.result = answered && last.ok ? 'good' : '';
   $('ltTargetNote').textContent = noteName(trial.f);
   $('ltGuessNote').textContent = answered ? noteOffsetLabel(last.g) : '';
@@ -2751,8 +2751,8 @@ function ladderFeedback(f, V, seconds, which = null){
   }, seconds * 1000 + 50));
 }
 function hearLadderPitch(which){
-  if (!round?.ladder || phase !== 'revealed' || !last || Date.now() < round.answerAt + 5000 || Date.now() >= round.answerAt + 20000) return;
-  ladderFeedback(which === 'you' ? last.g : last.f, trial.voice || SINE, 5, which);
+  if (!round?.ladder || phase !== 'revealed' || !last || Date.now() < round.answerAt + 3000 || Date.now() >= round.answerAt + 20000) return;
+  ladderFeedback(which === 'you' ? last.g : last.f, trial.voice || SINE, 3, which);
 }
 function ladderRandomNotes(remaining){
   if (!audio()) return;
@@ -2777,7 +2777,7 @@ function recordLadder(rec){
     return;
   }
   render();
-  ladderFeedback(t.f, V, 5, 'true');
+  ladderFeedback(t.f, V, 3, 'true');
   renderLadderClock();
 }
 function endLadderCheck(chk, t, openingComplete = false){
