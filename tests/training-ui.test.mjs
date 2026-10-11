@@ -8,20 +8,21 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const script = html.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
 const section = (from, to) => script.slice(script.indexOf(from), script.indexOf(to, script.indexOf(from)));
 
-function countIn() {
+function countIn(reduced = true) {
   let now = 0, id = 0;
-  const timers = new Map(), elements = new Map();
+  const timers = new Map(), elements = new Map(), animations = [];
   const $ = name => {
-    if (!elements.has(name)) elements.set(name, {hidden:true,dataset:{},textContent:'',focus(){}});
+    if (!elements.has(name)) elements.set(name, {hidden:true,dataset:{},textContent:'',focus(){},setAttribute(){},
+      querySelector(){return {animate(frames,options){const a={frames,options,cancel(){this.cancelled=true;}};animations.push(a);return a;}};}});
     return elements.get(name);
   };
-  const context = vm.createContext({$, document:{activeElement:null}, reduceMotion:{matches:true},
+  const context = vm.createContext({$, document:{activeElement:null}, reduceMotion:{matches:reduced},
     setTimeout(fn, delay) { const key = ++id; timers.set(key, {fn,at:now+delay}); return key; },
     clearTimeout(key) { timers.delete(key); }
   });
   vm.runInContext(section('const textFades =', 'let pageGhost ='), context);
   vm.runInContext(section('let introActive = false', "$('countInCancel').addEventListener"), context);
-  return {$, start:context.startCountIn, cancel:context.cancelCountIn,
+  return {$, animations, start:context.startCountIn, cancel:context.cancelCountIn, cue:context.showCountInCue, hide:context.hideCountInCue,
     advance(ms) {
       const end = now+ms;
       for (;;) {
@@ -59,6 +60,26 @@ test('cancelling a count-in cannot start an abandoned attempt or keep the app in
   assert.equal(ui.$('countIn').hidden,true);
   ui.start(()=>starts++,'ECHO'); ui.advance(2400);
   assert.equal(starts,1);
+});
+
+test('every cue has its own visible screen and shrinks from large text, without painting two words together', () => {
+  const ui=countIn(false), visible=()=>['ready','set','go'].filter(s=>!ui.$('cue-'+s).hidden);
+  ui.start(()=>{},'LEVEL 1'); assert.deepEqual(visible(),['ready']);
+  assert.equal(ui.animations[0].frames[0].transform,'scale(1.35)');
+  assert.equal(ui.animations[0].frames[2].transform,'scale(1)');
+  ui.advance(800); assert.deepEqual(visible(),['set']); assert.equal(ui.animations[0].cancelled,true);
+  ui.advance(800); assert.deepEqual(visible(),['go']); assert.equal(ui.animations[1].cancelled,true);
+  ui.advance(800); assert.deepEqual(visible(),[]); assert.equal(ui.animations[2].cancelled,true);
+});
+
+test('long-term cue ticks do not restart the shrink animation, and hiding them releases the app', () => {
+  const ui=countIn(false);
+  ui.cue('ready','LEVEL 1','ladder'); ui.cue('ready','LEVEL 1','ladder');
+  assert.equal(ui.animations.length,1);
+  assert.equal(ui.$('app').inert,true);
+  ui.cue('set','LEVEL 1','ladder'); assert.equal(ui.$('cue-ready').hidden,true);
+  assert.equal(ui.$('cue-set').hidden,false);
+  ui.hide('ladder'); assert.equal(ui.$('countIn').hidden,true); assert.equal(ui.$('app').inert,false);
 });
 
 function gestures() {

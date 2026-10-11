@@ -587,14 +587,15 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .phase-display > *{grid-area:1 / 1}
 :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{min-height:max(180px,var(--challenge-dial,180px))}
 .phase-wave .tune-wave{height:120px;animation:phase-breathe 2s ease-in-out infinite}
-.phase-cue{font-size:clamp(50px,16vw,80px);font-weight:550;letter-spacing:.1em;color:var(--teal);text-align:center}
 .phase-progress{width:170px;height:3px;background:var(--line-hi);border-radius:3px;overflow:hidden;margin-bottom:8px}
 .phase-progress i{display:block;width:100%;height:100%;background:var(--teal);transform-origin:left;transition:transform .1s linear}
-.count-in{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:color-mix(in oklab,var(--bg) 78%,transparent);padding:max(24px,env(safe-area-inset-top,0px)) 24px max(24px,env(safe-area-inset-bottom,0px))}
-.count-in .icon{position:absolute;top:max(16px,env(safe-area-inset-top,0px));left:max(20px,env(safe-area-inset-left,0px))}
-.count-in .label{font-size:15px;color:var(--muted)}
-.count-in-word{font-size:clamp(56px,18vw,100px);font-weight:500;line-height:1.1;letter-spacing:.12em;text-align:center}
-.count-in[data-step="go"]{color:var(--teal)}
+.count-in{position:fixed;inset:0;z-index:70;background:var(--bg);overflow:hidden}
+.count-in .icon{position:absolute;z-index:2;top:max(16px,env(safe-area-inset-top,0px));left:max(20px,env(safe-area-inset-left,0px))}
+.count-in .label{position:absolute;z-index:2;top:max(80px,env(safe-area-inset-top,0px));left:24px;right:24px;text-align:center;font-size:13px;color:var(--muted)}
+.cue-screen{position:absolute;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 48%,color-mix(in oklab,var(--glow-indigo) 18%,transparent),transparent 65%),var(--bg)}
+.cue-screen[data-cue="go"]{background:radial-gradient(ellipse at 50% 48%,color-mix(in oklab,var(--glow-teal) 35%,transparent),transparent 75%),color-mix(in oklab,var(--teal) 10%,var(--bg));color:var(--teal)}
+.count-in-word{font-size:clamp(50px,15vw,88px);font-weight:550;line-height:1.1;letter-spacing:.1em;text-align:center;transform-origin:center}
+.cue-announcement{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @keyframes phase-breathe{50%{opacity:.4;transform:scaleY(.7)}}
 @media (prefers-reduced-motion:reduce){.count-in-word,.phase-wave .tune-wave{animation:none}.phase-progress i{transition:none}}
 /* training: one line on what to do, and the buttons/keyboard switch */
@@ -831,7 +832,6 @@ img{max-width:100%}
       <div class="phase-wave" id="ltPhaseWave" aria-hidden="true" hidden>
         <svg class="tune-wave" viewBox="0 0 360 120"><path d="M0 60Q15 12 30 60T60 60T90 60T120 60T150 60T180 60T210 60T240 60T270 60T300 60T330 60T360 60"/><path d="M0 60Q20 100 40 60T80 60T120 60T160 60T200 60T240 60T280 60T320 60T360 60"/></svg>
       </div>
-      <p class="phase-cue" id="ltPhaseCue" hidden></p>
       </div>
       <div class="challenge-clock" id="ltChallengeStatus" role="timer" aria-live="off" hidden>
         <div class="phase-progress" aria-hidden="true"><i id="ltPhaseMeter"></i></div>
@@ -1177,9 +1177,12 @@ img{max-width:100%}
 </div>
 
 <div class="count-in" id="countIn" role="dialog" aria-modal="true" aria-label="Get ready" hidden>
+  <div class="cue-screen" id="cue-ready" data-cue="ready" hidden><p class="count-in-word">READY</p></div>
+  <div class="cue-screen" id="cue-set" data-cue="set" hidden><p class="count-in-word">SET</p></div>
+  <div class="cue-screen" id="cue-go" data-cue="go" hidden><p class="count-in-word">GO!</p></div>
   <button class="icon" id="countInCancel" type="button" aria-label="Cancel start"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <p class="label" id="countInLabel"></p>
-  <p class="count-in-word" id="countInWord" aria-live="polite">READY</p>
+  <p class="cue-announcement" id="countInWord" aria-live="polite"></p>
 </div>
 
 <script src="long-term-levels.js"></script>
@@ -1913,6 +1916,7 @@ function glidePage(clone, incoming){
 const TABS = ['home', 'lt', 'echo', 'progress', 'lab'];
 function go(name){
   if (introActive) cancelCountIn();
+  else hideCountInCue('ladder');
   if (ltSessionTone != null && name !== 'train') return;
   clearPageMotion();
   const outgoing = name !== screen ? snapshotPage($('scr-' + screen)) : null;
@@ -1942,37 +1946,65 @@ const input = $('guessInput');
 const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'interfere' && (!trial.echo || trial.heard);
 
 let introActive = false, introToken = 0, introTimers = [], introFocus = null;
+let activeCue = null, cueAnimation = null;
+function showCountInCue(step, label, mode = 'intro'){
+  const overlay = $('countIn'), card = $('cue-' + step);
+  if (!overlay.hidden && overlay.dataset.mode === mode && activeCue === step) return;
+  // Each cue owns its own static text node. Hide the previous screen before cancelling its animation,
+  // so Safari cannot retain its old letters when a new word is painted.
+  ['ready', 'set', 'go'].forEach(s => { $('cue-' + s).hidden = true; });
+  cueAnimation?.cancel(); cueAnimation = null;
+  const opening = overlay.hidden;
+  if (opening) introFocus = document.activeElement;
+  activeCue = step;
+  overlay.dataset.step = step; overlay.dataset.mode = mode;
+  $('countInLabel').textContent = label;
+  $('countInWord').textContent = {ready: 'READY', set: 'SET', go: 'GO!'}[step];
+  $('countInCancel').setAttribute('aria-label', mode === 'intro' ? 'Cancel start' : 'End round');
+  $('app').inert = true; overlay.hidden = false; card.hidden = false;
+  if (opening) $('countInCancel').focus({preventScroll: true});
+  if (!reduceMotion.matches) cueAnimation = card.querySelector('.count-in-word').animate?.([
+    {opacity: 0, transform: 'scale(1.35)', offset: 0},
+    {opacity: 1, transform: 'scale(1.14)', offset: 0.22},
+    {opacity: 1, transform: 'scale(1)', offset: 0.78},
+    {opacity: 0, transform: 'scale(0.98)', offset: 1},
+  ], {duration: 800, easing: 'ease-out', fill: 'both'});
+}
+function hideCountInCue(mode){
+  const overlay = $('countIn');
+  if (mode && overlay.dataset.mode !== mode) return;
+  overlay.hidden = true;
+  ['ready', 'set', 'go'].forEach(s => { $('cue-' + s).hidden = true; });
+  cueAnimation?.cancel(); cueAnimation = null; activeCue = null;
+  $('app').inert = false;
+  introFocus?.focus?.({preventScroll: true}); introFocus = null;
+}
 function cancelCountIn(){
   introToken++;
   introTimers.forEach(clearTimeout); introTimers = [];
   introActive = false;
-  $('countIn').hidden = true;
-  const word = $('countInWord');
-  textFades.get(word)?.animation?.cancel(); textFades.delete(word); word.textContent = 'READY';
-  $('app').inert = false;
-  introFocus?.focus?.({preventScroll: true}); introFocus = null;
+  hideCountInCue();
 }
 function startCountIn(begin, label){
   cancelCountIn();
-  const token = ++introToken, word = $('countInWord');
-  introActive = true; introFocus = document.activeElement;
-  $('countInLabel').textContent = label;
-  $('app').inert = true; $('countIn').hidden = false;
-  if (!reduceMotion.matches) $('countIn').animate?.([{opacity: 0}, {opacity: 1}], {duration: 180, easing: 'ease-out'});
-  $('countInCancel').focus({preventScroll: true});
-  const cue = (text, step) => {
+  const token = ++introToken;
+  introActive = true;
+  const cue = step => {
     if (!introActive || token !== introToken) return;
-    $('countIn').dataset.step = step; fadeText(word, text);
+    showCountInCue(step, label);
   };
-  cue('READY', 'ready');
-  introTimers.push(setTimeout(() => cue('SET', 'set'), 800));
-  introTimers.push(setTimeout(() => cue('GO!', 'go'), 1600));
+  cue('ready');
+  introTimers.push(setTimeout(() => cue('set'), 800));
+  introTimers.push(setTimeout(() => cue('go'), 1600));
   introTimers.push(setTimeout(() => {
     if (!introActive || token !== introToken) return;
     cancelCountIn(); begin();
   }, 2400));
 }
-$('countInCancel').addEventListener('click', cancelCountIn);
+$('countInCancel').addEventListener('click', () => {
+  if (introActive) cancelCountIn();
+  else { hideCountInCue(); if (round?.ladder) quitRound(); }
+});
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && introActive) cancelCountIn(); });
 
 function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a long-term check, {lv, practice: true, L} for long-term practice
@@ -2610,10 +2642,10 @@ function ladderCaption(t){
 }
 function renderLadderClock(){
   $('ltChallengeHeading').hidden = $('ltChallengeStatus').hidden = !round?.ladder;
-  if (!round?.ladder) { $('ltPhaseWave').hidden = $('ltPhaseCue').hidden = true; $('playBtn').hidden = false; return; }
+  if (!round?.ladder) { $('ltPhaseWave').hidden = true; $('playBtn').hidden = false; hideCountInCue('ladder'); return; }
   const t = lt.tones.find(t => t.f === round.lt), now = Date.now(), s = t.ladder;
   const targetEnd = round.answerAt + 20000, notesEnd = round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000);
-  let instruction, next, until, stage, duration;
+  let instruction, next, until, stage, duration, cueStep;
   if (phase === 'listening') {
     instruction = 'Tune to the target'; next = 'to lock in'; until = s.deadline; stage = 'tune'; duration = 20000;
   } else if (now < targetEnd) {
@@ -2626,12 +2658,13 @@ function renderLadderClock(){
     until = t.due; stage = 'wait'; duration = Math.max(1, t.due - notesEnd);
     if (ltSessionTone != null && until - now <= 2400) {
       stage = 'countdown';
-      fadeText($('ltPhaseCue'), until - now > 1600 ? 'READY' : until - now > 800 ? 'SET' : 'GO!');
+      cueStep = until - now > 1600 ? 'ready' : until - now > 800 ? 'set' : 'go';
     }
   }
   $('playBtn').hidden = stage === 'notes' || stage === 'wait' || stage === 'countdown';
   $('ltPhaseWave').hidden = stage !== 'notes' && stage !== 'wait';
-  $('ltPhaseCue').hidden = stage !== 'countdown';
+  if (stage === 'countdown') showCountInCue(cueStep, `LEVEL ${round.challengeLevel}`, 'ladder');
+  else hideCountInCue('ladder');
   const scr = $('scr-train');
   if (scr.dataset.stage !== stage) {
     scr.dataset.stage = stage;
@@ -3127,7 +3160,7 @@ bindTunePad(document.body, {
 
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (introActive) { if (e.key === 'Escape') { e.preventDefault(); cancelCountIn(); } return; }
+  if (!$('countIn').hidden) { if (e.key === 'Escape') { e.preventDefault(); $('countInCancel').click(); } return; }
   const inField = e.target.closest('input, select, textarea'), onButton = e.target.closest('button');
   if (!$('ltSheet').hidden) { if (e.key === 'Escape') closeLTSheet(); return; }
   if (!$('toneSheet').hidden) { if (e.key === 'Escape') closeToneSheet(); return; }

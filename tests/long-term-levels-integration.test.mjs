@@ -16,8 +16,10 @@ function app(tone = LTLevels.createTone(1047, at)) {
     let lt = {on: true, tones: [initialTone], checks: []}, round = null, trial = null, last = null, lastRound = null, phase = 'idle';
     let ltSessionTone = null, ltPulseTimer = null, ltWake = null, ltWakeToken = 0, timers = [], ctx = {currentTime: 0}, calls = [], saved = null;
     const SINE = {id: 'sine'}, input = {blur() {}}, elements = new Map(), reduceMotion = {matches:true};
-    const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: false, textContent: '', dataset:{}, style:{}}); return elements.get(id); };
+    const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: true, textContent: '', dataset:{}, style:{}, focus(){}, setAttribute(){}}); return elements.get(id); };
     ${section('const textFades =', 'let pageGhost =')}
+    const document = {activeElement: null};
+    ${section('let introActive = false', "$('countInCancel').addEventListener")}
     const setInterval = () => 1, clearInterval = () => {}, setTimeout = (fn, delay) => { calls.push(['timer', delay]); return 1; };
     const saveLT = () => { saved = JSON.stringify(lt); }, ltSchedule = () => {};
     const ltArm = () => null, noteName = () => 'C6', fmtSpan = n => n / 60000 + ' min';
@@ -30,6 +32,7 @@ function app(tone = LTLevels.createTone(1047, at)) {
     ${section('function appendLadderCheck(', "document.addEventListener('visibilitychange', () => { if (document.visibilityState")}
     globalThis.api = {lt, calls, refreshLadders, tickLadder, abortLadder,
       clock() { renderLadderClock(); return ['ltChallengeLevel', 'ltChallengeInstruction', 'ltChallengeTime', 'ltChallengeNext'].map(id => $(id).textContent); },
+      get cue() { return {hidden: $('countIn').hidden, word: $('countInWord').textContent, inert: $('app').inert}; },
       start() { LTLevels.begin(lt.tones[0], Date.now()); ltSessionTone = lt.tones[0].ladder.level <= 6 ? 1047 : null;
         round = {lt: 1047, ladder: true, challengeLevel: lt.tones[0].ladder.level, items: []}; trial = {voice: SINE}; phase = 'listening'; saveLT(); },
       answer(ok) { recordLadder({task: 'find', t: Date.now(), f: 1047, g: ok ? 1047 : 523, cents: ok ? 0 : -1200, ok: Number(ok)}); },
@@ -83,6 +86,19 @@ test('a deadline creates one failed check without a fabricated pitch error, save
   assert.equal(api.state.round, null);
   assert.equal(api.state.ltSessionTone, null);
   assert.match(api.state.saved, /timeout/);
+});
+
+test('full-screen cues fill only the final 2.4 seconds of a long-term gap and leave the next deadline intact', () => {
+  const {api, time}=app();
+  api.start(); time(at+5000); api.answer(true);
+  for (const [elapsed,word] of [[57600,'READY'],[58400,'SET'],[59200,'GO!']]) {
+    time(at+elapsed); api.clock();
+    assert.equal(api.cue.word,word); assert.equal(api.cue.hidden,false); assert.equal(api.cue.inert,true);
+    assert.equal(api.state.lt.tones[0].due,at+MIN);
+  }
+  time(at+MIN); api.tickLadder(); api.clock();
+  assert.equal(api.cue.hidden,true); assert.equal(api.cue.inert,false);
+  assert.equal(api.state.lt.tones[0].ladder.deadline,at+MIN+20000);
 });
 
 test('reload during a timed opening ends the attempt and cannot replay or erase completed checks', () => {
