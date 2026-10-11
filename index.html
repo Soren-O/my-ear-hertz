@@ -544,7 +544,7 @@ label.lab-row{cursor:pointer;justify-content:space-between}
 .key,.rk,.wk,.bk{transition:transform .08s ease,opacity .15s ease,background .15s ease}
 /* ---------- Studio look: near-black lit by soft teal and indigo glows, hairline outlines, uppercase labels, one mint
    button per screen for the main action, and gold kept for achievements ---------- */
-body{background:var(--bg)}
+body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),transparent 70%) no-repeat,radial-gradient(560px 480px at 95% 6%,var(--glow-indigo),transparent 72%) no-repeat,var(--bg)}
 .card,.list,.tile,.seg,.confirm-bar{background:color-mix(in oklab,var(--surface) 82%,transparent)}
 .cta{border-radius:14px;background:linear-gradient(180deg,color-mix(in oklab,var(--mint) 86%,white),var(--mint));color:var(--mint-ink);text-transform:uppercase;letter-spacing:.14em;font-size:13.5px;box-shadow:0 0 0 1px color-mix(in oklab,var(--mint) 55%,transparent),0 12px 34px -12px var(--mint-glow)}
 .cta small{text-transform:none;letter-spacing:0}
@@ -559,6 +559,7 @@ body{background:var(--bg)}
 .title{font-weight:500;letter-spacing:.01em}
 /* Content sits over one fixed backdrop; navigation never moves the waves. */
 .stage,.hero,.echo-hero{position:relative;isolation:isolate}
+.hero::before{content:"";position:absolute;left:50%;top:50%;width:150%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:-2;border-radius:50%;background:radial-gradient(closest-side,var(--glow-teal),transparent);pointer-events:none}
 .backdrop{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:radial-gradient(ellipse at 0% 25%,var(--glow-teal),transparent 65%),radial-gradient(ellipse at 100% 70%,var(--glow-indigo),transparent 65%),var(--bg)}
 .band{display:block;width:100%;height:100%;pointer-events:none}
 /* gold: achievements only */
@@ -711,7 +712,7 @@ img{max-width:100%}
 </style>
 </head>
 <body>
-<div class="backdrop" aria-hidden="true"><canvas class="band" id="band"></canvas></div>
+<div class="backdrop" id="trainingBackdrop" aria-hidden="true" hidden><canvas class="band" id="band"></canvas></div>
 <div class="app" id="app">
 
   <!-- ============ HOME ============ -->
@@ -4376,6 +4377,12 @@ function syncBandPitch(){
   if (reduceMotion.matches) { bandPitch = bandTargetPitch; drawBand(0); }
 }
 function placeBand(){
+  const backdrop = $('trainingBackdrop');
+  backdrop.hidden = screen !== 'train';
+  if (backdrop.hidden) {
+    cancelAnimationFrame(bandRaf); bandRaf = 0; bandLast = 0; bandFuzz = 0;
+    return;
+  }
   const rect = band.getBoundingClientRect(), dpr = Math.min(1.5, window.devicePixelRatio || 1);
   const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
   if (band.width !== w || band.height !== h) { band.width = w; band.height = h; }
@@ -4384,7 +4391,7 @@ function placeBand(){
 }
 function bandLoop(now){
   bandRaf = 0;
-  if (document.hidden || reduceMotion.matches) return;
+  if (screen !== 'train' || document.hidden || reduceMotion.matches) return;
   if (now - bandLast >= 32) {
     const dt = Math.min(0.08, (now - bandLast) / 1000); bandLast = now;
     bandPitch += (bandTargetPitch - bandPitch) * Math.min(1, dt * 10);
