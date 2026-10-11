@@ -602,12 +602,14 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .challenge-clock{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
 .challenge-time{font-family:var(--font-num);font-size:40px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
 :is(#scr-train,.scr-train)[data-ladder="1"] .stage{gap:32px;padding-block:8px 0}
-:is(#scr-train,.scr-train)[data-ladder="1"] .orb{background:none;box-shadow:none;border-radius:0;animation:none}
-:is(#scr-train,.scr-train)[data-ladder="1"] .orb[data-result]{background:radial-gradient(ellipse,color-mix(in oklab,var(--rc) 32%,transparent),color-mix(in oklab,var(--rc) 12%,transparent) 40%,transparent 70%)}
-:is(#scr-train,.scr-train)[data-ladder="1"] .orb[data-result] .orb-num{color:var(--rc);text-shadow:0 0 26px color-mix(in oklab,var(--rc) 65%,transparent)}
-:is(#scr-train,.scr-train)[data-ladder="1"] .orb::before,:is(#scr-train,.scr-train)[data-ladder="1"] .orb::after{content:none}
-:is(#scr-train,.scr-train)[data-ladder="1"] .orb-core{transform:translateY(-18px)}
-:is(#scr-train,.scr-train)[data-ladder="1"] .orb-guess{white-space:nowrap}
+.ladder-pitches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;width:min(88vw,400px)}
+.pitch-choice{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:112px;padding:14px 0;border:0;background:none;color:var(--ink);cursor:pointer;touch-action:manipulation}
+.pitch-choice:disabled{cursor:default}
+.pitch-note{font-family:var(--font-num);font-size:clamp(26px,7.5vw,36px);font-weight:200;letter-spacing:-.05em;line-height:1.1;white-space:nowrap}
+.pitch-caption{font-size:13px;color:var(--muted)}
+.ladder-pitches[data-result="good"] .pitch-note{color:var(--win)}
+.pitch-choice[data-playing="1"]{background:radial-gradient(ellipse,color-mix(in oklab,var(--win) 32%,transparent),color-mix(in oklab,var(--win) 12%,transparent) 40%,transparent 70%)}
+.pitch-choice[data-playing="1"] .pitch-note{text-shadow:0 0 26px color-mix(in oklab,var(--win) 65%,transparent)}
 :is(#scr-train,.scr-train)[data-ladder="1"] .train-left{gap:6px}
 :is(#scr-train,.scr-train)[data-ladder="1"] .verdict:empty{display:none}
 @media not (orientation: landscape){
@@ -694,7 +696,6 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
   :is(#scr-train,.scr-train)[data-ladder="1"] .stage{grid-column:1 / -1;grid-row:1 / -1;display:block;width:100%;height:calc(100svh - 130px);min-height:150px;padding:0;pointer-events:none}
   :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{position:absolute;left:50%;top:var(--note-y);transform:translate(-50%,-50%);pointer-events:auto}
   :is(#scr-train,.scr-train)[data-ladder="1"] .challenge-clock{position:absolute;left:50%;top:var(--clock-y);transform:translate(-50%,-50%);width:max-content}
-  :is(#scr-train,.scr-train)[data-ladder="1"] .orb-core{transform:none}
   #adjust{grid-template-columns:minmax(0,340px) minmax(0,340px)}
 }
 @media (orientation: landscape) and (max-height: 540px){
@@ -835,6 +836,10 @@ img{max-width:100%}
           <span class="orb-guess" id="guessVal"></span>
         </span>
       </button>
+      <div class="ladder-pitches" id="ltPitchPair" hidden>
+        <button class="pitch-choice" id="ltTargetPitch" type="button" disabled aria-label="Replay target" aria-pressed="false"><span class="pitch-note" id="ltTargetNote"></span><span class="pitch-caption">Target</span></button>
+        <button class="pitch-choice" id="ltGuessPitch" type="button" disabled aria-label="Replay your guess" aria-pressed="false" hidden><span class="pitch-note" id="ltGuessNote"></span><span class="pitch-caption">Your guess</span></button>
+      </div>
       </div>
       <div class="challenge-clock" id="ltChallengeStatus" role="timer" aria-live="off" hidden>
         <div class="phase-progress" aria-hidden="true"><i id="ltPhaseMeter"></i></div>
@@ -1210,6 +1215,7 @@ const noteCents = f => {                                                   // ne
   const m = Math.round(69 + 12 * Math.log2(f / 440)), c = Math.round(1200 * Math.log2(f / hzOf(m)));   // from the app's note (whole Hz), as targets are
   return NOTE[m % 12] + (Math.floor(m / 12) - 1) + (c ? ` ${c > 0 ? '+' : '−'}${Math.abs(c)}¢` : '');
 };
+const noteOffsetLabel = f => noteCents(f).replace(/([+−])(\d+)¢$/, '$1 $2c');
 const FMIN = hzOf(48), FMAX = hzOf(120);                                   // C3–C9: 131–8,372 Hz, six octaves
 const CS = [48, 60, 72, 84, 96, 108, 120].map(hzOf);                       // every C we train
 const [C5, C6, C7] = [72, 84, 96].map(hzOf);                               // 523, 1,047, 2,093 Hz
@@ -1571,6 +1577,7 @@ function silence(){
 }
 function stopAll(){
   timers.forEach(clearTimeout); timers = [];
+  if (round?.ladder) delete round.playingPitch;
   instToken++;
   clearTimeout(adjIdle);
   silence();
@@ -2653,9 +2660,24 @@ function placeLadderContent(){
   stage.style.setProperty('--note-y', `${height * 0.375 - top}px`);
   stage.style.setProperty('--clock-y', `${height * 0.61 - top}px`);
 }
+function renderLadderPitches(){
+  if (!round?.ladder || !trial) return;
+  const answered = phase === 'revealed' && last?.g > 0;
+  const replay = answered && Date.now() >= round.answerAt + 5000 && Date.now() < round.answerAt + 20000;
+  $('ltPitchPair').dataset.result = answered && last.ok ? 'good' : '';
+  $('ltTargetNote').textContent = noteName(trial.f);
+  $('ltGuessNote').textContent = answered ? noteOffsetLabel(last.g) : '';
+  $('ltGuessPitch').hidden = !answered;
+  ['true', 'you'].forEach(which => {
+    const button = $(which === 'true' ? 'ltTargetPitch' : 'ltGuessPitch');
+    button.disabled = !replay;
+    button.dataset.playing = round.playingPitch === which ? '1' : '0';
+    button.setAttribute('aria-pressed', String(round.playingPitch === which));
+  });
+}
 function renderLadderClock(){
   $('ltChallengeHeading').hidden = $('ltChallengeStatus').hidden = !round?.ladder;
-  if (!round?.ladder) { $('playBtn').hidden = false; hideCountInCue('ladder'); return; }
+  if (!round?.ladder) { $('playBtn').hidden = false; $('ltPitchPair').hidden = true; hideCountInCue('ladder'); return; }
   const t = lt.tones.find(t => t.f === round.lt), now = Date.now(), s = t.ladder;
   const targetEnd = round.answerAt + 20000, notesEnd = round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000);
   let instruction, until, stage, duration, cueStep;
@@ -2673,12 +2695,15 @@ function renderLadderClock(){
       cueStep = until - now > 1600 ? 'ready' : until - now > 800 ? 'set' : 'go';
     }
   }
-  $('playBtn').hidden = stage === 'notes' || stage === 'wait' || stage === 'countdown';
+  $('playBtn').hidden = true;
+  $('ltPitchPair').hidden = stage !== 'tune' && stage !== 'listen';
+  renderLadderPitches();
   if (stage === 'countdown') showCountInCue(cueStep, `LEVEL ${round.challengeLevel}`, 'ladder');
   else hideCountInCue('ladder');
   const scr = $('scr-train');
   if (scr.dataset.stage !== stage) {
     scr.dataset.stage = stage;
+    if (stage === 'notes' && screen === 'train') ladderRandomNotes(until - now);
     if (!reduceMotion.matches) scr.querySelector('.phase-display')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
   }
   $('ltChallengeLevel').textContent = `LEVEL ${round.challengeLevel}`;
@@ -2711,18 +2736,31 @@ function tickLadder(){
   }
   renderLadderClock();
 }
-function ladderFeedback(f, V, seconds, notes = 0){
+function ladderFeedback(f, V, seconds, which = null){
   if (!audio()) return;
   stopAll();
+  const check = round?.check;
+  if (which) { round.playingPitch = which; renderLadderPitches(); }
   const at = ctx.currentTime + 0.03;
   if (V === SINE || !voiceReady(V)) tone(f, at, seconds, ampFor(f, 0), 0.06);
   else for (let k = 0; k < seconds; k += 2) strike(V, f, at + k, {dur: Math.min(2, seconds - k), rove: 0});
   noteAnchor(f); setAudio('tone');
-  if (notes) {
-    pips(at + seconds, notes, [f], 600, voiceReady(V) ? V : null);
-    timers.push(setTimeout(() => setAudio('interfere'), seconds * 1000));
-  }
-  timers.push(setTimeout(() => setAudio('idle'), (seconds + notes) * 1000 + 50));
+  timers.push(setTimeout(() => {
+    if (which && round?.check === check) { delete round.playingPitch; renderLadderPitches(); }
+    setAudio('idle');
+  }, seconds * 1000 + 50));
+}
+function hearLadderPitch(which){
+  if (!round?.ladder || phase !== 'revealed' || !last || Date.now() < round.answerAt + 5000 || Date.now() >= round.answerAt + 20000) return;
+  ladderFeedback(which === 'you' ? last.g : last.f, trial.voice || SINE, 5, which);
+}
+function ladderRandomNotes(remaining){
+  if (!audio()) return;
+  stopAll(); delete round.playingPitch;
+  const V = trial.voice || SINE;
+  pips(ctx.currentTime + 0.03, remaining / 1000, [round.lt], 600, voiceReady(V) ? V : null);
+  setAudio('interfere');
+  timers.push(setTimeout(() => setAudio('idle'), remaining + 50));
 }
 function recordLadder(rec){
   const t = lt.tones.find(t => t.f === round.lt), level = t.ladder.level, due = t.due, V = trial.voice || SINE;
@@ -2739,7 +2777,7 @@ function recordLadder(rec){
     return;
   }
   render();
-  ladderFeedback(t.f, V, 20, level === 1 ? 20 : 2);
+  ladderFeedback(t.f, V, 5, 'true');
   renderLadderClock();
 }
 function endLadderCheck(chk, t, openingComplete = false){
@@ -3089,6 +3127,8 @@ function hearOne(which){                           // the answer's target, or a 
 }
 $('hearTrue').addEventListener('click', () => hearOne('true'));
 $('hearGuess').addEventListener('click', () => hearOne('you'));
+$('ltTargetPitch').addEventListener('click', () => hearLadderPitch('true'));
+$('ltGuessPitch').addEventListener('click', () => hearLadderPitch('you'));
 $('lockBtn').addEventListener('click', lockIn);
 $('playBtn').addEventListener('animationend', e => { if (e.animationName === 'pop' || e.animationName === 'shake') e.currentTarget.classList.remove('pop', 'shake'); });
 

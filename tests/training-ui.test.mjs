@@ -8,6 +8,15 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const script = html.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
 const section = (from, to) => script.slice(script.indexOf(from), script.indexOf(to, script.indexOf(from)));
 
+test('guessed notes keep their octave and use a spaced signed cents offset', () => {
+  const context = vm.createContext({});
+  vm.runInContext(section('const NOTE =', 'const FMIN =') + 'globalThis.label = noteOffsetLabel;', context);
+  assert.equal(context.label(1047), 'C6');
+  assert.equal(context.label(1047 * 2 ** (15 / 1200)), 'C6 + 15c');
+  assert.equal(context.label(1047 * 2 ** (-15 / 1200)), 'C6 − 15c');
+  assert.equal(context.label(2093 * 2 ** (25 / 1200)), 'C7 + 25c');
+});
+
 function countIn(reduced = true) {
   let now = 0, id = 0;
   const timers = new Map(), elements = new Map(), animations = [], sounds = [];
