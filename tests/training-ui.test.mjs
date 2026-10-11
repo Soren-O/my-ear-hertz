@@ -156,15 +156,18 @@ test('an instrument target is struck once, and cancelling its preview stops play
   assert.equal(ui.$('cue-target').hidden,true); assert.equal(ui.$('app').inert,false);
 });
 
-test('only starting Level 1 receives a target preview, while later long-term checks begin cold', () => {
-  const references=[], tone=LTLevels.createTone(1047,0), sine={id:'sine'};
+test('Level 1 starts with its reference and count-in; later long-term checks start cold without another count-in', () => {
+  const references=[], starts=[], tone=LTLevels.createTone(1047,0), sine={id:'sine'};
   const context=vm.createContext({SINE:sine, lt:{tones:[tone]}, audio:()=>({state:'running'}), roundVoice:()=>sine,
+    LTLevels:{begin:()=>true}, $:()=>({}), saveLT(){}, holdLadderScreen(){}, go(){}, nextQuestion:()=>starts.push('guess'),
     startCountIn:(begin,label,reference)=>references.push(reference)});
-  vm.runInContext(`let introActive=false, round=null; const settings={level:1}, LEVELS=[{short:'Find'}];
+  vm.runInContext(`let introActive=false, round=null, ltSessionTone=null, screen='lt'; const settings={level:1}, LEVELS=[{short:'Find'}];
     ${section('function startRound(', 'function nextQuestion()')}
     globalThis.start=()=>startRound(undefined,{ladder:true,lt:1047,L:{choices:[1047]}});`,context);
   context.start(); assert.equal(references[0].f,1047); assert.equal(references[0].voice,sine);
-  tone.ladder.level=7; context.start(); assert.equal(references[1],null);
+  assert.equal(starts.length,0);
+  tone.ladder.level=7; context.start();
+  assert.equal(references.length,1); assert.deepEqual(starts,['guess']);
 });
 
 function gestures() {
@@ -271,4 +274,43 @@ test('waves start identically at random guesses and follow only changes to the g
   ui.newTrial(5000); ui.sync(); assert.equal(ui.scale,1);
   ui.setGuess(10000); ui.sync(); assert.equal(ui.scale,Math.pow(2,.35));
   ui.reveal(); ui.sync(); assert.equal(ui.scale,1);
+});
+
+test('ordinary rounds keep finite background waves and random-note phases turn the fuzz on and off', () => {
+  const context=vm.createContext({reduceMotion:{matches:false},document:{hidden:false},requestAnimationFrame:()=>1});
+  vm.runInContext(`
+    let screen='train', round={}, audioState='adjust', bandRaf=0, bandLast=0, bandPitch=1, bandTargetPitch=1, bandFuzz=0;
+    const drawBand=()=>{}, $=()=>({dataset:{stage:'tune'}});
+    ${section('function bandLoop(now)', 'function drawBand(now)')}
+    globalThis.ui={frame:bandLoop,setState(s){audioState=s;},get fuzz(){return bandFuzz;}};
+  `,context);
+  context.ui.frame(100); assert.equal(context.ui.fuzz,0);
+  context.ui.setState('interfere'); context.ui.frame(200); assert.ok(context.ui.fuzz>0);
+  const fuzzy=context.ui.fuzz;
+  context.ui.setState('idle'); context.ui.frame(300); assert.ok(context.ui.fuzz<fuzzy);
+  assert.ok(Number.isFinite(context.ui.fuzz));
+});
+
+test('the shared note display hides Echo targets until submission and offers both answer replays afterward', () => {
+  const elements=new Map(), $=id=>{
+    if (!elements.has(id)) elements.set(id,{hidden:false,textContent:'',dataset:{},setAttribute(){}});
+    return elements.get(id);
+  };
+  const context=vm.createContext({$,noteName:f=>f===1047?'C6':'A5',noteOffsetLabel:()=> 'A5 + 15c',fmtFreq:String,canAdjust:()=>true});
+  vm.runInContext(`
+    let round={echo:true,tuneCount:1}, trial={task:'find',f:1047,echo:true,heard:true}, phase='listening',last=null;
+    ${section('function renderTrainingPitches(', 'function howto()')}
+    globalThis.ui={render:renderTrainingPitches,reveal(){phase='revealed';last={f:1047,g:880,ok:0};},
+      newFind(){round={tuneCount:2};trial={task:'find',f:1047};phase='listening';last=null;}};
+  `,context);
+  context.ui.render(true,false);
+  assert.equal($('ltTargetNote').textContent,'?'); assert.equal($('ltTargetPitch').disabled,true);
+  assert.equal($('ltGuessPitch').hidden,true); assert.equal($('ltSwipeHint').hidden,false);
+  context.ui.reveal(); context.ui.render(true,false);
+  assert.equal($('ltTargetNote').textContent,'C6'); assert.equal($('ltGuessNote').textContent,'A5 + 15c');
+  assert.equal($('ltTargetPitch').disabled,false); assert.equal($('ltGuessPitch').disabled,false);
+  assert.equal($('ltSwipeHint').hidden,true);
+  context.ui.newFind(); context.ui.render(true,false);
+  assert.equal($('ltTargetNote').textContent,'C6'); assert.equal($('ltGuessPitch').hidden,true);
+  assert.equal($('ltSwipeHint').hidden,true);
 });

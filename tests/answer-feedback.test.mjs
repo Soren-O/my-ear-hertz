@@ -28,7 +28,7 @@ function app() {
     const $ = id => {
       if (!elements.has(id)) {
         const classes = new Set();
-        elements.set(id, {classes, focus() {}, querySelectorAll() { return []; }, classList: {
+        elements.set(id, {classes, dataset: {}, setAttribute() {}, focus() {}, querySelectorAll() { return []; }, classList: {
           add(...xs) { xs.forEach(x => classes.add(x)); }, remove(...xs) { xs.forEach(x => classes.delete(x)); },
           toggle(x, on) { on ? classes.add(x) : classes.delete(x); }
         }});

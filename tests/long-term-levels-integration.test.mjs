@@ -170,17 +170,18 @@ test('a deadline creates one failed check without a fabricated pitch error, save
   assert.match(api.state.saved, /timeout/);
 });
 
-test('full-screen cues fill only the final 2.4 seconds of a long-term gap and leave the next deadline intact', () => {
+test('later checks stay on the wait screen without repeating Ready, Set, Go or shifting their deadlines', () => {
   const {api, time}=app();
   api.start(); time(at+5000); api.answer(true);
-  for (const [elapsed,word] of [[57600,'READY'],[58400,'SET'],[59200,'GO!']]) {
-    time(at+elapsed); api.clock();
-    assert.equal(api.cue.word,word); assert.equal(api.cue.hidden,false); assert.equal(api.cue.inert,true);
+  for (const elapsed of [57600, 58400, 59200]) {
+    time(at+elapsed); const [, instruction]=api.clock();
+    assert.equal(instruction,'WAIT');
+    assert.equal(api.cue.hidden,true); assert.notEqual(api.cue.inert,true);
     assert.equal(api.state.lt.tones[0].due,at+MIN);
   }
   time(at+MIN); api.tickLadder(); api.clock();
-  assert.deepEqual(Array.from(api.calls.filter(c=>c[0]==='cue'),c=>c[1]),['ready','set','go']);
-  assert.equal(api.cue.hidden,true); assert.equal(api.cue.inert,false);
+  assert.equal(api.calls.filter(c=>c[0]==='cue').length,0);
+  assert.equal(api.cue.hidden,true); assert.notEqual(api.cue.inert,true);
   assert.equal(api.state.lt.tones[0].ladder.deadline,at+MIN+20000);
 });
 

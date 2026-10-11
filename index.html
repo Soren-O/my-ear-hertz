@@ -197,30 +197,18 @@ p{margin:0}
 .mode-line span:last-child{font-size:13px;color:var(--muted)}
 
 .stage{display:flex;flex-direction:column;align-items:center;gap:20px;padding-block:22px 2px}
-.orb{--h:250;position:relative;width:min(60vw,228px);aspect-ratio:1;border-radius:50%;border:none;padding:0;cursor:pointer;color:var(--ink);
-  background:radial-gradient(circle at 50% 28%,var(--surface-2),var(--surface) 70%);
-  box-shadow:inset 0 1px 0 var(--hi),0 0 0 1px var(--line),0 40px 80px -40px var(--shadow);
-  display:grid;place-items:center;transition:box-shadow .7s ease,background .7s ease}
-.orb::before,.orb::after{content:"";position:absolute;border-radius:50%;pointer-events:none;border:1px solid var(--line);transition:border-color .7s ease}
-.orb::before{inset:-16px;opacity:.85}
-.orb::after{inset:-34px;opacity:.4}
-.orb-core{display:flex;flex-direction:column;align-items:center;gap:3px}
-.orb-label{font-family:var(--font-label);font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-.orb-num{font-family:var(--font-num);font-weight:200;font-size:clamp(40px,12.5vw,52px);letter-spacing:-.05em;line-height:1.05;font-variant-numeric:tabular-nums}
-.orb-unit{font-family:var(--font-num);font-size:12px;color:var(--muted)}
+/* The note itself is the playback control, over the shared wave backdrop. */
+.orb{position:relative;width:min(88vw,400px);min-height:112px;border:0;padding:14px 0;background:none;color:var(--ink);cursor:pointer;display:grid;place-items:center}
+.orb-core{display:flex;flex-direction:column;align-items:center;gap:8px}
+.orb-num{font-family:var(--font-num);font-weight:200;font-size:clamp(36px,11vw,52px);letter-spacing:-.05em;line-height:1.1;font-variant-numeric:tabular-nums}
+.orb-unit{font-size:13px;color:var(--muted)}
 .orb-unit:empty{display:none}
-.orb-wave{display:none;width:min(42vw,164px);aspect-ratio:2/1}
-.orb[data-hidden="1"] .orb-wave{display:block}
+.listen-prompt{display:none;flex-direction:column;align-items:center;gap:12px}
+.listen-prompt strong{font-size:clamp(28px,8vw,36px);font-weight:350;letter-spacing:.08em}
+.listen-prompt small{font-size:13px;font-weight:350;color:var(--muted)}
+.orb[data-hidden="1"] .listen-prompt{display:flex}
 .orb[data-hidden="1"] .orb-num,.orb[data-hidden="1"] .orb-unit{display:none}
-.orb[data-state="tone"],.orb[data-state="adjust"]{animation:breathe 1.8s ease-in-out infinite}
-.orb[data-state="tone"]::before,.orb[data-state="adjust"]::before{border-color:var(--line-hi);animation:ripple 1.8s ease-out infinite}
-.orb[data-state="interfere"]::before{border-style:dashed;border-color:var(--line-hi);animation:jitter .09s steps(2) infinite}
-.orb[data-state="interfere"]::after{border-style:dotted;border-color:var(--line-hi);animation:jitter .13s steps(3) infinite reverse}
-.orb[data-result="good"]{--rc:var(--win)}
-.orb[data-result="bad"]{--rc:var(--lose)}
-.orb[data-result]{background:radial-gradient(circle at 50% 30%,color-mix(in oklab,var(--rc) 62%,transparent),color-mix(in oklab,var(--rc) 18%,var(--surface)) 74%);box-shadow:inset 0 1px 0 var(--hi),0 0 0 2px var(--rc),0 0 120px -2px color-mix(in oklab,var(--rc) 75%,transparent)}
-.orb[data-result]::before{border-color:color-mix(in oklab,var(--rc) 65%,transparent)}
-.orb[data-result]::after{border-color:color-mix(in oklab,var(--rc) 35%,transparent)}
+.orb[data-result="good"]{color:var(--win);text-shadow:0 0 26px color-mix(in oklab,var(--win) 65%,transparent)}
 .orb.pop{animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
 .orb.shake{animation:shake .42s ease}
 @keyframes pop{0%{transform:scale(.92)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
@@ -446,22 +434,19 @@ p{margin:0}
 .pk:active{filter:brightness(.9)}
 .pk.on{box-shadow:inset 0 0 0 2px var(--accent-ring, var(--ink))}
 .wk.actual,.bk.actual{background:var(--win);border-color:var(--win)}
-/* Training layout: in portrait the two columns dissolve into one stack, with the after-answer row last */
-/* Training, upright: the orb and results at the top, the answer controls at the bottom of the screen */
+/* Training: a shared note display above the answer controls. */
 .app[data-screen="train"]{padding-bottom:12px}
 :is(#scr-train,.scr-train){gap:12px;min-height:calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px);min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px)}
 .train-body{flex:1;display:flex;flex-direction:column;gap:12px}
 .train-left{flex:1;display:flex;flex-direction:column;gap:12px}
 .train-right{display:flex;flex-direction:column;gap:8px}
 @media not (orientation: landscape){
-  :is(#scr-train,.scr-train)[data-task="find"] .stage{margin-block:auto}
   :is(#scr-train,.scr-train)[data-ladder="1"] .train-right{min-height:192px;justify-content:flex-end}
-  .train-body:has(#adjust:not([hidden])) .stage{padding-block:8px 0}
 }
 .after{flex-direction:row;align-items:center}
 .after > .pair{flex:1;min-width:0}
 .after #nextBtn{flex:0 0 auto;width:auto;padding-inline:28px}
-.orb{width:min(60vw,228px,30vh)}
+
 /* Roll: the whole C3–C9 keyboard in a scrolling strip; only the round's notes can be tapped */
 .roll{--w:38px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;margin-inline:-20px;padding:2px 20px 10px;scrollbar-width:thin}
 .roll-track{position:relative;height:150px}
@@ -479,7 +464,7 @@ p{margin:0}
 
 .wk.wrong,.bk.wrong{background:var(--lose);border-color:var(--lose)}
 
-/* Reveal: target on top, your answer under it, ratio below the orb */
+/* Typed flashcard answers use the same quiet typography. */
 .orb-guess{font-family:var(--font-num);font-weight:200;font-size:clamp(32px,10vw,42px);letter-spacing:-.05em;line-height:1.05;margin-top:6px;font-variant-numeric:tabular-nums;opacity:.9}
 .orb-guess:empty{display:none}
 .verdict .ratio{font-size:18px;color:var(--ink)}
@@ -616,12 +601,25 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .ladder-pitches[data-result="good"] .pitch-note{color:var(--win)}
 .pitch-choice[data-playing="1"]{background:radial-gradient(ellipse,color-mix(in oklab,var(--win) 32%,transparent),color-mix(in oklab,var(--win) 12%,transparent) 40%,transparent 70%)}
 .pitch-choice[data-playing="1"] .pitch-note{text-shadow:0 0 26px color-mix(in oklab,var(--win) 65%,transparent)}
+.ladder-pitches[data-result="bad"] #ltGuessNote{color:var(--lose)}
+/* Every mode shares the same open stage and phase typography. */
+:is(#scr-train,.scr-train)[data-ladder="0"] .stage{flex:1;min-height:160px;width:100%;padding:0;display:grid;place-items:center}
+:is(#scr-train,.scr-train)[data-ladder="0"] .phase-display{width:100%}
+:is(#scr-train,.scr-train)[data-ladder="0"] .train-left{gap:8px}
+:is(#scr-train,.scr-train)[data-ladder="0"] .verdict:empty{display:none}
+:is(#scr-train,.scr-train)[data-ladder="0"] .after #nextBtn{width:100%;padding-block:16px}
+:is(#scr-train,.scr-train)[data-ladder="0"] .pitch-choice{min-width:0}
+:is(#scr-train,.scr-train)[data-ladder="0"] .pitch-note{font-size:clamp(24px,7.5vw,36px)}
+:is(#scr-train,.scr-train)[data-ladder="0"] .pitch-caption{font-size:12px}
+@media not (orientation:landscape){
+  :is(#scr-train,.scr-train)[data-ladder="0"][data-task="find"][data-phase="listening"] .train-right{min-height:192px;justify-content:flex-end}
+  :is(#scr-train,.scr-train)[data-ladder="0"] .phase-display{position:absolute;left:50%;top:var(--display-y,50%);transform:translate(-50%,-50%)}
+}
 :is(#scr-train,.scr-train)[data-ladder="1"] .train-left{gap:6px}
 :is(#scr-train,.scr-train)[data-ladder="1"] .verdict:empty{display:none}
 @media not (orientation: landscape){
   /* Keep the timer and Lock in visible together, including below an iPhone's safe areas. */
   :is(#scr-train,.scr-train)[data-ladder="1"]{--challenge-dial:min(56vw,220px,max(150px,calc((100svh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 430px)/2)))}
-  :is(#scr-train,.scr-train)[data-ladder="1"] .orb{width:var(--challenge-dial)}
   /* Use the gaps in the fixed background: note above the middle ribbon, timer below it. */
   :is(#scr-train,.scr-train)[data-ladder="1"] .stage{flex:1;width:100%;display:block;margin:0;padding:0;pointer-events:none}
   :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{position:absolute;left:50%;top:var(--note-y);transform:translate(-50%,-50%);pointer-events:auto}
@@ -676,17 +674,12 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
   .app[data-screen="train"]{max-width:none;padding-block:0 10px}
   :is(#scr-train,.scr-train){gap:6px;min-height:calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px);min-height:calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 10px)}
   .train-top{margin-inline:0;padding-inline:0;min-height:44px}
-  .train-body{flex:1;display:flex;flex-direction:column;gap:10px}
-  .train-left{flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:clamp(16px,3vw,40px);row-gap:6px;align-items:center;align-content:center}
-  .train-left .stage{grid-column:2;grid-row:1 / span 3;padding:clamp(12px,3vh,28px)}
-  .train-left .after{display:contents}                                   /* listen buttons left of the orb, Next to its right */
-  .train-left .after > .pair{grid-column:1;grid-row:1 / span 3;grid-template-columns:minmax(0,1fr);width:min(100%,220px);justify-self:end;align-self:center}
-  .train-left .verdict{grid-column:3;grid-row:1;align-self:end;justify-self:start;width:min(100%,300px)}
-  .train-left .strip{grid-column:3;grid-row:2;justify-self:start;width:min(100%,300px)}
-  .train-left #nextBtn{grid-column:3;grid-row:3;justify-self:start;width:min(100%,300px)}
-  .train-left:has(.strip[style*="none"]) .verdict{grid-row:1 / span 2;align-self:center}
+  .train-body{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
+  .train-left{flex:1;display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;min-width:0;align-self:stretch}
+  .train-left .verdict,.train-left .strip{width:min(100%,400px)}
+  .train-left .after{width:min(100%,400px)}
   .train-right{display:flex;flex-direction:column;justify-content:flex-end;gap:8px;min-width:0;min-height:calc(clamp(116px,38vh,230px) + 12px)}   /* as tall as the keyboard, so the orb stays put when buttons and keyboard alternate */
-  .orb{width:clamp(104px,34vh,228px)}
+  .orb{width:min(100%,400px)}
   .orb-num{font-size:clamp(26px,7.5vh,52px)}
   .orb-guess{font-size:clamp(20px,5.5vh,42px)}
   #guessForm .field{width:min(100%,560px);margin-inline:auto}
@@ -696,13 +689,15 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
   .roll-track{height:clamp(116px,38vh,230px)}
   .piano{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
   .adjust{display:grid;grid-template-columns:auto minmax(0,340px);justify-content:center;column-gap:20px;row-gap:8px;align-items:center}
+  :is(#scr-train,.scr-train)[data-ladder="0"] .stage{min-height:112px}
+  :is(#scr-train,.scr-train)[data-ladder="0"] .phase-display{position:absolute;left:50%;top:var(--display-y,50%);transform:translate(-50%,-50%)}
   :is(#scr-train,.scr-train)[data-ladder="1"] .train-body{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
   :is(#scr-train,.scr-train)[data-ladder="1"] .stage{gap:16px;padding-block:8px}
   :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{min-height:clamp(104px,34vh,228px)}
   :is(#scr-train,.scr-train)[data-ladder="1"] .stage{grid-column:1 / -1;grid-row:1 / -1;display:block;width:100%;height:calc(100svh - 130px);min-height:150px;padding:0;pointer-events:none}
   :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{position:absolute;left:50%;top:var(--note-y);transform:translate(-50%,-50%);pointer-events:auto}
   :is(#scr-train,.scr-train)[data-ladder="1"] .challenge-clock{position:absolute;left:50%;top:var(--clock-y);transform:translate(-50%,-50%);width:max-content}
-  #adjust{grid-template-columns:minmax(0,340px) minmax(0,340px)}
+  #adjust{grid-template-columns:minmax(0,340px)}
 }
 @media (orientation: landscape) and (max-height: 540px){
   .app{padding-top:4px}
@@ -711,7 +706,6 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
   .halves{row-gap:10px}
   :is(#scr-home,.scr-home) .cta{padding-block:12px}
   :is(#scr-home,.scr-home) .week .bar{height:28px}
-  .orb::before{inset:-10px} .orb::after{inset:-20px}
   .strip{height:64px}
   .pkeys{height:46px}
   .challenge-time{font-size:30px}
@@ -836,15 +830,15 @@ img{max-width:100%}
       <div class="phase-display">
       <button class="orb" id="playBtn" type="button" data-state="idle" data-hidden="1" aria-label="Replay tone">
         <span class="orb-core">
-          <canvas class="orb-wave" id="wave" aria-hidden="true"></canvas>
+          <span class="listen-prompt"><strong id="listenState">LISTEN</strong><small id="listenAction">Tap to replay</small></span>
           <span class="orb-num" id="bigVal"></span>
           <span class="orb-unit" id="bigUnit">Hz</span>
           <span class="orb-guess" id="guessVal"></span>
         </span>
       </button>
       <div class="ladder-pitches" id="ltPitchPair" hidden>
-        <button class="pitch-choice" id="ltTargetPitch" type="button" disabled aria-label="Replay target" aria-pressed="false"><span class="pitch-note" id="ltTargetNote"></span><span class="pitch-caption">Target</span></button>
-        <button class="pitch-choice" id="ltGuessPitch" type="button" disabled aria-label="Replay your guess" aria-pressed="false" hidden><span class="pitch-note" id="ltGuessNote"></span><span class="pitch-caption">Your guess</span></button>
+        <button class="pitch-choice" id="ltTargetPitch" type="button" disabled aria-label="Replay target" aria-pressed="false"><span class="pitch-note" id="ltTargetNote"></span><span class="pitch-caption" id="ltTargetCaption">Target</span></button>
+        <button class="pitch-choice" id="ltGuessPitch" type="button" disabled aria-label="Replay your guess" aria-pressed="false" hidden><span class="pitch-note" id="ltGuessNote"></span><span class="pitch-caption" id="ltGuessCaption">Your guess</span></button>
         <div class="swipe-hint ladder-swipe-hint" id="ltSwipeHint" hidden><p>Up or down<br><span>Larger changes</span></p><p>Left or right<br><span>Finer changes</span></p></div>
       </div>
       </div>
@@ -1614,7 +1608,6 @@ function setAudio(s){
   $('playBtn').dataset.state = s;            // the orb's motion follows play state only, never pitch or level
   if (s === 'idle') document.querySelectorAll('.probes .on, .key.on, .pk.on, .rk.on').forEach(b => b.classList.remove('on'));
   renderStatus();
-  startWave();
 }
 
 /* ---------- sound effects: unpitched noise whose filter moves at random every time, so none can serve as a
@@ -1662,6 +1655,11 @@ function showCompare(which){                       // light up 'you' (my guess),
   $('hearTrue').classList.toggle('lit', which === 'true');
   $('bigVal').classList.toggle('dim', which === 'you');
   $('guessVal').classList.toggle('dim', which === 'true');
+  if (!round?.ladder) ['true', 'you'].forEach(side => {
+    const button = $(side === 'true' ? 'ltTargetPitch' : 'ltGuessPitch');
+    button.dataset.playing = which === side ? '1' : '0';
+    button.setAttribute('aria-pressed', String(which === side));
+  });
   document.querySelectorAll('.pressed').forEach(k => k.classList.remove('pressed'));
   if (f != null) CMP_BOXES.forEach(id => $(id).querySelectorAll(`[data-f="${f}"]`).forEach(k => k.classList.add('pressed')));
 }
@@ -2073,8 +2071,14 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
     nextQuestion();
   };
   const ready = v => {
-    audio();                                                   // initialize on the starting tap, before the visual count-in
+    const engine = audio();                                    // initialize on the starting tap, before the visual count-in
     const t = extra?.ladder && lt.tones.find(t => t.f === extra.lt);
+    if (t && t.ladder.level > 1) {                              // later check-ins go straight to their training screen
+      if (!engine || engine.state === 'running') return begin(v);
+      const startScreen = screen;
+      return engine.resume().then(() => { if (screen === startScreen && !round) begin(v); })
+        .catch(() => showError('Tap Start again to enable sound.'));
+    }
     startCountIn(() => begin(v), t ? `LEVEL ${t.ladder.level}` : echo ? 'ECHO' : L.short || L.name || 'TRAINING',
       t && t.ladder.level === 1 ? {f: t.f, voice: v} : null);
   };
@@ -2691,8 +2695,14 @@ function ladderCaption(t){
 }
 function placeLadderContent(){
   const stage = $('scr-train').querySelector?.('.stage');
-  if (!round?.ladder || !stage) return;
+  if (!stage) return;
   const height = $('band').getBoundingClientRect().height, top = stage.getBoundingClientRect().top;
+  if (!round?.ladder) {
+    const h = stage.getBoundingClientRect().height;
+    const inset = $('band').getBoundingClientRect().width > height ? 40 : 64;
+    stage.style.setProperty('--display-y', `${Math.max(inset, Math.min(h - inset, height * 0.375 - top))}px`);
+    return;
+  }
   stage.style.setProperty('--note-y', `${height * 0.375 - top}px`);
   stage.style.setProperty('--clock-y', `${height * 0.595 - top}px`);
 }
@@ -2703,6 +2713,10 @@ function renderLadderPitches(){
   $('ltPitchPair').dataset.result = answered && last.ok ? 'good' : '';
   $('ltTargetNote').textContent = noteName(trial.f);
   $('ltGuessNote').textContent = answered ? noteOffsetLabel(last.g) : '';
+  $('ltTargetCaption').textContent = 'Target';
+  $('ltGuessCaption').textContent = 'Your guess';
+  $('ltTargetPitch').setAttribute('aria-label', 'Replay target');
+  $('ltGuessPitch').setAttribute('aria-label', 'Replay your guess');
   $('ltGuessPitch').hidden = !answered;
   $('ltSwipeHint').hidden = phase !== 'listening' || round.challengeLevel !== 1 || round.tuneCount !== 1;
   ['true', 'you'].forEach(which => {
@@ -2713,11 +2727,12 @@ function renderLadderPitches(){
   });
 }
 function renderLadderClock(){
-  $('ltChallengeHeading').hidden = $('ltChallengeStatus').hidden = !round?.ladder;
-  if (!round?.ladder) { $('playBtn').hidden = false; $('ltPitchPair').hidden = true; hideCountInCue('ladder'); return; }
+  $('ltChallengeStatus').hidden = !round?.ladder;
+  if (!round?.ladder) return;
+  $('ltChallengeHeading').hidden = false;
   const t = lt.tones.find(t => t.f === round.lt), now = Date.now(), s = t.ladder;
   const targetEnd = round.answerAt + 20000, notesEnd = round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000);
-  let instruction, until, stage, duration, cueStep;
+  let instruction, until, stage, duration;
   if (phase === 'listening') {
     instruction = 'FIND'; until = s.deadline; stage = 'tune'; duration = 20000;
   } else if (now < targetEnd) {
@@ -2727,16 +2742,10 @@ function renderLadderClock(){
   } else {
     instruction = ltSessionTone != null && s.mode !== 'boundary' ? 'WAIT' : 'COMPLETE';
     until = t.due; stage = 'wait'; duration = Math.max(1, t.due - notesEnd);
-    if (ltSessionTone != null && until - now <= 2400) {
-      stage = 'countdown';
-      cueStep = until - now > 1600 ? 'ready' : until - now > 800 ? 'set' : 'go';
-    }
   }
   $('playBtn').hidden = true;
   $('ltPitchPair').hidden = stage !== 'tune' && stage !== 'listen';
   renderLadderPitches();
-  if (stage === 'countdown') showCountInCue(cueStep, `LEVEL ${round.challengeLevel}`, 'ladder');
-  else hideCountInCue('ladder');
   const scr = $('scr-train');
   if (scr.dataset.stage !== stage) {
     scr.dataset.stage = stage;
@@ -3164,8 +3173,8 @@ function hearOne(which){                           // the answer's target, or a 
 }
 $('hearTrue').addEventListener('click', () => hearOne('true'));
 $('hearGuess').addEventListener('click', () => hearOne('you'));
-$('ltTargetPitch').addEventListener('click', () => hearLadderPitch('true'));
-$('ltGuessPitch').addEventListener('click', () => hearLadderPitch('you'));
+$('ltTargetPitch').addEventListener('click', () => round?.ladder ? hearLadderPitch('true') : phase === 'revealed' && trial?.task !== 'card' && hearOne('true'));
+$('ltGuessPitch').addEventListener('click', () => round?.ladder ? hearLadderPitch('you') : phase === 'revealed' && trial?.task !== 'card' && hearOne('you'));
 $('lockBtn').addEventListener('click', lockIn);
 $('playBtn').addEventListener('animationend', e => { if (e.animationName === 'pop' || e.animationName === 'shake') e.currentTarget.classList.remove('pop', 'shake'); });
 
@@ -3329,6 +3338,43 @@ function renderStatus(){
   document.body.dataset.tuning = can ? '1' : '0';
   $('adjust').dataset.off = can ? '0' : '1';
   $('lockBtn').disabled = !can;
+  renderTrainingHeading();
+}
+function renderTrainingHeading(){
+  if (!round || !trial || round.ladder) return;
+  const task = trial.task, revealed = phase === 'revealed';
+  const instruction = revealed ? task === 'card' ? 'CHECK' : 'LISTEN'
+    : task === 'card' ? 'RECALL' : audioState === 'interfere' ? 'RANDOM'
+    : task === 'preview' || trial.echo && !trial.heard ? 'LISTEN'
+    : task === 'find' ? 'FIND' : task === 'type' ? 'GUESS' : 'NAME';
+  $('ltChallengeHeading').hidden = false;
+  $('ltChallengeLevel').textContent = round.echo ? 'ECHO' : round.retune ? 'RE-TUNE' : round.practice ? 'PRACTICE' : `LEVEL ${round.lv}`;
+  fadeText($('ltChallengeInstruction'), instruction);
+  $('listenState').textContent = audioState === 'interfere' ? 'RANDOM' : audioState === 'tone' ? 'LISTEN' : 'REPLAY';
+  $('listenAction').textContent = trial.echo ? trial.heard ? 'Swipe anywhere to tune' : 'Remember this tone' : audioState === 'interfere' ? 'Listen after the random sounds' : 'Tap to replay';
+}
+function renderTrainingPitches(notes, both){
+  if (round.ladder) return;
+  const answered = phase === 'revealed', card = trial.task === 'card';
+  const finding = trial.task === 'find' && (!trial.echo || trial.heard);
+  const pair = $('ltPitchPair');
+  pair.hidden = !answered && !finding;
+  $('playBtn').hidden = !pair.hidden;
+  $('ltSwipeHint').hidden = !finding || answered || round.tuneCount !== 1;
+  $('ltGuessPitch').hidden = !answered;
+  pair.dataset.result = answered ? last.ok ? 'good' : 'bad' : '';
+  if (pair.hidden) return;
+  const unknown = finding && trial.echo && !answered;
+  $('ltTargetNote').textContent = card ? $('bigVal').textContent : unknown ? '?' : notes ? noteName(trial.f) : fmtFreq(trial.f);
+  $('ltGuessNote').textContent = !answered ? '' : card ? $('guessVal').textContent : notes ? trial.task === 'find' ? noteOffsetLabel(last.g) : noteName(last.g) : fmtFreq(last.g);
+  const unit = card ? $('bigUnit').textContent : notes || unknown ? '' : both ? `Hz · ${noteName(trial.f)}` : 'Hz';
+  $('ltTargetCaption').textContent = unknown ? 'Hidden target' : `Target${unit ? ' · ' + unit : ''}`;
+  const guessUnit = card ? unit : notes ? '' : both ? `Hz · ${noteName(last?.g || trial.f)}` : 'Hz';
+  $('ltGuessCaption').textContent = `Your guess${guessUnit ? ' · ' + guessUnit : ''}`;
+  $('ltTargetPitch').setAttribute('aria-label', card ? 'Target answer' : 'Replay target');
+  $('ltGuessPitch').setAttribute('aria-label', card ? 'Your answer' : 'Replay your guess');
+  $('ltTargetPitch').disabled = card || !answered;
+  $('ltGuessPitch').disabled = card || !answered;
 }
 function howto(){                                               // one short line on what to do; none once answered
   if (!trial || phase !== 'listening') return '';
@@ -3435,15 +3481,15 @@ function render(){
   $('choices').hidden = roll || (task !== 'pick' && task !== 'notes');
   $('piano').hidden = roll || task !== 'piano';
   $('roll').hidden = !roll;
-  $('guessForm').hidden = task !== 'type' && !card || card && phase === 'revealed';   // a card's answer shows on the orb
+  $('guessForm').hidden = task !== 'type' && !card || phase === 'revealed'; // the answer is now in the shared pitch display
   const noteCard = card && trial.side === 'note';
   $('letterpad').hidden = !noteCard || phase === 'revealed';
   $('letterpad').querySelectorAll('button').forEach(b => { b.disabled = phase !== 'listening'; });
   $('guessUnit').textContent = noteCard ? '' : 'Hz';
   input.setAttribute('aria-label', noteCard ? 'Your answer, a note' : 'Your answer in hertz');
-  $('after').querySelector('.pair').hidden = card || preview;             // nothing to compare after a card, or before a round
+  $('after').querySelector('.pair').hidden = true;                       // replay controls are the target and guess themselves
   $('adjust').hidden = !find || phase === 'revealed' || trial.echo && !trial.heard;
-  $('pad').hidden = !!round.ladder || round.tuneCount !== 1;
+  $('pad').hidden = true;                                               // first-round guidance sits beside the displayed note
   if (find && phase === 'listening' && !trial.mv) $('tuneMovement').textContent = 'Swipe anywhere to tune';
   if (roll) { renderRoll(L); if (phase === 'revealed' && !last.ok) showActualKey(); }
   else if (task === 'pick' || task === 'notes') renderChoices(L, task);
@@ -3456,31 +3502,28 @@ function render(){
   $('numpad').hidden = phase === 'revealed';
   $('nextBtn').textContent = nextButtonLabel();
   $('playBtn').setAttribute('aria-label', card ? 'Flashcard' : preview ? 'Play target' : phase === 'listening' ? (find ? 'Resume tone' : 'Replay tone') : (find ? 'Play target' : 'Replay actual tone'));
-  $('playBtn').disabled = ltSessionTone != null && phase !== 'listening';
+  $('playBtn').disabled = card || ltSessionTone != null && phase !== 'listening';
   $('nextBtn').hidden = ltSessionTone != null;
   if (ltSessionTone != null) $('after').hidden = true;
   $('scr-train').dataset.ladder = round.ladder ? '1' : '0';
-  $('howto').hidden = !!round.ladder;
+  $('howto').hidden = !!round.ladder || !card;
+  renderTrainingPitches(notes, both);
   renderLadderClock();
   renderStatus();
   if (phase === 'revealed' && !card) drawStrip(L);
-  startWave();
   syncBandPitch();
   const view = `${phase}:${!!trial.heard}`;
   if (!round.ladder && (renderedTrial !== trial || renderedPhase !== view) && !reduceMotion.matches) {
-    $('playBtn').querySelector('.orb-core')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
+    $('scr-train').querySelector('.phase-display')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
     $('scr-train').querySelector('.train-right')?.animate?.([{opacity: 0}, {opacity: 1}], {duration: 300, easing: 'ease-out'});
   }
+  placeLadderContent();
   renderedTrial = trial; renderedPhase = view;
 }
 const fitNum = (el, px) => { const n = el.textContent.length; el.style.fontSize = n > 5 ? `${Math.round(px * 5.5 / n)}px` : ''; };   // long numbers shrink to fit the orb
 
-/* ---------- orb wave ----------
-   Decoration only: a fixed 2.5-cycle shape at fixed speeds, driven by play state (playing, scrambling, waiting)
-   and never by the tone's frequency or loudness, so it can't hint at the answer. */
-const wave = $('wave'), wctx = wave.getContext('2d');
+/* ---------- spectrum colors ---------- */
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-let waveRaf = 0, waveAmp = 0.3, wavePhase = 0, waveLast = 0, waveCols = null;
 function oklchRgb(L, C, hDeg){
   const h = hDeg * Math.PI / 180, a = C * Math.cos(h), b = C * Math.sin(h);
   const l = (L + 0.3963377774*a + 0.2158037573*b) ** 3, m = (L - 0.1055613458*a - 0.0638541728*b) ** 3, s = (L - 0.0894841775*a - 1.2914855480*b) ** 3;
@@ -3493,51 +3536,6 @@ function waveColors(){
   const L = parseFloat(cs.getPropertyValue('--spec-l')) || 0.75, C = parseFloat(cs.getPropertyValue('--spec-c')) || 0.15;
   return [0, 1, 2, 3, 4, 5].map(i => oklchRgb(L, C, 25 + 275 * i / 5));
 }
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { waveCols = waveColors(); });
-const waveVisible = () => screen === 'train' && $('playBtn').dataset.hidden === '1';
-function startWave(){
-  if (waveRaf || !waveVisible()) return;
-  if (!waveCols) waveCols = waveColors();
-  waveLast = performance.now();
-  waveRaf = requestAnimationFrame(waveFrame);
-}
-function waveFrame(now){
-  waveRaf = 0;
-  if (!waveVisible()) return;
-  const dt = Math.min(0.05, (now - waveLast) / 1000); waveLast = now;
-  const st = audioState;
-  const target = st === 'tone' ? 1 : st === 'interfere' ? 0.85 : 0.28;
-  const speed = st === 'tone' ? 1.1 : st === 'interfere' ? 2.4 : 0.35;     // phase turns per second
-  waveAmp = reduceMotion.matches ? target : waveAmp + (target - waveAmp) * Math.min(1, dt * 6);
-  wavePhase += dt * speed * 2 * Math.PI;
-  drawWave(st === 'interfere');
-  if (!reduceMotion.matches) waveRaf = requestAnimationFrame(waveFrame);
-}
-function drawWave(noisy){
-  const dpr = Math.min(2, window.devicePixelRatio || 1), w = wave.clientWidth, h = wave.clientHeight;
-  if (!w || !h) return;
-  if (wave.width !== Math.round(w * dpr) || wave.height !== Math.round(h * dpr)) { wave.width = Math.round(w * dpr); wave.height = Math.round(h * dpr); }
-  wctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  wctx.clearRect(0, 0, w, h);
-  const grad = wctx.createLinearGradient(0, 0, w, 0);
-  waveCols.forEach((c, i) => grad.addColorStop(i / 5, c));
-  const mid = h / 2, A = h * 0.4 * waveAmp;
-  wctx.lineCap = 'round'; wctx.lineJoin = 'round'; wctx.strokeStyle = grad; wctx.shadowColor = waveCols[3];
-  [[1, 0, 1, 2.4], [0.7, 1.1, 0.5, 1.5], [0.45, 2.3, 0.28, 1.1]].forEach(([amp, ph, alpha, lw], k) => {
-    wctx.globalAlpha = alpha; wctx.lineWidth = lw; wctx.shadowBlur = k ? 0 : 10;
-    wctx.beginPath();
-    for (let x = 0; x <= w; x += 1.5) {
-      const u = x / w, env = Math.pow(Math.sin(Math.PI * u), 1.6);       // taper to points at both ends
-      let y = amp * Math.sin(2 * Math.PI * 2.5 * u - wavePhase * (1 + 0.18 * k) + ph);
-      if (noisy) y += (Math.random() - 0.5) * 0.9;
-      const Y = mid - A * env * y;
-      if (x) wctx.lineTo(x, Y); else wctx.moveTo(x, Y);
-    }
-    wctx.stroke();
-  });
-  wctx.globalAlpha = 1; wctx.shadowBlur = 0;
-}
-
 function renderChoices(L, task){
   const box = $('choices');
   box.style.setProperty('--cn', L.cn);
@@ -4519,7 +4517,7 @@ function bandLoop(now){
     const dt = Math.min(0.08, (now - bandLast) / 1000); bandLast = now;
     bandPitch += (bandTargetPitch - bandPitch) * Math.min(1, dt * 10);
     const noisy = screen === 'train' && (audioState === 'interfere' || round?.ladder && $('scr-train').dataset.stage === 'notes');
-    bandFuzz += (Number(noisy) - bandFuzz) * Math.min(1, dt * 8);
+    bandFuzz += (Number(!!noisy) - bandFuzz) * Math.min(1, dt * 8);
     drawBand(now);
   }
   bandRaf = requestAnimationFrame(bandLoop);
@@ -4531,7 +4529,7 @@ function drawBand(now){
   c.clearRect(0, 0, W, H);
   // Three ribbons stay anchored to the viewport while their strands flow sideways.
   [0.26, 0.49, 0.73].forEach((mid, row) => {
-    const spacing = round?.ladder ? (row < 2 ? 0.7 : 1) * (W > H ? 0.5 : 1) : 1;
+    const spacing = (row < 2 ? 0.7 : 1) * (W > H ? 0.5 : 1);
     const A = Math.min(H * 0.075, W * 0.15) * spacing, cycles = (2.8 + row * 0.7) * bandPitch;
     for (let k = 0; k < 5; k++) {
       const main = k === 0, amp = 1 - k * 0.12, ph = k * 0.8 + row * 1.7;
