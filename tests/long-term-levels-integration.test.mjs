@@ -31,7 +31,7 @@ function app(tone = LTLevels.createTone(1047, at)) {
     const nextQuestion = () => { calls.push(['next']); phase = 'listening'; round.challengeLevel = lt.tones[0].ladder.level; trial = {voice: SINE}; };
     ${section('function appendLadderCheck(', "document.addEventListener('visibilitychange', () => { if (document.visibilityState")}
     globalThis.api = {lt, calls, refreshLadders, tickLadder, abortLadder,
-      clock() { renderLadderClock(); return ['ltChallengeLevel', 'ltChallengeInstruction', 'ltChallengeTime', 'ltChallengeNext'].map(id => $(id).textContent); },
+      clock() { renderLadderClock(); return ['ltChallengeLevel', 'ltChallengeInstruction', 'ltChallengeTime'].map(id => $(id).textContent); },
       get cue() { return {hidden: $('countIn').hidden, word: $('countInWord').textContent, inert: $('app').inert}; },
       start() { LTLevels.begin(lt.tones[0], Date.now()); ltSessionTone = lt.tones[0].ladder.level <= 6 ? 1047 : null;
         round = {lt: 1047, ladder: true, challengeLevel: lt.tones[0].ladder.level, items: []}; trial = {voice: SINE}; phase = 'listening'; saveLT(); },
@@ -61,17 +61,17 @@ test('the displayed timer counts down each phase without moving the next guess o
   const {api, time} = app();
   const clock = () => Array.from(api.clock());
   api.start(); time(at + 5000);
-  assert.deepEqual(clock(), ['LEVEL 1', 'FIND', '0:15', 'to lock in']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'FIND', '0:15']);
   api.answer(true);
   time(at + 10000);
-  assert.deepEqual(clock(), ['LEVEL 1', 'LISTEN', '0:15', 'until random notes']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'LISTEN', '0:15']);
   time(at + 25000);
-  assert.deepEqual(clock(), ['LEVEL 1', 'RANDOM', '0:20', 'until the break']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'RANDOM', '0:20']);
   time(at + 45000);
-  assert.deepEqual(clock(), ['LEVEL 1', 'WAIT', '0:15', 'until the next guess']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'WAIT', '0:15']);
   assert.equal(api.state.lt.tones[0].due, at + MIN);
   time(at + MIN); api.tickLadder();
-  assert.deepEqual(clock(), ['LEVEL 1', 'FIND', '0:20', 'to lock in']);
+  assert.deepEqual(clock(), ['LEVEL 1', 'FIND', '0:20']);
 });
 
 test('a deadline creates one failed check without a fabricated pitch error, saves it and ends the game', () => {

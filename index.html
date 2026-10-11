@@ -578,15 +578,10 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .swipe-hint p{font-size:18px;color:var(--ink)}
 .swipe-hint small{font-size:15px;color:var(--muted)}
 body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:none;cursor:move}
-.tune-wave{width:100%;height:80px;color:var(--teal);opacity:.7;overflow:visible}
-.tune-wave path{fill:none;stroke:currentColor;stroke-width:1.4;vector-effect:non-scaling-stroke}
-.tune-wave path:last-child{opacity:.35}
 #adjust[data-off="1"] .swipe-hint{opacity:.45}
-.phase-wave{display:grid;place-items:center;width:min(80vw,360px);height:180px}
 .phase-display{display:grid;place-items:center}
 .phase-display > *{grid-area:1 / 1}
 :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{min-height:max(180px,var(--challenge-dial,180px))}
-.phase-wave .tune-wave{height:120px;animation:phase-breathe 2s ease-in-out infinite}
 .phase-progress{width:170px;height:3px;background:var(--line-hi);border-radius:3px;overflow:hidden;margin-bottom:8px}
 .phase-progress i{display:block;width:100%;height:100%;background:var(--teal);transform-origin:left;transition:transform .1s linear}
 .count-in{position:fixed;inset:0;z-index:70;background:var(--bg);overflow:hidden}
@@ -596,8 +591,7 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .cue-screen[data-cue="go"]{background:radial-gradient(ellipse at 50% 48%,color-mix(in oklab,var(--glow-teal) 35%,transparent),transparent 75%),color-mix(in oklab,var(--teal) 10%,var(--bg));color:var(--teal)}
 .count-in-word{font-size:clamp(50px,15vw,88px);font-weight:550;line-height:1.1;letter-spacing:.1em;text-align:center;transform-origin:center}
 .cue-announcement{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
-@keyframes phase-breathe{50%{opacity:.4;transform:scaleY(.7)}}
-@media (prefers-reduced-motion:reduce){.count-in-word,.phase-wave .tune-wave{animation:none}.phase-progress i{transition:none}}
+@media (prefers-reduced-motion:reduce){.count-in-word{animation:none}.phase-progress i{transition:none}}
 /* training: one line on what to do, and the buttons/keyboard switch */
 .howto{margin:-6px 0 0;min-height:1.4em;text-align:center;font-size:13px;color:var(--muted)}
 .howto.off{visibility:hidden}
@@ -607,17 +601,23 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .challenge-instruction{font-size:23px;font-weight:450;line-height:1.25}
 .challenge-clock{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
 .challenge-time{font-family:var(--font-num);font-size:40px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
-.challenge-next{font-size:15px;color:var(--muted);line-height:1.3}
 :is(#scr-train,.scr-train)[data-ladder="1"] .stage{gap:32px;padding-block:8px 0}
 :is(#scr-train,.scr-train)[data-ladder="1"] .orb{background:none;box-shadow:none;border-radius:0;animation:none}
+:is(#scr-train,.scr-train)[data-ladder="1"] .orb[data-result]{background:radial-gradient(ellipse,color-mix(in oklab,var(--rc) 32%,transparent),color-mix(in oklab,var(--rc) 12%,transparent) 40%,transparent 70%)}
+:is(#scr-train,.scr-train)[data-ladder="1"] .orb[data-result] .orb-num{color:var(--rc);text-shadow:0 0 26px color-mix(in oklab,var(--rc) 65%,transparent)}
 :is(#scr-train,.scr-train)[data-ladder="1"] .orb::before,:is(#scr-train,.scr-train)[data-ladder="1"] .orb::after{content:none}
 :is(#scr-train,.scr-train)[data-ladder="1"] .orb-core{transform:translateY(-18px)}
+:is(#scr-train,.scr-train)[data-ladder="1"] .orb-guess{white-space:nowrap}
 :is(#scr-train,.scr-train)[data-ladder="1"] .train-left{gap:6px}
 :is(#scr-train,.scr-train)[data-ladder="1"] .verdict:empty{display:none}
 @media not (orientation: landscape){
   /* Keep the timer and Lock in visible together, including below an iPhone's safe areas. */
   :is(#scr-train,.scr-train)[data-ladder="1"]{--challenge-dial:min(56vw,220px,max(150px,calc((100svh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 430px)/2)))}
   :is(#scr-train,.scr-train)[data-ladder="1"] .orb{width:var(--challenge-dial)}
+  /* Use the gaps in the fixed background: note above the middle ribbon, timer below it. */
+  :is(#scr-train,.scr-train)[data-ladder="1"] .stage{flex:1;width:100%;display:block;margin:0;padding:0;pointer-events:none}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{position:absolute;left:50%;top:var(--note-y);transform:translate(-50%,-50%);pointer-events:auto}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .challenge-clock{position:absolute;left:50%;top:var(--clock-y);transform:translate(-50%,-50%);width:max-content}
 }
 .answer-tools{display:flex;justify-content:flex-end;margin-bottom:-2px}
 .answer-tools .icon svg{width:18px;height:18px}
@@ -691,7 +691,10 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
   :is(#scr-train,.scr-train)[data-ladder="1"] .train-body{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
   :is(#scr-train,.scr-train)[data-ladder="1"] .stage{gap:16px;padding-block:8px}
   :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{min-height:clamp(104px,34vh,228px)}
-  :is(#scr-train,.scr-train)[data-ladder="1"] .phase-wave{height:clamp(104px,34vh,228px)}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .stage{grid-column:1 / -1;grid-row:1 / -1;display:block;width:100%;height:calc(100svh - 130px);min-height:150px;padding:0;pointer-events:none}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .phase-display{position:absolute;left:50%;top:var(--note-y);transform:translate(-50%,-50%);pointer-events:auto}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .challenge-clock{position:absolute;left:50%;top:var(--clock-y);transform:translate(-50%,-50%);width:max-content}
+  :is(#scr-train,.scr-train)[data-ladder="1"] .orb-core{transform:none}
   #adjust{grid-template-columns:minmax(0,340px) minmax(0,340px)}
 }
 @media (orientation: landscape) and (max-height: 540px){
@@ -832,14 +835,10 @@ img{max-width:100%}
           <span class="orb-guess" id="guessVal"></span>
         </span>
       </button>
-      <div class="phase-wave" id="ltPhaseWave" aria-hidden="true" hidden>
-        <svg class="tune-wave" viewBox="0 0 360 120"><path d="M0 60Q15 12 30 60T60 60T90 60T120 60T150 60T180 60T210 60T240 60T270 60T300 60T330 60T360 60"/><path d="M0 60Q20 100 40 60T80 60T120 60T160 60T200 60T240 60T280 60T320 60T360 60"/></svg>
-      </div>
       </div>
       <div class="challenge-clock" id="ltChallengeStatus" role="timer" aria-live="off" hidden>
         <div class="phase-progress" aria-hidden="true"><i id="ltPhaseMeter"></i></div>
         <span class="challenge-time" id="ltChallengeTime"></span>
-        <span class="challenge-next" id="ltChallengeNext"></span>
       </div>
     </div>
     <div class="verdict" id="sub" aria-live="polite"></div>
@@ -2647,21 +2646,27 @@ function ladderCaption(t){
   const progress = l.count ? ` · ${s.count}/${l.count} correct` : '';
   return `Level ${s.level} · every ${l.gap === 200000 ? '3⅓ min' : l.gap === 150000 ? '2½ min' : fmtSpan(l.gap)}${progress}`;
 }
+function placeLadderContent(){
+  const stage = $('scr-train').querySelector?.('.stage');
+  if (!round?.ladder || !stage) return;
+  const height = $('band').getBoundingClientRect().height, top = stage.getBoundingClientRect().top;
+  stage.style.setProperty('--note-y', `${height * 0.375 - top}px`);
+  stage.style.setProperty('--clock-y', `${height * 0.61 - top}px`);
+}
 function renderLadderClock(){
   $('ltChallengeHeading').hidden = $('ltChallengeStatus').hidden = !round?.ladder;
-  if (!round?.ladder) { $('ltPhaseWave').hidden = true; $('playBtn').hidden = false; hideCountInCue('ladder'); return; }
+  if (!round?.ladder) { $('playBtn').hidden = false; hideCountInCue('ladder'); return; }
   const t = lt.tones.find(t => t.f === round.lt), now = Date.now(), s = t.ladder;
   const targetEnd = round.answerAt + 20000, notesEnd = round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000);
-  let instruction, next, until, stage, duration, cueStep;
+  let instruction, until, stage, duration, cueStep;
   if (phase === 'listening') {
-    instruction = 'FIND'; next = 'to lock in'; until = s.deadline; stage = 'tune'; duration = 20000;
+    instruction = 'FIND'; until = s.deadline; stage = 'tune'; duration = 20000;
   } else if (now < targetEnd) {
-    instruction = 'LISTEN'; next = 'until random notes'; until = targetEnd; stage = 'listen'; duration = 20000;
+    instruction = 'LISTEN'; until = targetEnd; stage = 'listen'; duration = 20000;
   } else if (now < notesEnd) {
-    instruction = 'RANDOM'; next = 'until the break'; until = notesEnd; stage = 'notes'; duration = notesEnd - targetEnd;
+    instruction = 'RANDOM'; until = notesEnd; stage = 'notes'; duration = notesEnd - targetEnd;
   } else {
     instruction = ltSessionTone != null && s.mode !== 'boundary' ? 'WAIT' : 'COMPLETE';
-    next = s.mode === 'boundary' ? `until Level ${s.level + 1}` : ltSessionTone != null ? 'until the next guess' : 'until the next check';
     until = t.due; stage = 'wait'; duration = Math.max(1, t.due - notesEnd);
     if (ltSessionTone != null && until - now <= 2400) {
       stage = 'countdown';
@@ -2669,7 +2674,6 @@ function renderLadderClock(){
     }
   }
   $('playBtn').hidden = stage === 'notes' || stage === 'wait' || stage === 'countdown';
-  $('ltPhaseWave').hidden = stage !== 'notes' && stage !== 'wait';
   if (stage === 'countdown') showCountInCue(cueStep, `LEVEL ${round.challengeLevel}`, 'ladder');
   else hideCountInCue('ladder');
   const scr = $('scr-train');
@@ -2680,8 +2684,8 @@ function renderLadderClock(){
   $('ltChallengeLevel').textContent = `LEVEL ${round.challengeLevel}`;
   fadeText($('ltChallengeInstruction'), instruction);
   $('ltChallengeTime').textContent = until > now ? fmtCount(until - now) : '0:00';
-  fadeText($('ltChallengeNext'), next);
   $('ltPhaseMeter').style.transform = `scaleX(${Math.max(0, Math.min(1, (until - now) / duration))})`;
+  placeLadderContent();
 }
 function armLadderClock(){
   clearInterval(ltPulseTimer);
@@ -3330,8 +3334,9 @@ function render(){
     $('bigVal').textContent = notes ? noteName(last.f) : fmtFreq(last.f);
     $('bigUnit').textContent = notes ? '' : both ? `Hz · ${noteName(last.f)}` : 'Hz';
     $('guessVal').textContent = notes ? (find && last.g !== last.f ? noteCents(last.g) : noteName(last.g)) : fmtFreq(last.g);   // your answer, under the target
-    if (round.ladder) $('guessVal').textContent = '';
-    fitNum($('bigVal'), 50); fitNum($('guessVal'), 40);
+    if (round.ladder) $('guessVal').textContent = `You: ${noteCents(last.g)}`;
+    fitNum($('bigVal'), 50);
+    if (round.ladder) $('guessVal').style.fontSize = '20px'; else fitNum($('guessVal'), 40);
     sub.innerHTML = last.echo ? `<span class="ratio">${centsTxt(last.cents)}</span><span class="pts">${last.pts}<small>pts</small></span>`
       : last.lt ? `<span class="ratio">${centsTxt(last.cents)}</span>`
       : `<span class="ratio">×${(last.g / last.f).toFixed(2)}</span>`;
@@ -4426,7 +4431,7 @@ function placeBand(){
   const rect = band.getBoundingClientRect(), dpr = Math.min(1.5, window.devicePixelRatio || 1);
   const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
   if (band.width !== w || band.height !== h) { band.width = w; band.height = h; }
-  syncBandPitch(); drawBand(reduceMotion.matches ? 0 : performance.now());
+  placeLadderContent(); syncBandPitch(); drawBand(reduceMotion.matches ? 0 : performance.now());
   if (!bandRaf && !document.hidden && !reduceMotion.matches) bandRaf = requestAnimationFrame(bandLoop);
 }
 function bandLoop(now){
@@ -4448,7 +4453,8 @@ function drawBand(now){
   c.clearRect(0, 0, W, H);
   // Three ribbons stay anchored to the viewport while their strands flow sideways.
   [0.26, 0.49, 0.73].forEach((mid, row) => {
-    const A = Math.min(H * 0.075, W * 0.15) * (round?.ladder && row < 2 ? 0.7 : 1), cycles = (2.8 + row * 0.7) * bandPitch;
+    const spacing = round?.ladder ? (row < 2 ? 0.7 : 1) * (W > H ? 0.5 : 1) : 1;
+    const A = Math.min(H * 0.075, W * 0.15) * spacing, cycles = (2.8 + row * 0.7) * bandPitch;
     for (let k = 0; k < 5; k++) {
       const main = k === 0, amp = 1 - k * 0.12, ph = k * 0.8 + row * 1.7;
       c.beginPath();
