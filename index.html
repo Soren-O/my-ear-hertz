@@ -460,13 +460,11 @@ p{margin:0}
 @media not (orientation: landscape){                                    /* Find: the record right under the target, not pushed to the bottom (where Safari's bar floats) */
   .train-body:has(#adjust:not([hidden])) > .train-left{flex:none}
   .train-body:has(#adjust:not([hidden])) .stage{padding-block:8px 0}
-  .train-body:has(#adjust:not([hidden])) .adjust .deck{width:min(66vw,250px,30vh)}
 }
 .after{flex-direction:row;align-items:center}
 .after > .pair{flex:1;min-width:0}
 .after #nextBtn{flex:0 0 auto;width:auto;padding-inline:28px}
 .orb{width:min(60vw,228px,30vh)}
-.adjust .deck{width:min(72vw,270px,34vh)}
 /* Roll: the whole C3–C9 keyboard in a scrolling strip; only the round's notes can be tapped */
 .roll{--w:38px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;margin-inline:-20px;padding:2px 20px 10px;scrollbar-width:thin}
 .roll-track{position:relative;height:150px}
@@ -493,7 +491,6 @@ p{margin:0}
 .adjust{position:relative}
 .deck{position:relative;width:min(72vw,270px);aspect-ratio:1;margin:0 auto;border-radius:26px;background:linear-gradient(150deg,var(--surface-2),var(--surface));border:1px solid var(--line);box-shadow:inset 0 1px 0 var(--hi),0 24px 44px -26px var(--shadow);display:grid;place-items:center;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 .deck.active{cursor:grabbing}
-.adjust[data-off="1"] .deck{opacity:.45;cursor:default}
 .platter{position:relative;width:88%;aspect-ratio:1;border-radius:50%;background:var(--plinth);box-shadow:inset 0 0 0 1px var(--line-hi);display:grid;place-items:center}
 .record{--rot:0deg;position:relative;width:96%;aspect-ratio:1;border-radius:50%;transform:rotate(var(--rot));background:repeating-radial-gradient(circle,var(--vinyl) 0 1.6px,var(--groove) 1.6px 3.2px);box-shadow:0 0 0 2px var(--vinyl),0 12px 28px -12px var(--shadow)}
 .record .label{position:absolute;inset:33%;border-radius:50%;background:conic-gradient(oklch(var(--spec-l) var(--spec-c) 25),oklch(var(--spec-l) var(--spec-c) 135),oklch(var(--spec-l) var(--spec-c) 245),oklch(var(--spec-l) var(--spec-c) 300),oklch(var(--spec-l) var(--spec-c) 25));box-shadow:inset 0 0 0 3px var(--vinyl)}
@@ -566,7 +563,6 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 /* glows behind the level ring, the orb and the record */
 .stage,.hero,.echo-hero{position:relative;isolation:isolate}
 .stage::before,.hero::before{content:"";position:absolute;left:50%;top:50%;width:150%;aspect-ratio:1;transform:translate(-50%,-50%);z-index:-2;border-radius:50%;background:radial-gradient(closest-side,var(--glow-teal),transparent);pointer-events:none}
-.adjust .deck{filter:drop-shadow(0 0 38px var(--glow-indigo))}
 /* the wave band: slow layered waves edge to edge behind the ring, the orb and Echo */
 .band{position:absolute;top:50%;height:220px;transform:translateY(-50%);z-index:-1;pointer-events:none}
 /* gold: achievements only */
@@ -580,13 +576,36 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .best-list .num{font-family:var(--font-num);font-weight:400;font-size:17px}
 .best-list .top .num{color:var(--gold)}
 .best-list small{color:var(--muted);font-size:12.5px}
-/* the record's step size: small (one chevron) or big (two) */
-.steps-switch{position:absolute;left:10px;top:10px;z-index:3;display:flex;padding:2px;gap:1px;border-radius:999px;border:1px solid var(--line-hi);background:color-mix(in oklab,var(--surface) 88%,transparent);cursor:pointer;touch-action:manipulation}
-.steps-switch svg{width:28px;height:22px;padding:3px 6px;border-radius:999px;color:var(--faint);transition:background .15s ease,color .15s ease}
-.steps-switch[aria-checked="false"] .fine,.steps-switch[aria-checked="true"] .coarse{background:var(--sel-bg);color:var(--teal)}
+/* Tuning: large vertical swipes, small horizontal corrections, and distinct timed phases. */
+.tune-pad{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;width:100%;height:clamp(140px,23svh,195px);overflow:hidden;border:1px solid var(--line-hi);border-radius:24px;background:color-mix(in oklab,var(--teal) 4%,var(--surface));touch-action:none;user-select:none;-webkit-user-select:none;cursor:move}
+.tune-pad.active{border-color:var(--teal);background:var(--sel-bg)}
+.tune-pad p{position:relative;font-size:18px;color:var(--ink)}
+.tune-pad small{position:relative;font-size:15px;color:var(--muted)}
+.tune-wave{width:100%;height:80px;color:var(--teal);opacity:.7;overflow:visible}
+.tune-wave path{fill:none;stroke:currentColor;stroke-width:1.4;vector-effect:non-scaling-stroke}
+.tune-wave path:last-child{opacity:.35}
+.tune-pad .tune-wave{position:absolute;inset:calc(50% - 40px) 0;opacity:.2}
+#adjust .arrows{grid-template-columns:repeat(4,minmax(0,1fr))}
+#adjust .arr{height:46px}
+#adjust[data-off="1"] .tune-pad{opacity:.45;cursor:default}
+.phase-wave{display:grid;place-items:center;width:min(80vw,360px);height:180px}
+.phase-wave .tune-wave{height:120px;animation:phase-breathe 2s ease-in-out infinite}
+.phase-cue{font-size:clamp(50px,16vw,80px);font-weight:550;letter-spacing:.1em;color:var(--teal);text-align:center}
+.phase-progress{width:170px;height:3px;background:var(--line-hi);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.phase-progress i{display:block;width:100%;height:100%;background:var(--teal);transform-origin:left;transition:transform .1s linear}
+.count-in{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:var(--bg);padding:max(24px,env(safe-area-inset-top,0px)) 24px max(24px,env(safe-area-inset-bottom,0px))}
+.count-in .icon{position:absolute;top:max(16px,env(safe-area-inset-top,0px));left:max(20px,env(safe-area-inset-left,0px))}
+.count-in .label{font-size:15px;color:var(--muted)}
+.count-in-word{font-size:clamp(56px,18vw,100px);font-weight:500;line-height:1.1;letter-spacing:.12em;text-align:center}
+.count-in[data-step="go"]{background:color-mix(in oklab,var(--teal) 12%,var(--bg));color:var(--teal)}
+.count-in-word{animation:cue-arrive .3s ease-out}
+@keyframes cue-arrive{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes phase-breathe{50%{opacity:.4;transform:scaleY(.7)}}
+@media (prefers-reduced-motion:reduce){.count-in-word,.phase-wave .tune-wave{animation:none}.phase-progress i{transition:none}}
 /* training: one line on what to do, and the buttons/keyboard switch */
 .howto{margin:-6px 0 0;min-height:1.4em;text-align:center;font-size:13px;color:var(--muted)}
 .howto.off{visibility:hidden}
+#scr-train[data-task="find"] .howto,#scr-train[data-task="preview"] .howto{font-size:22px;color:var(--ink);line-height:1.3}
 .challenge-heading{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;padding-block:4px}
 .challenge-level{font-size:26px;font-weight:650;letter-spacing:.1em;line-height:1.2}
 .challenge-instruction{font-size:23px;font-weight:450;line-height:1.25}
@@ -599,8 +618,7 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 @media not (orientation: landscape){
   /* Keep the timer and Lock in visible together, including below an iPhone's safe areas. */
   #scr-train[data-ladder="1"]{--challenge-dial:min(56vw,220px,max(150px,calc((100svh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - 430px)/2)))}
-  #scr-train[data-ladder="1"] .orb,
-  #scr-train[data-ladder="1"] .train-body:has(#adjust:not([hidden])) .adjust .deck{width:var(--challenge-dial)}
+  #scr-train[data-ladder="1"] .orb{width:var(--challenge-dial)}
 }
 .answer-tools{display:flex;justify-content:flex-end;margin-bottom:-2px}
 .answer-tools .icon svg{width:18px;height:18px}
@@ -671,9 +689,10 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
   .roll-track{height:clamp(116px,38vh,230px)}
   .piano{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
   .adjust{display:grid;grid-template-columns:auto minmax(0,340px);justify-content:center;column-gap:20px;row-gap:8px;align-items:center}
-  .adjust .deck{width:clamp(140px,40vh,270px);grid-row:1 / span 2;margin:0}
   #scr-train[data-ladder="1"] .train-body:has(#adjust:not([hidden])){display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
   #scr-train[data-ladder="1"] .stage{gap:16px;padding-block:8px}
+  #adjust{grid-template-columns:minmax(0,340px) minmax(0,340px)}
+  #adjust .tune-pad{grid-row:1 / span 2;height:clamp(130px,38vh,230px)}
 }
 @media (orientation: landscape) and (max-height: 540px){
   .app{padding-top:4px}
@@ -685,6 +704,9 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
   .orb::before{inset:-10px} .orb::after{inset:-20px}
   .strip{height:64px}
   .pkeys{height:46px}
+  .challenge-time{font-size:34px}
+  .phase-progress{margin-bottom:4px}
+  #scr-train[data-ladder="1"] .stage{gap:12px}
 }
 </style>
 <style>
@@ -808,7 +830,12 @@ img{max-width:100%}
           <span class="orb-guess" id="guessVal"></span>
         </span>
       </button>
+      <div class="phase-wave" id="ltPhaseWave" aria-hidden="true" hidden>
+        <svg class="tune-wave" viewBox="0 0 360 120"><path d="M0 60Q15 12 30 60T60 60T90 60T120 60T150 60T180 60T210 60T240 60T270 60T300 60T330 60T360 60"/><path d="M0 60Q20 100 40 60T80 60T120 60T160 60T200 60T240 60T280 60T320 60T360 60"/></svg>
+      </div>
+      <p class="phase-cue" id="ltPhaseCue" hidden></p>
       <div class="challenge-clock" id="ltChallengeStatus" role="timer" aria-live="off" hidden>
+        <div class="phase-progress" aria-hidden="true"><i id="ltPhaseMeter"></i></div>
         <span class="challenge-time" id="ltChallengeTime"></span>
         <span class="challenge-next" id="ltChallengeNext"></span>
       </div>
@@ -836,23 +863,22 @@ img{max-width:100%}
       <div class="numpad" id="numpad" role="group" aria-label="Number pad"><button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="0">0</button><button type="button" data-k="back" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg></button></div>
     </form>
     <div class="adjust" id="adjust" hidden>
-      <div class="deck" id="pad" aria-label="Turntable: drag in circles or scroll to change the pitch">
-        <button class="steps-switch" id="stepSwitch" type="button" role="switch" aria-checked="true" aria-label="Big steps"><svg class="fine" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 7l4 5-4 5"/></svg><svg class="coarse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 7l4 5-4 5M13 7l4 5-4 5"/></svg></button>
-        <div class="platter"><div class="record" id="record"><div class="label"></div></div><div class="sheen"></div></div>
-        <div class="tonearm"></div>
+      <div class="tune-pad" id="pad" tabindex="0" role="group" aria-label="Tune the pitch: swipe up or down for large changes, left or right for small changes">
+        <svg class="tune-wave" viewBox="0 0 360 120" aria-hidden="true"><path d="M0 60Q15 12 30 60T60 60T90 60T120 60T150 60T180 60T210 60T240 60T270 60T300 60T330 60T360 60"/><path d="M0 60Q20 100 40 60T80 60T120 60T160 60T200 60T240 60T280 60T320 60T360 60"/></svg>
+        <p>↕ Large changes</p>
+        <p>↔ Small changes</p>
+        <small id="tuneMovement" aria-live="polite">Swipe to tune</small>
       </div>
       <div class="tip" id="findTip" role="dialog" aria-label="Tip" hidden>
         <button class="tip-x" id="tipClose" type="button" aria-label="Close tip">×</button>
-        <p>Drag the record in circles, or scroll on it. Arrow keys work too.</p>
+        <p>Swipe up or down for large pitch changes. Swipe left or right for small changes. Arrow keys work too.</p>
         <label class="tip-check"><input type="checkbox" id="tipNever"> Don't show again</label>
       </div>
-      <div class="arrows">
-        <button class="arr" type="button" data-d="-240" aria-label="Down an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l6 5 6-5M6 9.5l6 5 6-5M6 16l6 5 6-5"/></svg></button>
-        <button class="arr" type="button" data-d="-20" aria-label="Down a half step"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l6 6 6-6M6 12l6 6 6-6"/></svg></button>
-        <button class="arr" type="button" data-d="-1" aria-label="Lower a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
-        <button class="arr" type="button" data-d="1" aria-label="Raise a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button>
-        <button class="arr" type="button" data-d="20" aria-label="Up a half step"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
-        <button class="arr" type="button" data-d="240" aria-label="Up an octave"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8l6-5 6 5M6 14.5l6-5 6 5M6 21l6-5 6 5"/></svg></button>
+      <div class="arrows" aria-label="Pitch adjustment buttons">
+        <button class="arr" type="button" data-d="-20" aria-label="Lower a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l6 6 6-6M6 12l6 6 6-6"/></svg></button>
+        <button class="arr" type="button" data-d="-1" aria-label="Lower a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <button class="arr" type="button" data-d="1" aria-label="Raise a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+        <button class="arr" type="button" data-d="20" aria-label="Raise a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
       </div>
       <button class="cta" id="lockBtn" type="button">Lock in</button>
     </div>
@@ -1052,12 +1078,13 @@ img{max-width:100%}
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
-      <p>Spin the record until the tone sounds like the number. On an instrument the note sounds every four and a half seconds; turning the record silences it, and letting go plays the new pitch, so you never hear it slide. A pure sine is one continuous tone that follows the record. within a quarter tone (about ±2.9%) passes. The record spans a random two to four octaves with the target anywhere in it, so its ends say nothing about where the target is. The record moves in even steps of 5 cents: the single arrows move one step, the double arrows a half step, the triple arrows an octave, and after each turn the change shows under the target: in cents when the target is a note, in percent when it is a frequency. Where it starts is random, so how far you've turned says nothing about where the target is. Past either end the tone fades out and comes back at the other end. The first Find steps use one tone at a time: C6, then C5, then C7, then all three. Those one-tone rounds start by playing the target once, so you know what you're aiming for; tap Start when you're ready, and the interference before each question clears it again.</p>
+      <p>Swipe up or down in the tuning area for large pitch changes, or left and right for small corrections. Your swipe keeps its starting direction until you lift your finger. The arrow buttons and keyboard work too: up/down change a semitone, left/right change 5 cents, and Page Up/Down change an octave.</p>
+      <p>On an instrument, pausing or releasing a swipe plays the new pitch. A sine tone follows your movement continuously. Within a quarter tone passes. The pitch starts at random within a random range, so the screen never gives away how far you are from the target. The first one-tone rounds play the target once before you start.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
       <p>Recordings from the <a href="https://github.com/gleitz/midi-js-soundfonts">FluidR3 GM SoundFont</a> by Frank Wen (<a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), trimmed and level-matched.</p>
       <h2>Echo</h2>
-      <p>A minigame: a tone plays once, then you tune the record back to it. Turn on interference to put it in between, which is much harder. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone; share your first try as a row of squares.</p>
+      <p>A minigame: a tone plays once, then you swipe to tune back to it. Turn on interference to put it in between, which is much harder. It tests how well you hold a pitch for a few seconds, which is not perfect pitch, so it stays out of your training stats. Each of the five tones scores up to 10 points, one less per 10 cents off. The daily five are the same for everyone; share your first try as a row of squares.</p>
       <h2>Memory</h2>
       <p>Pull is how far your answers lean toward the tone before them. Cold is the first answer of a round after 10 quiet minutes.</p>
     </div>
@@ -1156,6 +1183,12 @@ img{max-width:100%}
   </div>
   <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
   <canvas class="band" id="band" aria-hidden="true" hidden></canvas>
+</div>
+
+<div class="count-in" id="countIn" role="dialog" aria-modal="true" aria-label="Get ready" hidden>
+  <button class="icon" id="countInCancel" type="button" aria-label="Cancel start"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  <p class="label" id="countInLabel"></p>
+  <p class="count-in-word" id="countInWord" aria-live="polite">READY</p>
 </div>
 
 <script src="long-term-levels.js"></script>
@@ -1842,6 +1875,7 @@ let ltSessionTone = null, ltPulseTimer = null, ltWake = null, ltWakeToken = 0;
 /* The five main pages share a header with tabs: Train (with the levels), Long-term, Echo, Progress, Lab. */
 const TABS = ['home', 'lt', 'echo', 'progress', 'lab'];
 function go(name){
+  if (introActive) cancelCountIn();
   if (ltSessionTone != null && name !== 'train') return;
   if ((screen === 'train' || screen === 'lab') && name !== screen) stopAll();
   if (name !== 'train') showTip(false);
@@ -1867,9 +1901,42 @@ let phase = 'idle', trial = null, last = null;
 const input = $('guessInput');
 const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'interfere' && (!trial.echo || trial.heard);
 
+let introActive = false, introToken = 0, introTimers = [], introFocus = null;
+function cancelCountIn(){
+  introToken++;
+  introTimers.forEach(clearTimeout); introTimers = [];
+  introActive = false;
+  $('countIn').hidden = true;
+  $('app').inert = false;
+  introFocus?.focus?.({preventScroll: true}); introFocus = null;
+}
+function startCountIn(begin, label){
+  cancelCountIn();
+  const token = ++introToken, word = $('countInWord');
+  introActive = true; introFocus = document.activeElement;
+  $('countInLabel').textContent = label;
+  $('app').inert = true; $('countIn').hidden = false;
+  $('countInCancel').focus({preventScroll: true});
+  const cue = (text, step) => {
+    if (!introActive || token !== introToken) return;
+    $('countIn').dataset.step = step; word.textContent = text;
+    if (!reduceMotion.matches) word.animate?.([{opacity: 0, transform: 'translateY(14px)'}, {opacity: 1, transform: 'none'}], {duration: 250});
+  };
+  cue('READY', 'ready');
+  introTimers.push(setTimeout(() => cue('SET', 'set'), 800));
+  introTimers.push(setTimeout(() => cue('GO!', 'go'), 1600));
+  introTimers.push(setTimeout(() => {
+    if (!introActive || token !== introToken) return;
+    cancelCountIn(); begin();
+  }, 2400));
+}
+$('countInCancel').addEventListener('click', cancelCountIn);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && introActive) cancelCountIn(); });
+
 function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a long-term check, {lv, practice: true, L} for long-term practice
+  if (introActive) return;
   const lv = extra && extra.lv || settings.level;                        // L: a one-note level standing in for LEVELS[lv - 1]
-  const V = roundVoice(echo ? ECHO_L : extra && extra.L || LEVELS[lv - 1]);
+  const L = echo ? ECHO_L : extra && extra.L || LEVELS[lv - 1], V = roundVoice(L);
   const begin = v => {
     if (extra?.ladder) {
       if (round) return;
@@ -1884,12 +1951,17 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
     go('train');
     nextQuestion();
   };
-  if (V === SINE || voiceReady(V)) return begin(V);
+  const ready = v => {
+    audio();                                                   // initialize on the starting tap, before the visual count-in
+    const t = extra?.ladder && lt.tones.find(t => t.f === extra.lt);
+    startCountIn(() => begin(v), t ? `LEVEL ${t.ladder.level}` : echo ? 'ECHO' : L.short || L.name || 'TRAINING');
+  };
+  if (V === SINE || voiceReady(V)) return ready(V);
   const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily'].map($);
   btns.forEach(b => { b.disabled = true; });                             // the instrument loads first (once)
   prepareVoice(V).catch(() => prepareVoice(V)).then(() => V, () => SINE).then(v => {   // a decode cut off by a rebuilt engine: once more
     btns.forEach(b => { b.disabled = false; });
-    if (['home', 'summary', 'echo', 'lt'].includes(screen)) begin(v);
+    if (['home', 'summary', 'echo', 'lt'].includes(screen)) ready(v);
   });
 }
 function nextQuestion(){
@@ -2052,7 +2124,7 @@ function startEchoTone(){                                        // the tone onc
   }
   timers.push(setTimeout(() => {
     if (trial !== tr || phase !== 'listening') return;
-    tr.heard = true; setAudio('adjust'); pulseNote(ctx.currentTime + 0.02); armIdle(); updateHowto();
+    tr.heard = true; setAudio('adjust'); pulseNote(ctx.currentTime + 0.02); armIdle(); render();
   }, (ready - now) * 1000));
 }
 function finishEcho(){
@@ -2496,25 +2568,38 @@ function ladderCaption(t){
 }
 function renderLadderClock(){
   $('ltChallengeHeading').hidden = $('ltChallengeStatus').hidden = !round?.ladder;
-  if (!round?.ladder) return;
+  if (!round?.ladder) { $('ltPhaseWave').hidden = $('ltPhaseCue').hidden = true; $('playBtn').hidden = false; return; }
   const t = lt.tones.find(t => t.f === round.lt), now = Date.now(), s = t.ladder;
   const targetEnd = round.answerAt + 20000, notesEnd = round.answerAt + (round.challengeLevel === 1 ? 40000 : 22000);
-  let instruction, next, until;
+  let instruction, next, until, stage, duration;
   if (phase === 'listening') {
-    instruction = 'Tune to the target'; next = 'to lock in'; until = s.deadline;
+    instruction = 'Tune to the target'; next = 'to lock in'; until = s.deadline; stage = 'tune'; duration = 20000;
   } else if (now < targetEnd) {
-    instruction = 'Listen to the target'; next = 'until random notes'; until = targetEnd;
+    instruction = 'Listen to the target'; next = 'until random notes'; until = targetEnd; stage = 'listen'; duration = 20000;
   } else if (now < notesEnd) {
-    instruction = 'Random notes'; next = 'until the break'; until = notesEnd;
+    instruction = 'Random notes'; next = 'until the break'; until = notesEnd; stage = 'notes'; duration = notesEnd - targetEnd;
   } else {
     instruction = ltSessionTone != null ? s.mode === 'boundary' ? 'Level complete' : 'Get ready' : 'Check complete';
     next = s.mode === 'boundary' ? `until Level ${s.level + 1}` : ltSessionTone != null ? 'until the next guess' : 'until the next check';
-    until = t.due;
+    until = t.due; stage = 'wait'; duration = Math.max(1, t.due - notesEnd);
+    if (ltSessionTone != null && until - now <= 2400) {
+      stage = 'countdown';
+      $('ltPhaseCue').textContent = until - now > 1600 ? 'READY' : until - now > 800 ? 'SET' : 'GO!';
+    }
+  }
+  $('playBtn').hidden = stage === 'notes' || stage === 'wait' || stage === 'countdown';
+  $('ltPhaseWave').hidden = stage !== 'notes' && stage !== 'wait';
+  $('ltPhaseCue').hidden = stage !== 'countdown';
+  const scr = $('scr-train');
+  if (scr.dataset.stage !== stage) {
+    scr.dataset.stage = stage;
+    if (!reduceMotion.matches) scr.querySelector('.train-left')?.animate?.([{opacity: 0, transform: 'translateY(12px)'}, {opacity: 1, transform: 'none'}], {duration: 250});
   }
   $('ltChallengeLevel').textContent = `LEVEL ${round.challengeLevel}`;
   if ($('ltChallengeInstruction').textContent !== instruction) $('ltChallengeInstruction').textContent = instruction;
   $('ltChallengeTime').textContent = until > now ? fmtCount(until - now) : '0:00';
   $('ltChallengeNext').textContent = next;
+  $('ltPhaseMeter').style.transform = `scaleX(${Math.max(0, Math.min(1, (until - now) / duration))})`;
 }
 function armLadderClock(){
   clearInterval(ltPulseTimer);
@@ -2788,8 +2873,6 @@ function quitRound(){
 }
 function showError(msg){ const e = $('guessErr'); e.textContent = msg; e.hidden = !msg; }
 
-let deckAngle = 0, deckRaf = 0, deckLast = 0;
-function spin(deg){ deckAngle += deg; $('record').style.setProperty('--rot', `${deckAngle.toFixed(1)}deg`); }
 /* The turn readout: once the hand settles, how far the pitch moved from where it last settled, in the target's own
    terms: cents when the target is a note (and in Echo, which scores in cents), percent when it is a frequency. Never
    hertz, whose size would say how high you are. Relative to your own last stop, it says nothing about the target. */
@@ -2806,7 +2889,7 @@ function showTurn(){
   if (!trial || trial.task !== 'find' || phase !== 'listening') return;
   const here = trial.w.pts[deckPos(trial).i], d = here - trial.ref;
   trial.ref = here;
-  if (Math.abs(d) > 1e-9) $('sub').innerHTML = `<span class="turn">${turnTxt(d)}</span>`;
+  if (Math.abs(d) > 1e-9) $('tuneMovement').textContent = turnTxt(d);
 }
 function nudge(du){
   if (!canAdjust()) return;
@@ -2818,16 +2901,6 @@ function nudge(du){
   if (sineFind() && (after.i !== before.i || Math.abs(after.g - before.g) > 0.01)) sineFollow();
   armIdle();
 }
-// The record turns at 33⅓ rpm while the tone plays. That spin is decoration; only your hand changes the pitch.
-function deckLoop(now){
-  deckRaf = 0;
-  if (!(screen === 'train' && trial && trial.task === 'find' && phase === 'listening')) return;
-  const dt = Math.min(0.05, (now - deckLast) / 1000); deckLast = now;
-  if (audioState === 'adjust' && !$('pad').classList.contains('active')) spin(200 * dt);
-  deckRaf = requestAnimationFrame(deckLoop);
-}
-function startDeck(){ if (!deckRaf && !reduceMotion.matches) { deckLast = performance.now(); deckRaf = requestAnimationFrame(deckLoop); } }
-
 /* ---------- controls ---------- */
 $('startBtn').addEventListener('click', () => startRound());
 $('sumNext').addEventListener('click', () => lastRound && lastRound.share ? shareDaily(lastRound.share, $('sumNext')) : nextRound());   // after the day's first daily: share
@@ -2888,9 +2961,7 @@ function onKey(e){                                 // buttons and piano keys: an
   b.classList.add('on');
 }
 $('choices').addEventListener('click', onKey);
-function renderSteps(){ const big = settings.bigSteps !== false; $('stepSwitch').setAttribute('aria-checked', String(big)); $('stepSwitch').setAttribute('aria-label', big ? 'Big steps' : 'Small steps'); }
-$('stepSwitch').addEventListener('click', () => { settings.bigSteps = settings.bigSteps === false; saveSettings(); renderSteps(); });
-renderSteps();
+
 $('viewToggle').addEventListener('click', () => {               // buttons ⇄ keyboard, for this question and from now on
   if (!trial || !CHOICE_TASKS.includes(trial.task)) return;
   const keys = trial.style !== 'roll';
@@ -2937,21 +3008,21 @@ $('playBtn').addEventListener('animationend', e => { if (e.animationName === 'po
 let holdTimer = null;
 const stopHold = () => { clearTimeout(holdTimer); holdTimer = null; };
 document.querySelectorAll('#adjust .arr').forEach(b => {
-  const d = +b.dataset.d, kick = Math.sign(d) * (Math.abs(d) > COARSE ? 48 : Math.abs(d) > 1 ? 24 : 6);   // the record turns the way a drag would
+  const d = +b.dataset.d;
   b.addEventListener('mousedown', e => e.preventDefault());               // keep keyboard focus where it was
   b.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     e.preventDefault();
     try { b.setPointerCapture(e.pointerId); } catch(err) {}
-    if (canAdjust()) { hush(); spin(kick); sfx('tick'); }                  // the note stops at once
+    if (canAdjust()) { hush(); sfx('tick'); }                  // the note stops at once
     nudge(d);
     stopHold();
     let n = 0;
-    const rep = delay => { holdTimer = setTimeout(() => { n++; const m = n > 25 ? 4 : n > 10 ? 2 : 1; if (canAdjust()) { spin(kick); sfx('tick'); } nudge(d * m); rep(70); }, delay); };
+    const rep = delay => { holdTimer = setTimeout(() => { n++; const m = n > 25 ? 4 : n > 10 ? 2 : 1; if (canAdjust()) { sfx('tick'); } nudge(d * m); rep(70); }, delay); };
     rep(320);                                                             // hold to keep moving, speeding up
   });
   ['pointerup','pointercancel','lostpointercapture'].forEach(ev => b.addEventListener(ev, () => { if (holdTimer) { stopHold(); soundSoon(SETTLE); } }));   // a new note after a short pause
-  b.addEventListener('click', e => { if (e.detail === 0 && canAdjust()) { spin(kick); nudge(d); soundSoon(SETTLE); } });   // keyboard activation
+  b.addEventListener('click', e => { if (e.detail === 0 && canAdjust()) { nudge(d); soundSoon(SETTLE); } });   // keyboard activation
 });
 // Turntable input, shared by Find and the Lab: drag in circles (clockwise is up) or scroll on it.
 function bindDeck(deck, record, h){
@@ -2986,17 +3057,53 @@ function bindDeck(deck, record, h){
     h.wheel(e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1));
   }, {passive: false});
 }
-let turned = false, turnAcc = 0;                                 // the record has moved since the finger came down; turn since the last tick
-bindDeck($('pad'), $('record'), {
+/* Lock each swipe to its first direction, so small sideways corrections never become large jumps. */
+function bindTunePad(pad, h){
+  let drag = null;
+  const end = e => {
+    if (!drag || e && e.pointerId !== drag.id) return;
+    const moved = drag.moved; drag = null;
+    pad.classList.remove('active');
+    if (moved) h.release?.();
+  };
+  pad.addEventListener('pointerdown', e => {
+    if (!h.can() || drag || e.isPrimary === false || e.button > 0) return;
+    e.preventDefault();
+    drag = {id: e.pointerId, x: e.clientX, y: e.clientY, axis: null, moved: false};
+    try { pad.setPointerCapture(e.pointerId); } catch(err) {}
+    pad.classList.add('active'); h.grab?.();
+  });
+  pad.addEventListener('pointermove', e => {
+    if (!drag || drag.id !== e.pointerId) return;
+    if (!h.can()) return end();
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.axis) {
+      if (Math.hypot(dx, dy) < 6) return;
+      drag.axis = Math.abs(dy) > Math.abs(dx) ? 'large' : 'small';
+    }
+    const change = drag.axis === 'large' ? -dy * 2 : dx * 0.2;
+    drag.x = e.clientX; drag.y = e.clientY;
+    if (change) { drag.moved = true; h.move(change); }
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(type => pad.addEventListener(type, end));
+  pad.addEventListener('wheel', e => {
+    if (!h.can()) return;
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const change = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX * 0.2 : -e.deltaY * (e.shiftKey ? 0.2 : 2);
+    h.grab?.(); h.move(change * unit); h.release?.();
+  }, {passive: false});
+}
+bindTunePad($('pad'), {
   can: canAdjust,
-  grab: () => { showTip(false); turned = false; },
-  turn: da => { if (!turned) { turned = true; hush(); } spin(da * 180 / Math.PI); nudge(settings.bigSteps === false ? da * 9 : da * 40 * (1 + Math.min(3, Math.abs(da) * 12))); if ((turnAcc += Math.abs(da)) > 0.52) { turnAcc = 0; sfx('tick'); } },   // small steps: a quarter as far, no speed-up
-  release: () => { if (turned) soundSoon(0.05); turned = false; },
-  wheel: px => { spin(-px * 0.15); nudge(-px * (settings.bigSteps === false ? 0.015 : 0.06)); soundSoon(SETTLE); sfx('tick'); },
+  grab: () => showTip(false),
+  move: du => { hush(); nudge(du); soundSoon(0.04); },
+  release: () => soundSoon(0.05),
 });
 
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (introActive) { if (e.key === 'Escape') { e.preventDefault(); cancelCountIn(); } return; }
   const inField = e.target.closest('input, select, textarea'), onButton = e.target.closest('button');
   if (!$('ltSheet').hidden) { if (e.key === 'Escape') closeLTSheet(); return; }
   if (!$('toneSheet').hidden) { if (e.key === 'Escape') closeToneSheet(); return; }
@@ -3004,9 +3111,9 @@ document.addEventListener('keydown', e => {
   if (screen !== 'train' || !round || !trial) return;
   if (e.key === 'Escape') { if (!$('findTip').hidden) showTip(false); else $('quitBtn').click(); return; }
   if (trial.task === 'find' && phase === 'listening' && !inField) {
-    const step = e.shiftKey ? COARSE : 1;
-    const map = {ArrowUp: step, ArrowDown: -step, PageUp: OCT, PageDown: -OCT};   // shift+arrow: a half step; page keys: an octave
-    if (e.key in map) { e.preventDefault(); if (canAdjust()) { spin(Math.sign(map[e.key]) * (Math.abs(map[e.key]) > 1 ? 24 : 6)); sfx('tick'); } nudge(map[e.key]); soundSoon(SETTLE); return; }
+    const fine = e.shiftKey ? COARSE : 1;
+    const map = {ArrowUp: COARSE, ArrowDown: -COARSE, ArrowRight: fine, ArrowLeft: -fine, PageUp: OCT, PageDown: -OCT};
+    if (e.key in map) { e.preventDefault(); if (canAdjust()) { sfx('tick'); } nudge(map[e.key]); soundSoon(SETTLE); return; }
     if (e.key === 'Enter' && !onButton) { e.preventDefault(); lockIn(); return; }
   }
   if ((trial.task === 'type' || trial.task === 'card') && phase === 'listening' && !inField) {
@@ -3082,14 +3189,14 @@ function renderStatus(){
 }
 function howto(){                                               // one short line on what to do; none once answered
   if (!trial || phase !== 'listening') return '';
-  if (trial.task === 'preview') return 'This round’s target. Listen, then start';
+  if (trial.task === 'preview') return 'Listen to the target';
   if (round.practice) return trial.task === 'card'
     ? trial.side === 'hz' ? 'Practice: type this note’s frequency' : 'Practice: type this frequency’s note'
     : round.retune ? 'Re-tune: find the target once more to finish' : round.practiceGoal === 2 ? 'Practice: get two correct pitch answers in a row' : 'Practice: find the target once to finish';
   if (trial.echo) return trial.heard ? 'Tune back to the tone you heard' : 'Listen';
   if (trial.task === 'card') return trial.side === 'hz' ? 'What frequency is this note?' : 'What note is this frequency?';
   const notes = trial.show ? trial.show === 'note' : noteOnly(levelOf(), trial.task);
-  if (trial.task === 'find') return `Tune until the playing tone matches this target ${notes ? 'note' : 'frequency'}`;
+  if (trial.task === 'find') return 'Tune to the target';
   if (trial.task === 'type') return 'Type the frequency you hear';
   return notes ? 'Name the note you hear' : 'Name the frequency you hear';
 }
@@ -3142,6 +3249,8 @@ function render(){
   $('dots').innerHTML = marks.map(cls => `<i class="${cls}"></i>`).join('');
 
   const orb = $('playBtn'), sub = $('sub');
+  $('scr-train').dataset.task = task;
+  sub.hidden = !!round.ladder && phase === 'revealed';
   if (card) {                                                            // front: the note or the frequency; back: the other, and other tunings
     const back = phase === 'revealed', hz = trial.side === 'hz', showHz = back ? hz : !hz;
     orb.dataset.revealed = back ? '1' : '0'; orb.dataset.hidden = '0';
@@ -3157,6 +3266,7 @@ function render(){
     $('bigVal').textContent = notes ? noteName(last.f) : fmtFreq(last.f);
     $('bigUnit').textContent = notes ? '' : both ? `Hz · ${noteName(last.f)}` : 'Hz';
     $('guessVal').textContent = notes ? (find && last.g !== last.f ? noteCents(last.g) : noteName(last.g)) : fmtFreq(last.g);   // your answer, under the target
+    if (round.ladder) $('guessVal').textContent = '';
     fitNum($('bigVal'), 50); fitNum($('guessVal'), 40);
     sub.innerHTML = last.echo ? `<span class="ratio">${centsTxt(last.cents)}</span><span class="pts">${last.pts}<small>pts</small></span>`
       : last.lt ? `<span class="ratio">${centsTxt(last.cents)}</span>`
@@ -3186,7 +3296,8 @@ function render(){
   $('guessUnit').textContent = noteCard ? '' : 'Hz';
   input.setAttribute('aria-label', noteCard ? 'Your answer, a note' : 'Your answer in hertz');
   $('after').querySelector('.pair').hidden = card || preview;             // nothing to compare after a card, or before a round
-  $('adjust').hidden = !find || phase === 'revealed';
+  $('adjust').hidden = !find || phase === 'revealed' || trial.echo && !trial.heard;
+  if (find && phase === 'listening' && !trial.mv) $('tuneMovement').textContent = 'Swipe to tune';
   if (roll) { renderRoll(L); if (phase === 'revealed' && !last.ok) showActualKey(); }
   else if (task === 'pick' || task === 'notes') renderChoices(L, task);
   else if (task === 'piano') renderPiano(L);
@@ -3207,7 +3318,6 @@ function render(){
   renderStatus();
   if (phase === 'revealed' && !card) drawStrip(L);
   startWave();
-  if (find && phase === 'listening') startDeck();
 }
 const fitNum = (el, px) => { const n = el.textContent.length; el.style.fontSize = n > 5 ? `${Math.round(px * 5.5 / n)}px` : ''; };   // long numbers shrink to fit the orb
 

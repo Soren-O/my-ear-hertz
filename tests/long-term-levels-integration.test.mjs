@@ -15,8 +15,8 @@ function app(tone = LTLevels.createTone(1047, at)) {
   vm.runInContext(`
     let lt = {on: true, tones: [initialTone], checks: []}, round = null, trial = null, last = null, lastRound = null, phase = 'idle';
     let ltSessionTone = null, ltPulseTimer = null, ltWake = null, ltWakeToken = 0, timers = [], ctx = {currentTime: 0}, calls = [], saved = null;
-    const SINE = {id: 'sine'}, input = {blur() {}}, elements = new Map();
-    const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: false, textContent: ''}); return elements.get(id); };
+    const SINE = {id: 'sine'}, input = {blur() {}}, elements = new Map(), reduceMotion = {matches:true};
+    const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: false, textContent: '', dataset:{}, style:{}}); return elements.get(id); };
     const setInterval = () => 1, clearInterval = () => {}, setTimeout = (fn, delay) => { calls.push(['timer', delay]); return 1; };
     const saveLT = () => { saved = JSON.stringify(lt); }, ltSchedule = () => {};
     const ltArm = () => null, noteName = () => 'C6', fmtSpan = n => n / 60000 + ' min';
