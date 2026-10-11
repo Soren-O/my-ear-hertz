@@ -574,9 +574,9 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .best-list .top .num{color:var(--gold)}
 .best-list small{color:var(--muted);font-size:12.5px}
 /* Tuning: large vertical swipes, small horizontal corrections, and distinct timed phases. */
-.swipe-hint{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding-block:18px;text-align:center}
-.swipe-hint p{font-size:18px;color:var(--ink)}
-.swipe-hint small{font-size:15px;color:var(--muted)}
+.swipe-hint{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding-block:18px;text-align:center;color:color-mix(in oklab,var(--ink) 48%,var(--bg))}
+.swipe-hint p{font-size:14px;font-weight:350;letter-spacing:.07em;line-height:1.6}
+.swipe-hint small{font-size:12px;letter-spacing:.04em;color:inherit}
 body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:none;cursor:move}
 #adjust[data-off="1"] .swipe-hint{opacity:.45}
 .phase-display{display:grid;place-items:center}
@@ -870,8 +870,8 @@ img{max-width:100%}
     </form>
     <div class="adjust" id="adjust" hidden>
       <div class="swipe-hint" id="pad">
-        <p>↕ Large changes</p>
-        <p>↔ Small changes</p>
+        <p>Swipe up or down for larger changes</p>
+        <p>Swipe left or right for finer changes</p>
         <small id="tuneMovement" aria-live="polite">Swipe anywhere to tune</small>
       </div>
       <div class="tip" id="findTip" role="dialog" aria-label="Tip" hidden>
