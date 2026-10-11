@@ -577,7 +577,7 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .best-list .top .num{color:var(--gold)}
 .best-list small{color:var(--muted);font-size:12.5px}
 /* Tuning: large vertical swipes, small horizontal corrections, and distinct timed phases. */
-.tune-pad{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;width:100%;height:clamp(140px,23svh,195px);overflow:hidden;border:1px solid var(--line-hi);border-radius:24px;background:color-mix(in oklab,var(--teal) 4%,var(--surface));touch-action:none;user-select:none;-webkit-user-select:none;cursor:move}
+.tune-pad{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;width:100%;height:clamp(170px,28svh,240px);overflow:hidden;border:1px solid var(--line-hi);border-radius:24px;background:color-mix(in oklab,var(--teal) 4%,var(--surface));touch-action:none;user-select:none;-webkit-user-select:none;cursor:move}
 .tune-pad.active{border-color:var(--teal);background:var(--sel-bg)}
 .tune-pad p{position:relative;font-size:18px;color:var(--ink)}
 .tune-pad small{position:relative;font-size:15px;color:var(--muted)}
@@ -585,8 +585,6 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .tune-wave path{fill:none;stroke:currentColor;stroke-width:1.4;vector-effect:non-scaling-stroke}
 .tune-wave path:last-child{opacity:.35}
 .tune-pad .tune-wave{position:absolute;inset:calc(50% - 40px) 0;opacity:.2}
-#adjust .arrows{grid-template-columns:repeat(4,minmax(0,1fr))}
-#adjust .arr{height:46px}
 #adjust[data-off="1"] .tune-pad{opacity:.45;cursor:default}
 .phase-wave{display:grid;place-items:center;width:min(80vw,360px);height:180px}
 .phase-wave .tune-wave{height:120px;animation:phase-breathe 2s ease-in-out infinite}
@@ -692,7 +690,7 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
   #scr-train[data-ladder="1"] .train-body:has(#adjust:not([hidden])){display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center}
   #scr-train[data-ladder="1"] .stage{gap:16px;padding-block:8px}
   #adjust{grid-template-columns:minmax(0,340px) minmax(0,340px)}
-  #adjust .tune-pad{grid-row:1 / span 2;height:clamp(130px,38vh,230px)}
+  #adjust .tune-pad{height:clamp(130px,38vh,230px)}
 }
 @media (orientation: landscape) and (max-height: 540px){
   .app{padding-top:4px}
@@ -871,14 +869,8 @@ img{max-width:100%}
       </div>
       <div class="tip" id="findTip" role="dialog" aria-label="Tip" hidden>
         <button class="tip-x" id="tipClose" type="button" aria-label="Close tip">×</button>
-        <p>Swipe up or down for large pitch changes. Swipe left or right for small changes. Arrow keys work too.</p>
+        <p>Swipe up or down for large pitch changes. Swipe left or right for small changes.</p>
         <label class="tip-check"><input type="checkbox" id="tipNever"> Don't show again</label>
-      </div>
-      <div class="arrows" aria-label="Pitch adjustment buttons">
-        <button class="arr" type="button" data-d="-20" aria-label="Lower a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5l6 6 6-6M6 12l6 6 6-6"/></svg></button>
-        <button class="arr" type="button" data-d="-1" aria-label="Lower a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
-        <button class="arr" type="button" data-d="1" aria-label="Raise a little"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
-        <button class="arr" type="button" data-d="20" aria-label="Raise a semitone"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12l6-6 6 6M6 19l6-6 6 6"/></svg></button>
       </div>
       <button class="cta" id="lockBtn" type="button">Lock in</button>
     </div>
@@ -1078,7 +1070,7 @@ img{max-width:100%}
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
-      <p>Swipe up or down in the tuning area for large pitch changes, or left and right for small corrections. Your swipe keeps its starting direction until you lift your finger. The arrow buttons and keyboard work too: up/down change a semitone, left/right change 5 cents, and Page Up/Down change an octave.</p>
+      <p>Swipe up or down in the tuning area for large pitch changes, or left and right for small corrections. Your swipe keeps its starting direction until you lift your finger.</p>
       <p>On an instrument, pausing or releasing a swipe plays the new pitch. A sine tone follows your movement continuously. Within a quarter tone passes. The pitch starts at random within a random range, so the screen never gives away how far you are from the target. The first one-tone rounds play the target once before you start.</p>
       <h2>Instruments</h2>
       <p>Every tone in a round plays on the instrument in your profile, or as a pure sine wave. Recordings are retuned to the exact number; between notes, the two nearest recordings are retuned and blended, on a grid shifted at random every question, so the sound never marks where the notes are. If your instrument can’t play every tone a round might use, that round is on piano.</p>
@@ -1242,7 +1234,7 @@ function stepsFor(T){
 const LEVELS = TIERS.flatMap((T, ti) => stepsFor(T).map(S => Object.assign({}, T, S, {tier: ti}, S.only ? {choices: S.only, narrow: true} : {})));
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
 const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
-const ROUND = 10, UP = 10, DOWN = 6, COARSE = 20, OCT = 240;   // 10 a round (was 20): all 10 moves up, 6 or fewer back; record steps: 20 a half step, 240 an octave
+const ROUND = 10, UP = 10, DOWN = 6;   // all 10 moves up, 6 or fewer back
 const TOL = 1/24;      // every answer passes within a quarter tone (±50 cents, about ±2.9%), in octaves: fine enough to
                        // tell which note any tone is nearest. Buttons and keys are a half step or more apart, so only the right one is.
 const lvOf = r => r.lv || LEVELS.length;
@@ -3005,26 +2997,7 @@ $('hearGuess').addEventListener('click', () => hearOne('you'));
 $('lockBtn').addEventListener('click', lockIn);
 $('playBtn').addEventListener('animationend', e => { if (e.animationName === 'pop' || e.animationName === 'shake') e.currentTarget.classList.remove('pop', 'shake'); });
 
-let holdTimer = null;
-const stopHold = () => { clearTimeout(holdTimer); holdTimer = null; };
-document.querySelectorAll('#adjust .arr').forEach(b => {
-  const d = +b.dataset.d;
-  b.addEventListener('mousedown', e => e.preventDefault());               // keep keyboard focus where it was
-  b.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    try { b.setPointerCapture(e.pointerId); } catch(err) {}
-    if (canAdjust()) { hush(); sfx('tick'); }                  // the note stops at once
-    nudge(d);
-    stopHold();
-    let n = 0;
-    const rep = delay => { holdTimer = setTimeout(() => { n++; const m = n > 25 ? 4 : n > 10 ? 2 : 1; if (canAdjust()) { sfx('tick'); } nudge(d * m); rep(70); }, delay); };
-    rep(320);                                                             // hold to keep moving, speeding up
-  });
-  ['pointerup','pointercancel','lostpointercapture'].forEach(ev => b.addEventListener(ev, () => { if (holdTimer) { stopHold(); soundSoon(SETTLE); } }));   // a new note after a short pause
-  b.addEventListener('click', e => { if (e.detail === 0 && canAdjust()) { nudge(d); soundSoon(SETTLE); } });   // keyboard activation
-});
-// Turntable input, shared by Find and the Lab: drag in circles (clockwise is up) or scroll on it.
+// Lab turntable input: drag in circles (clockwise is up) or scroll on it.
 function bindDeck(deck, record, h){
   let drag = null;
   deck.addEventListener('pointerdown', e => {
@@ -3111,9 +3084,6 @@ document.addEventListener('keydown', e => {
   if (screen !== 'train' || !round || !trial) return;
   if (e.key === 'Escape') { if (!$('findTip').hidden) showTip(false); else $('quitBtn').click(); return; }
   if (trial.task === 'find' && phase === 'listening' && !inField) {
-    const fine = e.shiftKey ? COARSE : 1;
-    const map = {ArrowUp: COARSE, ArrowDown: -COARSE, ArrowRight: fine, ArrowLeft: -fine, PageUp: OCT, PageDown: -OCT};
-    if (e.key in map) { e.preventDefault(); if (canAdjust()) { sfx('tick'); } nudge(map[e.key]); soundSoon(SETTLE); return; }
     if (e.key === 'Enter' && !onButton) { e.preventDefault(); lockIn(); return; }
   }
   if ((trial.task === 'type' || trial.task === 'card') && phase === 'listening' && !inField) {
