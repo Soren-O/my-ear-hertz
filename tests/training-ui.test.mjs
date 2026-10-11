@@ -117,10 +117,10 @@ test('vertical and horizontal swipes raise/lower pitch, with ten times the range
   const g=gestures();
   g.event('pointerdown'); g.event('pointermove',{clientY:80}); g.event('pointerup');
   g.event('pointerdown'); g.event('pointermove',{clientX:120}); g.event('pointerup');
-  assert.deepEqual(g.moves,[40,4]);
+  assert.deepEqual(g.moves,[20,2]);
   g.event('pointerdown'); g.event('pointermove',{clientY:120}); g.event('pointerup');
   g.event('pointerdown'); g.event('pointermove',{clientX:80}); g.event('pointerup');
-  assert.deepEqual(g.moves,[40,4,-40,-4]);
+  assert.deepEqual(g.moves,[20,2,-20,-2]);
 });
 
 test('a fine swipe stays fine across diagonal drift, ignores other fingers, and releases on cancellation', () => {
@@ -132,7 +132,7 @@ test('a fine swipe stays fine across diagonal drift, ignores other fingers, and 
   g.event('pointermove',{pointerId:2,clientX:300});
   g.event('pointerup',{pointerId:2});
   g.event('pointermove',{clientX:120,clientY:160});
-  assert.deepEqual(g.moves,[2,2]);
+  assert.deepEqual(g.moves,[1,1]);
   g.event('pointercancel'); assert.equal(g.releases,1);
   g.event('pointermove',{clientX:300}); assert.equal(g.moves.length,2);
 });
@@ -142,14 +142,14 @@ test('a deadline or feedback screen prevents continued pitch changes from a held
   g.event('pointerdown'); g.event('pointermove',{clientY:80});
   g.allow(false); g.event('pointermove',{clientY:60});
   g.event('pointerdown'); g.event('wheel',{deltaY:-10});
-  assert.deepEqual(g.moves,[40]);
+  assert.deepEqual(g.moves,[20]);
 });
 
 test('scroll and trackpad input use the same coarse/fine directions and normalize line scrolling', () => {
   const g=gestures();
   g.event('wheel',{deltaY:-10}); g.event('wheel',{deltaX:10});
   g.event('wheel',{deltaY:-10,shiftKey:true}); g.event('wheel',{deltaY:-1,deltaMode:1});
-  assert.deepEqual(g.moves,[20,2,2,32]);
+  assert.deepEqual(g.moves,[10,1,1,16]);
 });
 
 test('whole-screen swiping leaves buttons and dialogs available for normal taps', () => {
@@ -158,7 +158,7 @@ test('whole-screen swiping leaves buttons and dialogs available for normal taps'
   g.event('pointerdown',{target}); g.event('pointermove',{clientY:20}); g.event('pointerup');
   assert.deepEqual(g.moves,[]);
   g.event('pointerdown',{target:{closest:()=>null}}); g.event('pointermove',{clientY:80}); g.event('pointerup');
-  assert.deepEqual(g.moves,[40]);
+  assert.deepEqual(g.moves,[20]);
 });
 
 test('text fades finish the old label before revealing the new one, without restarting on clock ticks', () => {

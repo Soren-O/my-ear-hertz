@@ -3189,7 +3189,7 @@ function bindTunePad(pad, h){
       if (Math.hypot(dx, dy) < 6) return;
       drag.axis = Math.abs(dy) > Math.abs(dx) ? 'large' : 'small';
     }
-    const change = drag.axis === 'large' ? -dy * 2 : dx * 0.2;
+    const change = drag.axis === 'large' ? -dy : dx * 0.1;
     drag.x = e.clientX; drag.y = e.clientY;
     if (change) { drag.moved = true; h.move(change); }
   });
@@ -3198,7 +3198,7 @@ function bindTunePad(pad, h){
     if (!h.can() || e.target?.closest?.('button, input, select, textarea, a, [role="dialog"]')) return;
     e.preventDefault();
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
-    const change = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX * 0.2 : -e.deltaY * (e.shiftKey ? 0.2 : 2);
+    const change = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX * 0.1 : -e.deltaY * (e.shiftKey ? 0.1 : 1);
     h.grab?.(); h.move(change * unit); h.release?.();
   }, {passive: false});
 }
