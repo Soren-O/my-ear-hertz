@@ -9,6 +9,8 @@ Still in beta.
 The app's UI is `index.html`; `long-term-levels.js` owns the per-note level and daily-check state. `sounds/` holds the instrument recordings, one file per instrument,
 loaded only when that instrument is used; `tools/make_sounds.py` rebuilds them.
 
+Icon artwork is in `icon.svg`, with PNG exports for the iPhone Home Screen and a smaller mark in `favicon.svg`. Android uses matching vector artwork in `android/app/src/main/res/drawable/`.
+
 Instrument sounds: [FluidR3 GM SoundFont](https://github.com/gleitz/midi-js-soundfonts) by Frank Wen,
 [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/), as rendered by gleitz/midi-js-soundfonts.
 Changed here: cut to short mono clips, faded, level-matched, and retuned on playback to each note's measured pitch.
