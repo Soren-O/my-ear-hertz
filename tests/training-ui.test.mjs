@@ -272,18 +272,19 @@ test('waves start identically at random guesses and follow only changes to the g
   ui.setGuess(400); ui.sync(); assert.ok(ui.scale>1);
   ui.setGuess(100); ui.sync(); assert.ok(ui.scale<1);
   ui.newTrial(5000); ui.sync(); assert.equal(ui.scale,1);
-  ui.setGuess(10000); ui.sync(); assert.equal(ui.scale,Math.pow(2,.35));
+  ui.setGuess(10000); ui.sync(); assert.equal(ui.scale,Math.pow(2,.18));
   ui.paint(1.2); ui.reveal(); ui.sync();
-  assert.equal(ui.scale,Math.pow(2,.35)); assert.equal(ui.paintedScale,1.2);
+  assert.equal(ui.scale,1.2); assert.equal(ui.paintedScale,1.2);
   ui.newTrial(3000); ui.sync(); assert.equal(ui.scale,1); assert.equal(ui.paintedScale,1.2);
 });
 
 test('ordinary rounds keep finite background waves and random-note phases turn the fuzz on and off', () => {
-  const context=vm.createContext({reduceMotion:{matches:false},document:{hidden:false},requestAnimationFrame:()=>1});
+  const frames=[], context=vm.createContext({reduceMotion:{matches:false},document:{hidden:false},requestAnimationFrame:()=>1,
+    clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),drawBand:t=>frames.push(t)});
   vm.runInContext(`
-    let screen='train', round={}, audioState='adjust', bandRaf=0, bandLast=0, bandPitch=1, bandTargetPitch=1, bandFuzz=0;
-    const drawBand=()=>{}, $=()=>({dataset:{stage:'tune'}});
-    ${section('function bandLoop(now)', 'function drawBand(now)')}
+    let screen='train', phase='listening', round={}, audioState='adjust', bandRaf=0, bandLast=0, bandTime=0, bandPitch=1, bandTargetPitch=1, bandFuzz=0;
+    const $=()=>({dataset:{stage:'tune'}});
+    ${section('function updateBandMotion(', 'function drawBand(now)')}
     globalThis.ui={frame:bandLoop,setState(s){audioState=s;},get fuzz(){return bandFuzz;}};
   `,context);
   context.ui.frame(100); assert.equal(context.ui.fuzz,0);
@@ -291,6 +292,71 @@ test('ordinary rounds keep finite background waves and random-note phases turn t
   const fuzzy=context.ui.fuzz;
   context.ui.setState('idle'); context.ui.frame(300); assert.ok(context.ui.fuzz<fuzzy);
   assert.ok(Number.isFinite(context.ui.fuzz));
+  const before=frames.at(-1);
+  context.ui.frame(10000);
+  assert.ok(frames.at(-1)-before<=80.000001, 'a resumed frame advances the flowing waves gently instead of jumping to wall-clock time');
+});
+
+function waveMotion() {
+  const context=vm.createContext({clamp:(v,a,b)=>Math.max(a,Math.min(b,v))});
+  vm.runInContext(`let bandPitch=1,bandTargetPitch=1,bandFuzz=0,bandTime=0;
+    ${section('function updateBandMotion(', 'function bandLoop(now)')}
+    globalThis.ui={step:updateBandMotion,target(v){bandTargetPitch=v;},get pitch(){return bandPitch;},get fuzz(){return bandFuzz;},get time(){return bandTime;}};`,context);
+  return context.ui;
+}
+
+test('large wavelength changes and a new question reset have a bounded speed without overshooting', () => {
+  const waves=waveMotion(); waves.target(1.6);
+  for (let i=0;i<150;i++) {
+    const before=waves.pitch, dt=[1/60,1/30,1/15][i%3]; waves.step(dt,false);
+    assert.ok(waves.pitch>=before && waves.pitch<1.6);
+    assert.ok(waves.pitch-before<=.2*dt+1e-12);
+  }
+  assert.ok(waves.pitch>1.59);
+  waves.target(1);
+  for (let i=0;i<150;i++) {
+    const before=waves.pitch; waves.step(1/30,false);
+    assert.ok(waves.pitch<=before && waves.pitch>1);
+    assert.ok(before-waves.pitch<=.2/30+1e-12);
+  }
+  assert.ok(waves.pitch<1.02);
+});
+
+test('small wavelength changes and fuzzy texture ease over seconds consistently across frame rates', () => {
+  const thirty=waveMotion(), sixty=waveMotion(); thirty.target(1.08); sixty.target(1.08);
+  for(let i=0;i<9;i++)thirty.step(1/30,true);
+  for(let i=0;i<18;i++)sixty.step(1/60,true);
+  assert.ok(thirty.pitch>1 && thirty.pitch<1.04, 'the waves are still easing after the old quarter-second transition');
+  assert.ok(thirty.fuzz>0 && thirty.fuzz<.4);
+  assert.ok(Math.abs(thirty.pitch-sixty.pitch)<1e-12);
+  assert.ok(Math.abs(thirty.fuzz-sixty.fuzz)<1e-12);
+  for(let i=0;i<72;i++)thirty.step(1/30,true);
+  assert.ok(thirty.pitch>1.077 && thirty.pitch<1.08);
+  assert.ok(thirty.fuzz>.97);
+  const fuzzy=thirty.fuzz; thirty.step(.3,false);
+  assert.ok(thirty.fuzz>fuzzy*.6 && thirty.fuzz<fuzzy);
+});
+
+test('answer transitions and replay hold the visible wavelength and lateral phase; random notes can animate again', () => {
+  const waves=waveMotion(); waves.target(1.6); waves.step(.08,false);
+  const pitch=waves.pitch,time=waves.time;
+  for(let i=0;i<90;i++)waves.step(1/30,false,true);
+  assert.equal(waves.pitch,pitch); assert.equal(waves.time,time);
+  waves.step(1/30,true,false);
+  assert.ok(waves.time>time); assert.ok(waves.fuzz>0);
+});
+
+test('wavelength changes hold the middle of every strand in place', () => {
+  const middles=[];
+  const ctx={clearRect(){},beginPath(){},moveTo(){},lineTo(x,y){if(x===195)middles.push(y);},stroke(){}};
+  const context=vm.createContext({band:{width:390,height:844,getContext:()=>ctx},settings:{light:false},reduceMotion:{matches:false}});
+  vm.runInContext(`let bandPitch=1,bandFuzz=0;
+    ${section('function drawBand(now)', "document.addEventListener('visibilitychange', () => { if (!document.hidden) placeBand();")}
+    globalThis.ui={draw:drawBand,pitch(v){bandPitch=v;}};`,context);
+  context.ui.draw(1234); const before=middles.splice(0);
+  context.ui.pitch(1.6); context.ui.draw(1234);
+  assert.equal(before.length,15);
+  assert.deepEqual(middles,before);
 });
 
 test('the shared note display hides Echo targets until submission and offers both answer replays afterward', () => {

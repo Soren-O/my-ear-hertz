@@ -190,6 +190,12 @@ p{margin:0}
 .progress i.cur{background:var(--ink);animation:blink 1.4s ease-in-out infinite}
 @keyframes blink{50%{opacity:.3}}
 .count{font-family:var(--font-num);font-size:13px;color:var(--muted);min-width:42px;text-align:right;font-variant-numeric:tabular-nums}
+.train-track{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px}
+.train-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-block:8px}
+.train-stat{display:flex;align-items:baseline;gap:8px;min-width:0}
+.train-stat:last-child{justify-content:flex-end;text-align:right}
+.train-stat strong{font-family:var(--font-num);font-size:22px;font-weight:400;line-height:1.1;font-variant-numeric:tabular-nums}
+.train-stat span{font-size:11px;font-weight:400;line-height:1.3;color:var(--muted);max-width:12ch}
 .confirm-bar{display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--line-hi);border-radius:18px;padding:14px 16px;font-size:14px}
 .confirm-bar div{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .confirm-bar .cta{padding:11px;font-size:14px}
@@ -755,7 +761,7 @@ img{max-width:100%}
     </div>
 
     </div><div class="half">
-    <button class="cta" id="startBtn" type="button">Start round</button>
+    <button class="cta" id="startBtn" type="button">Start training</button>
 
     <div class="card">
       <div class="card-head"><span class="label">This week</span><span id="weekTotal"></span></div>
@@ -813,7 +819,13 @@ img{max-width:100%}
   <section class="screen" id="scr-train" aria-label="Training" hidden>
     <header class="topbar train-top">
       <button class="icon" id="quitBtn" type="button" aria-label="End round"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-      <div class="progress" id="dots" aria-hidden="true"></div>
+      <div class="train-track">
+        <div class="train-stats" id="trainStats" hidden>
+          <div class="train-stat"><strong id="trainCurrent">0</strong><span>Current streak</span></div>
+          <div class="train-stat"><strong id="trainBest">0</strong><span id="trainBestLabel">10 to unlock next level</span></div>
+        </div>
+        <div class="progress" id="dots" aria-hidden="true"></div>
+      </div>
       <span class="count" id="trCount">1/20</span>
     </header>
     <div class="challenge-heading" id="ltChallengeHeading" hidden>
@@ -822,7 +834,7 @@ img{max-width:100%}
     </div>
     <p class="howto" id="howto" aria-live="polite"></p>
     <div class="confirm-bar" id="quitConfirm" hidden>
-      <span>End round?</span>
+      <span id="quitPrompt">End round?</span>
       <div><button class="ghost" id="quitYes" type="button">End</button><button class="cta" id="quitNo" type="button">Keep going</button></div>
     </div>
 
@@ -1022,7 +1034,6 @@ img{max-width:100%}
     <p class="label group-label">Level</p>
     <div class="list" id="levelSeg"></div>
     <div class="list">
-      <label class="row"><span class="row-main"><b>Auto level</b></span><input type="checkbox" class="switch" id="optAuto"></label>
       <label class="row"><span class="row-main"><b>Find tip</b></span><input type="checkbox" class="switch" id="optTip"></label>
     </div>
 
@@ -1076,7 +1087,7 @@ img{max-width:100%}
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
       <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After each pitch answer, the correct tone plays once. Use Actual to replay the target or My guess to hear your answer. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
-      <p>A perfect 10 of 10 moves you up a step; 6 or fewer moves you back one.</p>
+      <p>Train for as long as you like. Ten correct answers in a row unlock the next step; a miss resets the streak to zero. Your streak is saved when you leave, and unlocked steps stay open. Choose another step from Train whenever you’re ready.</p>
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
@@ -1248,7 +1259,8 @@ function stepsFor(T){
 const LEVELS = TIERS.flatMap((T, ti) => stepsFor(T).map(S => Object.assign({}, T, S, {tier: ti}, S.only ? {choices: S.only, narrow: true} : {})));
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
 const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
-const ROUND = 10, UP = 10, DOWN = 6;   // all 10 moves up, 6 or fewer back
+const ROUND = 10, UP = 10;   // historical round size and unlock threshold
+const TRAIN_GOAL = 10;
 const TOL = 1/24;      // every answer passes within a quarter tone (±50 cents, about ±2.9%), in octaves: fine enough to
                        // tell which note any tone is nearest. Buttons and keys are a half step or more apart, so only the right one is.
 const lvOf = r => r.lv || LEVELS.length;
@@ -1257,7 +1269,7 @@ const levelTitle = lv => `${LEVELS[lv-1].name} · ${LEVELS[lv-1].short}`;
 const divHue = di => (25 + 275 * di / DIVISIONS.length).toFixed(1);
 
 // Progress restarted under new keys when this level ladder arrived (2026-10-03); sound settings carry over.
-const DEFAULTS = {dur:5, match:true, rove:true, noise:true, notes:true, auto:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false, wake:'07:00', bed:'22:00'};
+const DEFAULTS = {dur:5, match:true, rove:true, noise:true, notes:true, level:1, hiTrim:-6, instrument:'piano', answer:'keys', name:'', sfx:true, light:false, wake:'07:00', bed:'22:00'};
 const carried = store.get('hbe2.settings', {}) || {};
 let settings = Object.assign({}, DEFAULTS,
   Object.fromEntries(['dur','match','rove','auto','hiTrim'].filter(k => k in carried).map(k => [k, carried[k]])),
@@ -1311,6 +1323,22 @@ const saveSettings = () => store.set('hbe3.settings', settings);
 // settings.top: the highest level reached; only levels up to it can be picked. A future ladder change must map it too.
 if (!settings.top) settings.top = Math.max(1, ...rounds.map(r => r.lv && (r.ch === 'up' || r.score >= UP) ? r.lv + 1 : r.lv || 1));   // 2026-10-08: from rounds played so far
 settings.top = Math.min(LEVELS.length, Math.max(settings.top, settings.level));
+for (const key of ['trainStreaks', 'trainBest', 'trainCleared']) {
+  if (!settings[key] || typeof settings[key] !== 'object' || Array.isArray(settings[key])) settings[key] = {};
+}
+// Recover measured best streaks from saved training answers without counting long-term correction practice.
+if (!settings.trainStatsVersion) {
+  const streaks = {}, practice = new Set(rounds.filter(r => r.p).map(r => r.id));
+  for (const r of history) {
+    if (!r.lv || practice.has(r.rd)) continue;
+    streaks[r.lv] = r.ok ? (streaks[r.lv] || 0) + 1 : 0;
+    settings.trainBest[r.lv] = Math.max(Number(settings.trainBest[r.lv]) || 0, streaks[r.lv]);
+  }
+  for (const r of rounds) if (r.lv && !r.p && r.score === r.n && r.n > 0) {
+    settings.trainBest[r.lv] = Math.max(Number(settings.trainBest[r.lv]) || 0, r.n);
+  }
+  settings.trainStatsVersion = 1;
+}
 saveSettings();
 
 /* ---------- formatting & math ---------- */
@@ -1948,7 +1976,7 @@ function fadeVisibility(el, visible){
   };
 }
 function clearTrainingMotion(){
-  ['ltPitchPair', 'ltChallengeStatus', 'adjust'].forEach(id => {
+  ['ltPitchPair', 'ltChallengeStatus', 'adjust', 'dots', 'trCount'].forEach(id => {
     const el = $(id), phase = phaseFades.get(el), visibility = visibilityFades.get(el);
     phase?.animation?.cancel(); phaseFades.delete(el);
     visibility?.animation?.cancel(); visibilityFades.delete(el);
@@ -2013,6 +2041,30 @@ let round = null, lastRound = null;
 let phase = 'idle', trial = null, last = null;
 const input = $('guessInput');
 const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' && phase === 'listening' && audioState !== 'interfere' && (!trial.echo || trial.heard);
+const trainingStreak = lv => Math.max(0, Math.floor(Number(settings.trainStreaks?.[lv]) || 0));
+const trainingCleared = lv => lv < settings.top || !!settings.trainCleared?.[lv];
+const trainingBest = lv => Math.max(trainingStreak(lv), Number(settings.trainBest?.[lv]) || 0);
+function recordTrainingStreak(rec){
+  if (!round.freeform) return;
+  const lv = round.lv, best = trainingBest(lv), streak = rec.ok ? trainingStreak(lv) + 1 : 0;
+  settings.trainStreaks[lv] = streak;
+  settings.trainBest[lv] = Math.max(best, streak);
+  round.bestStreak = Math.max(round.bestStreak || 0, streak);
+  if (streak === TRAIN_GOAL && !trainingCleared(lv)) {
+    settings.trainCleared[lv] = true;
+    settings.top = Math.max(settings.top, Math.min(LEVELS.length, lv + 1));
+    round.unlockedAt = round.items.length;
+    if (!lt.unlocked && isFindC6(LEVELS[lv - 1])) { lt.unlocked = true; saveLT(); }
+  }
+  saveSettings();
+}
+function saveTrainingSession(){
+  if (!round?.freeform || !round.items.length) return;
+  rounds.push({id: round.id, lv: round.lv, score: round.items.filter(r => r.ok).length,
+    n: round.items.length, t: Date.now(), freeform: 1, bestStreak: round.bestStreak || 0});
+  if (rounds.length > 2000) rounds = rounds.slice(-2000);
+  store.set('hbe3.rounds', rounds);
+}
 
 let introActive = false, introToken = 0, introTimers = [], introFocus = null, introReferencePlaying = false;
 let activeCue = null, cueAnimation = null;
@@ -2116,7 +2168,8 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
       saveLT();
       holdLadderScreen();
     }
-    round = Object.assign({id: Date.now(), lv, items: [], voice: v, echo: echo || null}, extra);
+    round = Object.assign({id: Date.now(), lv, items: [], voice: v, echo: echo || null,
+      freeform: !echo && !extra?.lt && !extra?.practice && !extra?.ladder}, extra);
     $('quitConfirm').hidden = true;
     go('train');
     nextQuestion();
@@ -2202,6 +2255,7 @@ function record(rec){
     store.set('hbe3.history', history);
   }
   round.items.push(rec);
+  if (round.freeform) recordTrainingStreak(rec);
   if (round.lt) saveCheckAnswer(rec);
   else if (round.practiceTone) completeLTPractice();
   last = rec; phase = 'revealed';
@@ -2239,13 +2293,7 @@ function finishRound(){
   stopAll();
   const flow = round.checkFlow, items = flow ? round.items.slice(flow.practiceAt) : round.items;
   const lv = round.lv, score = items.filter(r => r.ok).length, practice = !!round.practice, practiceTone = round.practiceTone;
-  let change = null;
-  if (settings.auto && !practice) {                                      // correction practice moves no training levels
-    if (score >= UP && lv < LEVELS.length) change = {how: 'up', n: lv + 1};
-    else if (score <= DOWN && lv > 1) change = {how: 'down', n: lv - 1};
-    if (change) { settings.level = change.n; saveSettings(); }
-  }
-  if (!practice && score >= UP && lv + 1 > settings.top && lv < LEVELS.length) { settings.top = lv + 1; saveSettings(); }   // opens the next level, auto or not
+  const change = null;
   const sum = {id: round.id, lv, score, n: items.length, t: Date.now(), ch: change ? change.how : null};
   if (practice) { sum.p = 1; if (round.L) sum.pf = round.L.choices[0]; }   // pf: the note practised
   rounds.push(sum);
@@ -2267,10 +2315,6 @@ function finishRound(){
   go('summary');
   sfx('whoosh');
   if (score === sum.n && !reduceMotion.matches) confetti();              // a perfect round
-  if (score === ROUND && !practice && !lt.unlocked && isFindC6(LEVELS[lv - 1])) {   // the first perfect Find C6 opens long-term training
-    lt.unlocked = true; saveLT();
-    setTimeout(openLTSheet, 1400);
-  }
   if (!practice) ltOfferOnce();                                          // passing ♪ Find C5 may be the last step to C5's offer
 }
 /* ---------- Echo: hear a tone, then find it again ----------
@@ -2281,7 +2325,7 @@ const ECHO_N = 5, ECHO_TONE = 2, ECHO_GAP = 0.6;
 const ECHO_L = {name: 'Echo', short: 'Echo', task: 'find', choices: null, wrap: 'both', tier: -1, div: DIVISIONS.length};
 let echoStats = Object.assign({best: null, days: {}, games: []}, store.get('hbe3.echo', {}) || {});
 const levelOf = () => round && round.echo ? ECHO_L : round && round.L ? round.L : LEVELS[(round ? round.lv : settings.level) - 1];
-const roundLen = () => !round ? ROUND : round.ladder ? LTLevels.spec(round.challengeLevel).count || 1 : round.echo ? ECHO_N : round.checkFlow ? round.checkFlow.hasCard ? 3 : 2 : round.lt ? round.ltCard ? 3 : 2 : round.practice ? round.practiceGoal || 1 : ROUND;
+const roundLen = () => !round ? ROUND : round.freeform ? Infinity : round.ladder ? LTLevels.spec(round.challengeLevel).count || 1 : round.echo ? ECHO_N : round.checkFlow ? round.checkFlow.hasCard ? 3 : 2 : round.lt ? round.ltCard ? 3 : 2 : round.practice ? round.practiceGoal || 1 : ROUND;
 const echoPts = cents => Math.max(0, Math.round((10 - Math.abs(cents) / 10) * 10) / 10);
 const centsTxt = c => `${c > 0.5 ? '+' : c < -0.5 ? '−' : '±'}${Math.abs(Math.round(c))}¢`;
 const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -3094,8 +3138,11 @@ $('echoShare').addEventListener('click', () => { const g = countedDaily(todayKey
 function quitRound(){
   if (round?.ladder) return abortLadder();
   stopAll();
+  const trained = !!round?.freeform;
+  if (trained) saveTrainingSession();
   round = null; phase = 'idle'; trial = null; last = null;
   go('home');
+  if (trained) ltOfferOnce();
 }
 function showError(msg){ const e = $('guessErr'); e.textContent = msg; e.hidden = !msg; }
 
@@ -3364,7 +3411,8 @@ function renderHome(){
 function drawLevelRing(){                          // one arc per stage (Cs, C·F♯, …, last), filled by how far along it you are
   const svg = $('levelRing'), S = 300, c = S/2, r = 136, groups = DIVISIONS.length + 1, per = 360 / groups, gap = 7;
   const lr = [...rounds].reverse().find(x => x.lv === settings.level && !x.p);
-  const within = clamp(lr ? lr.score / (lr.n || UP) : 0, 0, 1);          // how close the last round came to moving up (older rounds had 20)
+  const within = trainingCleared(settings.level) ? 1 : settings.trainStreaks[settings.level] != null
+    ? trainingStreak(settings.level) / TRAIN_GOAL : clamp(lr ? lr.score / (lr.n || UP) : 0, 0, 1);
   let s = '';
   for (let g = 0; g < groups; g++) {
     const lvs = LEVELS.map((L, i) => i + 1).filter(n => LEVELS[n-1].div === g);
@@ -3403,11 +3451,27 @@ function renderTrainingHeading(){
     : task === 'card' ? 'RECALL' : audioState === 'interfere' ? 'RANDOM'
     : task === 'preview' || trial.echo && !trial.heard ? 'LISTEN'
     : task === 'find' ? 'FIND' : task === 'type' ? 'GUESS' : 'NAME';
-  $('ltChallengeHeading').hidden = false;
+  $('ltChallengeHeading').hidden = !!round.freeform;
   $('ltChallengeLevel').textContent = round.echo ? 'ECHO' : round.retune ? 'RE-TUNE' : round.practice ? 'PRACTICE' : `LEVEL ${round.lv}`;
   fadeText($('ltChallengeInstruction'), instruction);
   $('listenState').textContent = audioState === 'interfere' ? 'RANDOM' : audioState === 'tone' ? 'LISTEN' : 'REPLAY';
   $('listenAction').textContent = trial.echo ? trial.heard ? 'Swipe anywhere to tune' : 'Remember this tone' : audioState === 'interfere' ? 'Listen after the random sounds' : 'Tap to replay';
+}
+function renderTrainingProgress(){
+  const {n, k, marks, visible = true} = roundProgress(), free = !!round.freeform;
+  $('trainStats').hidden = !free;
+  fadeVisibility($('dots'), visible); fadeVisibility($('trCount'), !free);
+  if (free) {
+    const best = trainingBest(round.lv);
+    $('trainCurrent').textContent = String(k);
+    $('trainBest').textContent = String(best);
+    $('trainBestLabel').textContent = best < TRAIN_GOAL && !trainingCleared(round.lv) ? '10 to unlock next level' : 'Longest streak';
+  }
+  $('trCount').textContent = `${k}/${n}`;
+  $('quitBtn').setAttribute('aria-label', free ? 'End training' : 'End round');
+  $('quitPrompt').textContent = free ? 'End training?' : 'End round?';
+  $('dots').style.gridTemplateColumns = `repeat(${n},minmax(0,1fr))`;
+  $('dots').innerHTML = marks.map(cls => `<i class="${cls}"></i>`).join('');
 }
 function renderTrainingPitches(notes, both){
   if (round.ladder) return;
@@ -3451,6 +3515,11 @@ function howto(){                                               // one short lin
 }
 function updateHowto(){ fadeText($('howto'), howto()); $('howto').classList.remove('off'); }
 function roundProgress(){
+  if (round.freeform) {
+    const streak = trainingStreak(round.lv), showUnlock = phase === 'revealed' && round.unlockedAt === round.items.length;
+    return {n: TRAIN_GOAL, k: streak, visible: !trainingCleared(round.lv) || showUnlock,
+      marks: Array.from({length: TRAIN_GOAL}, (_, i) => i < streak ? 'y' : '')};
+  }
   if (round.ladder) {
     const s = lt.tones.find(t => t.f === round.lt).ladder, n = roundLen();
     const done = s.level === round.challengeLevel ? Math.min(n, s.count) : n;
@@ -3491,12 +3560,9 @@ let renderedTrial = null, renderedPhase = '';
 function render(){
   if (!round || !trial) return;
   updateHowto();
-  const L = levelOf(), task = trial.task, find = task === 'find', card = task === 'card', preview = task === 'preview', n = roundLen();
+  const L = levelOf(), task = trial.task, find = task === 'find', card = task === 'card', preview = task === 'preview';
   const notes = trial.show ? trial.show === 'note' : noteOnly(L, task), both = !trial.show && L.wrap === 'both';   // show: a check's target, as the card had it
-  const {k, marks} = roundProgress();
-  $('trCount').textContent = `${k}/${n}`;
-  $('dots').style.gridTemplateColumns = `repeat(${n},minmax(0,1fr))`;
-  $('dots').innerHTML = marks.map(cls => `<i class="${cls}"></i>`).join('');
+  renderTrainingProgress();
 
   const orb = $('playBtn'), sub = $('sub');
   $('scr-train').dataset.task = task;
@@ -3532,6 +3598,9 @@ function render(){
     $('guessVal').textContent = '';
     fitNum($('bigVal'), 50);
     sub.innerHTML = '';
+  }
+  if (round.freeform && phase === 'revealed' && round.unlockedAt === round.items.length) {
+    sub.textContent = round.lv < LEVELS.length ? 'Next level unlocked' : 'Final level complete';
   }
   $('strip').style.display = phase === 'revealed' && !notes && !card ? '' : 'none';   // the Hz scale stays hidden on note-name steps
 
@@ -4030,7 +4099,7 @@ function renderClear(){
     $('clrYes').onclick = () => {
       history = []; rounds = []; lastRound = null;
       store.set('hbe3.history', history); store.set('hbe3.rounds', rounds);
-      settings.level = 1; settings.top = 1; saveSettings();
+      settings.level = 1; settings.top = 1; settings.trainStreaks = {}; settings.trainBest = {}; settings.trainCleared = {}; saveSettings();
       confirming = false; renderProgress();
     };
     $('clrNo').onclick = () => { confirming = false; renderClear(); };
@@ -4041,7 +4110,7 @@ function renderClear(){
 }
 
 /* ---------- level list: the Levels screen and Settings ----------
-   Levels above settings.top are shown but locked; a perfect round opens the next one. */
+   Levels above settings.top are shown but locked; ten consecutive correct answers open the next one. */
 function levelRows(){
   return TIERS.map((T, ti) => {
     const steps = LEVELS.map((L, i) => [L, i + 1]).filter(([L]) => L.tier === ti);
@@ -4074,7 +4143,7 @@ const installId = (() => {
 const EXPORT_FIELDS = {
   times: 'Every t (and due, last, started) is milliseconds since 1970-01-01 UTC; tzOffsetMin is the local offset from UTC, in minutes, at export.',
   levels: 'levels[i] names level number i + 1: its set, then its step.',
-  rounds: 'One per finished training round: lv level, score of n, ch up/down if it moved a level, p 1 for long-term practice (each check-in needs two consecutive pitch successes, counting a correct initial check), pf the tone practised; n includes retries.',
+  rounds: 'One per ended training session: lv level, score of n, freeform 1 for unlimited training, bestStreak the longest correct streak in that session. Historical fixed rounds may have ch up/down. p 1 for long-term practice, pf the tone practised; n includes retries.',
   history: 'One per training answer (the last 5,000). task: pick/notes/piano (named), type (typed in Hz), find (tuned); f target Hz; g answer Hz; ok 1 if within a quarter tone; exact 1 if tuned exactly; lv level; rd round id (its start time); k position in the round; c 1 if cold (nothing labeled heard for 10+ minutes; first answer of a round only); rp replays; mv record moves (find); ui roll/classic answer view. Conditions: itf interference before the question (both/noise/notes/none), v instrument, rove 1 if loudness varied, pv 1 if the round began by playing its target.',
   lt: 'Long-term training. tones: f (Hz), start, last, due (ms), wait, ready when daily is reached. ladder: version, level (1–16), count, anchor (level start), day (local date), mode, running during the timed opening, deadline, days (distinct dates reaching level 11), badge and badgeDay, extended after the checkpoint, dailyOn (local date last completed). Legacy blk/card/practice/retune records finish pending corrections before migration. checks: t, f, g (null for an unanswered check), cents (null without a guess), ok, gap, due, level, reason (timeout/interrupted/missed-day), v instrument, mv moves, show. Historical checks may also have card, blk, arm, probe and c fields.',
   echo: 'Echo, a short-term memory game kept apart from training: per game t, daily (its date, or null), itf interference, score out of 50, cents (the error on each of its five tones).',
@@ -4122,7 +4191,7 @@ $('sndTest').addEventListener('click', () => {                          // rebui
 function renderSettings(){
   soundStatus();
   $('levelSeg').innerHTML = levelRows();
-  [['optMatch','match'],['optRove','rove'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
+  [['optMatch','match'],['optRove','rove'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => { $(id).checked = !!settings[key]; });
   $('optTip').checked = !settings.hideFindTip;
   renderSleep(); renderStudy();
   renderItf('optItf', 'noise', 'notes');
@@ -4162,7 +4231,7 @@ $('durSeg').addEventListener('click', e => {
   const b = e.target.closest('[data-dur]'); if (!b) return;
   settings.dur = +b.dataset.dur; saveSettings(); renderSettings();
 });
-[['optMatch','match'],['optRove','rove'],['optAuto','auto'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => {
+[['optMatch','match'],['optRove','rove'],['optSfx','sfx'],['optLight','light']].forEach(([id, key]) => {
   $(id).addEventListener('change', () => { settings[key] = $(id).checked; saveSettings(); if (key === 'light') applyTheme(); });
 });
 function applyTheme(){                                           // dark unless the light theme is switched on
@@ -4547,39 +4616,45 @@ $('shDir').addEventListener('click', e => {
    Every random starting guess has the same appearance. Only changes to the user's guess tighten the waves;
    reference/target tones never set their wavelength. Interference adds an unpitched, fuzzy texture. */
 const band = $('band');
-let bandRaf = 0, bandLast = 0, bandPitch = 1, bandTargetPitch = 1, bandFuzz = 0;
+let bandRaf = 0, bandLast = 0, bandTime = 0, bandPitch = 1, bandTargetPitch = 1, bandFuzz = 0;
 let bandTrial = null, bandStartHz = 0;
 function syncBandPitch(){
   const tuning = screen === 'train' && trial?.task === 'find' && phase === 'listening' && (!trial.echo || trial.heard);
   if (tuning) {
     if (bandTrial !== trial) { bandTrial = trial; bandStartHz = deckHz(trial); }
-    bandTargetPitch = clamp(Math.pow(deckHz(trial) / bandStartHz, 0.35), 0.5, 3.5);
-  } // Keep the wavelength after a guess; the next question eases back to its starting scale.
+    bandTargetPitch = clamp(Math.pow(deckHz(trial) / bandStartHz, 0.18), 0.6, 1.7);
+  } else if (phase === 'revealed') bandTargetPitch = bandPitch;          // hold the shape already on screen when Lock in is pressed
   if (reduceMotion.matches) { bandPitch = bandTargetPitch; drawBand(0); }
 }
 function placeBand(){
   const backdrop = $('trainingBackdrop');
   backdrop.hidden = screen !== 'train';
   if (backdrop.hidden) {
-    cancelAnimationFrame(bandRaf); bandRaf = 0; bandLast = 0; bandFuzz = 0;
+    cancelAnimationFrame(bandRaf); bandRaf = 0; bandLast = 0; bandTime = 0; bandFuzz = 0;
     bandTrial = null; bandStartHz = 0; bandPitch = bandTargetPitch = 1;
     return;
   }
   const rect = band.getBoundingClientRect(), dpr = Math.min(1.5, window.devicePixelRatio || 1);
   const w = Math.round(rect.width * dpr), h = Math.round(rect.height * dpr);
   if (band.width !== w || band.height !== h) { band.width = w; band.height = h; }
-  placeLadderContent(); syncBandPitch(); drawBand(reduceMotion.matches ? 0 : performance.now());
+  placeLadderContent(); syncBandPitch(); drawBand(reduceMotion.matches ? 0 : bandTime * 1000);
   if (!bandRaf && !document.hidden && !reduceMotion.matches) bandRaf = requestAnimationFrame(bandLoop);
+}
+function updateBandMotion(dt, noisy, hold = false){
+  // Ease gently, with a speed limit even for a large swipe, a deck wrap, or a new question's reset.
+  const change = (bandTargetPitch - bandPitch) * -Math.expm1(-dt / 0.8);
+  if (!hold) bandPitch += clamp(change, -0.2 * dt, 0.2 * dt);
+  bandFuzz += (Number(!!noisy) - bandFuzz) * -Math.expm1(-dt / 0.75);
+  if (!hold) bandTime += dt;                                            // hold the flowing phase while answers and replays appear
 }
 function bandLoop(now){
   bandRaf = 0;
   if (screen !== 'train' || document.hidden || reduceMotion.matches) return;
   if (now - bandLast >= 32) {
     const dt = Math.min(0.08, (now - bandLast) / 1000); bandLast = now;
-    bandPitch += (bandTargetPitch - bandPitch) * Math.min(1, dt * 10);
     const noisy = screen === 'train' && (audioState === 'interfere' || round?.ladder && $('scr-train').dataset.stage === 'notes');
-    bandFuzz += (Number(!!noisy) - bandFuzz) * Math.min(1, dt * 8);
-    drawBand(now);
+    updateBandMotion(dt, noisy, phase === 'revealed' && !noisy);
+    drawBand(bandTime * 1000);
   }
   bandRaf = requestAnimationFrame(bandLoop);
 }
@@ -4597,7 +4672,8 @@ function drawBand(now){
       c.beginPath();
       for (let i = 0; i <= 240; i++) {
         const x = i / 240, envelope = 0.45 + 0.55 * Math.sin(Math.PI * x);
-        let y = amp * Math.sin(2 * Math.PI * (cycles * (1 + k * 0.13) * x - t * (0.08 + k * 0.018)) + ph);
+        // Change wavelength around the middle of each ribbon, so it does not sweep across the whole screen.
+        let y = amp * Math.sin(2 * Math.PI * (cycles * (1 + k * 0.13) * (x - 0.5) - t * (0.08 + k * 0.018)) + ph);
         y += 0.12 * Math.sin(2 * Math.PI * x * 11 + t * 0.4 + ph);
         y += bandFuzz * (0.3 * Math.sin(x * 430 + t * 11 + ph) + 0.16 * Math.sin(x * 770 - t * 17 + ph));
         const Y = H * mid + A * envelope * y;
