@@ -607,6 +607,10 @@ body[data-tuning="1"]{touch-action:none;user-select:none;-webkit-user-select:non
 .ladder-swipe-hint span{font-size:clamp(9px,1.3vh,11px);letter-spacing:.03em}
 .pitch-note{font-family:var(--font-num);font-size:clamp(26px,7.5vw,36px);font-weight:200;letter-spacing:-.05em;line-height:1.1;white-space:nowrap}
 .pitch-caption{font-size:13px;color:var(--muted)}
+.summary-pitches{width:100%}
+.summary-pitches .pitch-choice{min-height:76px;padding:10px 0;gap:6px}
+.summary-pitches .pitch-note{font-size:clamp(24px,7vw,30px)}
+.summary-pitches[data-result="bad"] #sumGuessNote{color:var(--lose)}
 .ladder-pitches[data-result="good"] .pitch-note{color:var(--win)}
 .pitch-choice[data-playing="1"]{background:radial-gradient(ellipse,color-mix(in oklab,var(--win) 32%,transparent),color-mix(in oklab,var(--win) 12%,transparent) 40%,transparent 70%)}
 .pitch-choice[data-playing="1"] .pitch-note{text-shadow:0 0 26px color-mix(in oklab,var(--win) 65%,transparent)}
@@ -922,7 +926,13 @@ img{max-width:100%}
       <button class="cta" type="button" id="sumNext">Next round</button>
     </div>
     </div><div class="half">
-    <div class="card"><ol class="answers" id="sumList"></ol></div>
+    <div class="card">
+      <div class="ladder-pitches summary-pitches" id="sumPitchPair" hidden>
+        <button class="pitch-choice" id="sumTargetPitch" type="button" aria-label="Replay target" aria-pressed="false"><span class="pitch-note" id="sumTargetNote"></span><span class="pitch-caption">Target</span></button>
+        <button class="pitch-choice" id="sumGuessPitch" type="button" aria-label="Replay your guess" aria-pressed="false"><span class="pitch-note" id="sumGuessNote"></span><span class="pitch-caption">Your guess</span></button>
+      </div>
+      <ol class="answers" id="sumList"></ol>
+    </div>
     </div></div>
   </section>
 
@@ -1611,6 +1621,7 @@ function silence(){
 function stopAll(){
   timers.forEach(clearTimeout); timers = [];
   if (round?.ladder) delete round.playingPitch;
+  if (lastRound?.playingPitch) { delete lastRound.playingPitch; renderSummaryPitches(); }
   instToken++;
   clearTimeout(adjIdle);
   silence();
@@ -2018,7 +2029,7 @@ function go(name){
   if (screen === 'train' && name !== 'train') clearTrainingMotion();
   clearPageMotion();
   const outgoing = name !== screen ? snapshotPage($('scr-' + screen)) : null;
-  if ((screen === 'train' || screen === 'lab') && name !== screen) stopAll();
+  if ((screen === 'train' || screen === 'lab' || screen === 'summary') && name !== screen) stopAll();
   if (name !== 'train') showTip(false);
   const to = TABS.indexOf(name);
   screen = name;
@@ -2883,17 +2894,41 @@ function tickLadder(){
   }
   renderLadderClock();
 }
+function renderSummaryPitches(){
+  const check = lastRound?.lt, pair = $('sumPitchPair');
+  pair.hidden = !check || !(check.f > 0);
+  $('sumList').hidden = !!lastRound?.tone?.ladder;
+  if (pair.hidden) return;
+  pair.dataset.result = check.ok ? 'good' : 'bad';
+  $('sumTargetNote').textContent = noteName(check.f);
+  $('sumGuessNote').textContent = check.g > 0 ? noteOffsetLabel(check.g) : '–';
+  for (const [which, id, frequency] of [['true', 'sumTargetPitch', check.f], ['you', 'sumGuessPitch', check.g]]) {
+    const button = $(id), playing = lastRound.playingPitch === which;
+    button.disabled = !(frequency > 0);
+    button.dataset.playing = playing ? '1' : '0';
+    button.setAttribute('aria-pressed', String(playing));
+  }
+}
+function hearSummaryPitch(which){
+  if (screen !== 'summary' || !lastRound?.lt || !['true', 'you'].includes(which)) return;
+  const check = lastRound.lt, frequency = which === 'you' ? check.g : check.f;
+  if (!(frequency > 0)) return;
+  const V = lastRound.voice || VOICES.find(v => v.id === check.v) || SINE;
+  ladderFeedback(frequency, V, 3, which);
+}
 function ladderFeedback(f, V, seconds, which = null){
   if (!audio()) return;
   stopAll();
-  const check = round?.check;
-  if (which) { round.playingPitch = which; renderLadderPitches(); }
+  const owner = round?.ladder ? round : lastRound?.lt ? lastRound : null;
+  const check = owner?.check || owner?.lt;
+  const redraw = () => { if (owner === round) renderLadderPitches(); else if (owner === lastRound) renderSummaryPitches(); };
+  if (which && owner) { owner.playingPitch = which; redraw(); }
   const at = ctx.currentTime + 0.03;
   if (V === SINE || !voiceReady(V)) tone(f, at, seconds, ampFor(f, 0), 0.06);
   else for (let k = 0; k < seconds; k += 2) strike(V, f, at + k, {dur: Math.min(2, seconds - k), rove: 0});
   noteAnchor(f); setAudio('tone');
   timers.push(setTimeout(() => {
-    if (which && round?.check === check) { delete round.playingPitch; renderLadderPitches(); }
+    if (which && owner && (owner.check || owner.lt) === check) { delete owner.playingPitch; redraw(); }
     setAudio('idle');
   }, seconds * 1000 + 50));
 }
@@ -2920,7 +2955,7 @@ function recordLadder(rec){
   last = rec; phase = 'revealed'; input.blur(); saveLT(); ltSchedule();
   if (!rec.ok) {
     endLadderCheck(chk, t);
-    if (!rec.silent) ladderFeedback(t.f, V, 2);
+    if (!rec.silent) ladderFeedback(t.f, V, 3, 'true');
     return;
   }
   render();
@@ -2932,7 +2967,7 @@ function endLadderCheck(chk, t, openingComplete = false){
   ltWakeToken++;
   if (ltWake) { ltWake.release().catch(() => {}); ltWake = null; }
   clearInterval(ltPulseTimer); ltPulseTimer = null;
-  stopAll(); lastRound = {lt: chk, tone: t};
+  stopAll(); lastRound = {lt: chk, tone: t, voice: trial?.voice || round?.voice || SINE};
   round = null; trial = null; last = null; phase = 'idle';
   renderLadderClock();
   ltSchedule();
@@ -3279,6 +3314,8 @@ $('hearTrue').addEventListener('click', () => hearOne('true'));
 $('hearGuess').addEventListener('click', () => hearOne('you'));
 $('ltTargetPitch').addEventListener('click', () => round?.ladder ? hearLadderPitch('true') : phase === 'revealed' && trial?.task !== 'card' && hearOne('true'));
 $('ltGuessPitch').addEventListener('click', () => round?.ladder ? hearLadderPitch('you') : phase === 'revealed' && trial?.task !== 'card' && hearOne('you'));
+$('sumTargetPitch').addEventListener('click', () => hearSummaryPitch('true'));
+$('sumGuessPitch').addEventListener('click', () => hearSummaryPitch('you'));
 $('lockBtn').addEventListener('click', lockIn);
 $('playBtn').addEventListener('animationend', e => { if (e.animationName === 'pop' || e.animationName === 'shake') e.currentTarget.classList.remove('pop', 'shake'); });
 
@@ -3836,6 +3873,7 @@ function renderCheckSummary(){              // one long-term check: how far off,
 }
 function renderSummary(){
   if (!lastRound) return go('home');
+  renderSummaryPitches();
   if (lastRound.echo) return renderEchoSummary();
   if (lastRound.lt) return renderCheckSummary();
   $('sumNext').textContent = 'Next round';

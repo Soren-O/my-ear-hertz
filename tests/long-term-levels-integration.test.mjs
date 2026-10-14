@@ -19,29 +19,39 @@ function app(tone = LTLevels.createTone(1047, at), animated = false) {
   vm.runInContext(`
     let lt = {on: true, tones: [initialTone], checks: []}, round = null, trial = null, last = null, lastRound = null, phase = 'idle';
     let ltSessionTone = null, ltPulseTimer = null, ltWake = null, ltWakeToken = 0, timers = [], ctx = {currentTime: 0}, calls = [], saved = null, screen = 'train';
-    const SINE = {id: 'sine'}, input = {blur() {}}, elements = new Map(), animations = [], reduceMotion = {matches:!animated};
-    const $ = id => { if (!elements.has(id)) elements.set(id, {hidden: true, textContent: '', dataset:{}, style:{}, focus(){}, setAttribute(){}, animate(frames,options){const a={frames,options,cancel(){this.cancelled=true;}};animations.push(a);return a;}}); return elements.get(id); };
+    let instToken = 0, adjIdle = null, pulseTimer = null, sineTone = null, labActive = null, ltStopping = false;
+    const SINE = {id: 'sine'}, PIANO = {id: 'piano'}, VOICES = [SINE, PIANO], input = {blur() {}}, elements = new Map(), animations = [], reduceMotion = {matches:!animated};
+    const $ = id => { if (!elements.has(id)) elements.set(id, {id, hidden: true, textContent: '', dataset:{}, style:{}, attributes:{}, focus(){}, querySelectorAll(){return [];}, setAttribute(k,v){this.attributes[k]=v;}, animate(frames,options){const a={frames,options,cancel(){this.cancelled=true;}};animations.push(a);return a;}}); return elements.get(id); };
     ${section('const textFades =', 'let pageGhost =')}
-    const document = {activeElement: null}, sfx = step => calls.push(['cue', step]);
+    const document = {activeElement: null, querySelectorAll(){return [];}}, window = {scrollTo(){}}, sfx = step => calls.push(['cue', step]);
     ${section('let introActive = false', "$('countInCancel').addEventListener")}
     const setInterval = () => 1, clearInterval = () => {}, setTimeout = (fn, delay) => { calls.push(['timer', delay]); return schedule(fn, delay); };
     const saveLT = () => { saved = JSON.stringify(lt); }, ltSchedule = () => {};
     const ltArm = () => null, fmtSpan = n => n / 60000 + ' min';
     ${section('const NOTE =', 'const FMIN =')}
     ${section('const pad2 =', 'function renderLTRow()')}
-    const stopAll = () => { calls.push(['stop']); timers.forEach(clearTimeout); timers = []; if (round?.ladder) delete round.playingPitch; }, noteAnchor = () => {}, setAudio = s => calls.push(['audio', s]);
-    const audio = () => true, voiceReady = () => false, ampFor = () => 0;
+    const silence = () => calls.push(['stop']), endCompare = () => {}, labButtons = () => {}, noteAnchor = () => {}, setAudio = s => calls.push(['audio', s]);
+    ${section('function stopAll()', 'function play(')}
+    const audio = () => true, voiceReady = V => V === PIANO, ampFor = () => 0;
     const tone = (f, t, dur) => calls.push(['tone', f, t, dur]), pips = (t, dur) => calls.push(['notes', t, dur]);
-    const render = () => {}, go = name => calls.push(['go', name]);
+    const strike = (V, f, t, opts) => calls.push(['strike', V.id, f, t, opts.dur]);
+    const render = () => {}, renderHome = () => {}, renderSummary = () => renderSummaryPitches(), renderLT = () => {};
+    const renderProgress = () => {}, renderSettings = () => {}, renderLab = () => {}, renderEcho = () => {};
+    const clearPageMotion = () => {}, snapshotPage = () => null, showTip = () => {}, placeBand = () => {}, renderStatus = () => {};
+    const glidePage = () => calls.push(['go', screen]);
+    ${section('const TABS =', "document.addEventListener('click', e => { const g =")}
     const nextQuestion = () => { calls.push(['next']); phase = 'listening'; round.tuneCount++; round.challengeLevel = lt.tones[0].ladder.level; trial = {f: 1047, voice: SINE}; };
     ${section('function appendLadderCheck(', "document.addEventListener('visibilitychange', () => { if (document.visibilityState")}
     globalThis.api = {lt, calls, animations, refreshLadders, tickLadder, abortLadder,
       clock() { renderLadderClock(); return ['ltChallengeLevel', 'ltChallengeInstruction', 'ltChallengeTime'].map(id => $(id).textContent); },
       get cue() { return {hidden: $('countIn').hidden, word: $('countInWord').textContent, inert: $('app').inert}; },
-      start() { LTLevels.begin(lt.tones[0], Date.now()); ltSessionTone = lt.tones[0].ladder.level <= 6 ? 1047 : null;
-        round = {lt: 1047, ladder: true, tuneCount: 1, challengeLevel: lt.tones[0].ladder.level, items: []}; trial = {f: 1047, voice: SINE}; phase = 'listening'; saveLT(); },
+      start(voice = 'sine') { LTLevels.begin(lt.tones[0], Date.now()); ltSessionTone = lt.tones[0].ladder.level <= 6 ? 1047 : null;
+        round = {lt: 1047, ladder: true, tuneCount: 1, challengeLevel: lt.tones[0].ladder.level, items: []}; trial = {f: 1047, voice: VOICES.find(v => v.id === voice)}; phase = 'listening'; saveLT(); },
       answer(ok, g = ok ? 1047 : 523) { recordLadder({task: 'find', t: Date.now(), f: 1047, g, cents: 1200 * Math.log2(g / 1047), ok: Number(ok)}); },
       replay: hearLadderPitch,
+      summaryReplay: hearSummaryPitch, go,
+      summaryPitches() { renderSummaryPitches(); return {hidden: $('sumPitchPair').hidden, listHidden: $('sumList').hidden, pitches: ['sumTargetPitch', 'sumGuessPitch'].map(id => ({disabled: $(id).disabled, playing: $(id).dataset.playing, pressed: $(id).attributes['aria-pressed'], note: $(id === 'sumTargetPitch' ? 'sumTargetNote' : 'sumGuessNote').textContent}))}; },
+      setSummary(result) { lastRound = result; renderSummaryPitches(); },
       pitches() { renderLadderPitches(); return ['ltTargetPitch', 'ltGuessPitch'].map(id => ({disabled: $(id).disabled, playing: $(id).dataset.playing, hidden: $(id).hidden, note: $(id === 'ltTargetPitch' ? 'ltTargetNote' : 'ltGuessNote').textContent})); },
       get pairHidden() { return $('ltPitchPair').hidden; },
       get hintVisible() { return !$('ltSwipeHint').hidden; },
@@ -126,6 +136,61 @@ test('a replay near the phase boundary is stopped by random notes and cannot shi
   advance(16000); api.clock();
   assert.equal(api.calls.filter(c => c[0] === 'audio').at(-1)[1], 'idle');
   assert.equal(api.state.lt.tones[0].due, at + MIN);
+});
+
+test('a failed check offers both result pitches and switching replays preserves the failed attempt', () => {
+  const {api, advance} = app(), guess = 1047 * 2 ** (80 / 1200);
+  api.start(); advance(5000); api.answer(false, guess);
+  assert.equal(api.state.round, null);
+  assert.equal(api.state.lt.tones[0].ladder.mode, 'failed');
+  const result = api.summaryPitches(), progress = JSON.stringify(api.state.lt);
+  assert.equal(result.hidden, false);
+  assert.equal(result.listHidden, true);
+  assert.equal(result.pitches[0].note, 'C6');
+  assert.match(result.pitches[1].note, /^C♯6 − \d+c$/);
+  assert.ok(result.pitches.every(p => !p.disabled));
+  assert.deepEqual(Array.from(result.pitches, p => p.playing), ['1', '0']);
+  advance(1000); api.summaryReplay('you');
+  assert.deepEqual(Array.from(api.summaryPitches().pitches, p => p.pressed), ['false', 'true']);
+  advance(2050);
+  assert.equal(api.summaryPitches().pitches[1].playing, '1');
+  advance(1000);
+  assert.ok(api.summaryPitches().pitches.every(p => p.playing === '0'));
+  api.summaryReplay('true'); advance(3050);
+  assert.deepEqual(Array.from(api.calls.filter(c => c[0] === 'tone'), c => [c[1], c[3]]), [[1047, 3], [guess, 3], [1047, 3]]);
+  assert.equal(JSON.stringify(api.state.lt), progress);
+  assert.equal(api.state.saved, progress);
+});
+
+test('failure replays keep the check instrument and leaving Results cancels playback and highlights', () => {
+  const {api, advance} = app();
+  api.start('piano'); api.answer(false, 523); api.summaryReplay('you');
+  assert.equal(api.state.lastRound.voice.id, 'piano');
+  assert.deepEqual(Array.from(api.calls.filter(c => c[0] === 'strike'), c => [c[1], c[2], c[4]]),
+    [['piano', 1047, 2], ['piano', 1047, 1], ['piano', 523, 2], ['piano', 523, 1]]);
+  api.go('home');
+  assert.equal(api.calls.filter(c => c[0] === 'audio').at(-1)[1], 'idle');
+  assert.ok(api.summaryPitches().pitches.every(p => p.playing === '0'));
+  const stoppedCalls = api.calls.length;
+  advance(10000); api.summaryReplay('true');
+  assert.equal(api.calls.length, stoppedCalls);
+});
+
+test('a timeout has a replayable target without inventing a guess, and other summaries restore their answer list', () => {
+  const {api, time, advance} = app();
+  api.start(); time(at + 20000); api.tickLadder();
+  const result = api.summaryPitches();
+  assert.equal(result.pitches[0].disabled, false);
+  assert.equal(result.pitches[1].disabled, true);
+  assert.equal(result.pitches[1].note, '–');
+  const sounds = api.calls.filter(c => c[0] === 'tone').length;
+  api.summaryReplay('you');
+  assert.equal(api.calls.filter(c => c[0] === 'tone').length, sounds);
+  advance(3050); api.summaryReplay('true');
+  assert.equal(api.calls.filter(c => c[0] === 'tone').length, sounds + 1);
+  api.go('home'); api.setSummary({items: []});
+  assert.equal(api.summaryPitches().hidden, true);
+  assert.equal(api.summaryPitches().listHidden, false);
 });
 
 test('the displayed timer counts down each phase without moving the next guess off its minute slot', () => {
