@@ -2139,21 +2139,24 @@ function startCountIn(begin, label, reference){
     }, 2400));
   };
   const engine = audio();
-  const start = () => {
+  const references = Array.isArray(reference) ? reference : reference ? [reference] : [];
+  const playReference = i => {
     if (!introActive || token !== introToken) return;
-    if (!reference || !engine) return count();
-    $('countInTargetNote').textContent = noteName(reference.f);
+    const ref = references[i];
+    if (!ref || !engine) return count();
+    $('countInTargetNote').textContent = noteName(ref.f);
     showCountInCue('target', label);
     stopAll(); introReferencePlaying = true;
     const at = engine.currentTime + 0.03;
-    if (reference.voice === SINE || !voiceReady(reference.voice)) tone(reference.f, at, 3, ampFor(reference.f, 0), 0.06);
-    else strike(reference.voice, reference.f, at, {dur: 3, rove: 0});
-    noteAnchor(reference.f); setAudio('tone');
+    if (ref.voice === SINE || !voiceReady(ref.voice)) tone(ref.f, at, 3, ampFor(ref.f, 0), 0.06);
+    else strike(ref.voice, ref.f, at, {dur: 3, rove: 0});
+    noteAnchor(ref.f); setAudio('tone');
     introTimers.push(setTimeout(() => {
       if (!introActive || token !== introToken) return;
-      introReferencePlaying = false; stopAll(); count();
+      introReferencePlaying = false; stopAll(); playReference(i + 1);
     }, 3100));
   };
+  const start = () => playReference(0);
   // On the first tap, resume() is asynchronous. Start the words only once their sounds can play.
   if (!engine || engine.state === 'running') start();
   else engine.resume().then(start).catch(() => {
@@ -2171,6 +2174,8 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
   if (introActive) return;
   const lv = extra && extra.lv || settings.level;                        // L: a one-note level standing in for LEVELS[lv - 1]
   const L = echo ? ECHO_L : extra && extra.L || LEVELS[lv - 1], V = roundVoice(L);
+  const freeform = !echo && !extra?.lt && !extra?.practice && !extra?.ladder;
+  const referenceNotes = freeform && L.first && L.task === 'find' && !L.narrow ? L.choices : null;
   const begin = v => {
     if (extra?.ladder) {
       if (round) return;
@@ -2180,8 +2185,7 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
       saveLT();
       holdLadderScreen();
     }
-    round = Object.assign({id: Date.now(), lv, items: [], voice: v, echo: echo || null,
-      freeform: !echo && !extra?.lt && !extra?.practice && !extra?.ladder}, extra);
+    round = Object.assign({id: Date.now(), lv, items: [], voice: v, echo: echo || null, freeform, previewed: !!referenceNotes}, extra);
     $('quitConfirm').hidden = true;
     go('train');
     nextQuestion();
@@ -2196,7 +2200,7 @@ function startRound(echo, extra){            // extra: {lv, lt: tone, L} for a l
         .catch(() => showError('Tap Start again to enable sound.'));
     }
     startCountIn(() => begin(v), t ? `LEVEL ${t.ladder.level}` : echo ? 'ECHO' : L.short || L.name || 'TRAINING',
-      t && t.ladder.level === 1 ? {f: t.f, voice: v} : null);
+      t && t.ladder.level === 1 ? {f: t.f, voice: v} : referenceNotes?.map(f => ({f, voice: v})));
   };
   if (V === SINE || voiceReady(V)) return ready(V);
   const btns = ['startBtn', 'sumNext', 'echoPlay', 'echoDaily'].map($);
@@ -2961,6 +2965,7 @@ function recordLadder(rec){
   render();
   ladderFeedback(t.f, V, 3, 'true');
   renderLadderClock();
+  if (rec.exact && !reduceMotion.matches) confetti();
 }
 function endLadderCheck(chk, t, openingComplete = false){
   ltSessionTone = null;
@@ -4311,7 +4316,9 @@ $('optTip').addEventListener('change', () => { settings.hideFindTip = !$('optTip
 function confetti(){
   const cv = $('confetti'), c2 = cv.getContext('2d'), dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight;
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); c2.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const r = $('playBtn').getBoundingClientRect(), ox = r.left + r.width / 2, oy = r.top + r.height / 2;
+  const r = ['ltTargetPitch', 'playBtn', 'scoreRing'].map(id => $(id).getBoundingClientRect()).find(r => r.width > 0 && r.height > 0)
+    || {left: W / 2, top: H * 0.4, width: 0, height: 0};
+  const ox = r.left + r.width / 2, oy = r.top + r.height / 2;
   const cols = waveColors().concat([oklchRgb(0.8, 0.21, 148), oklchRgb(0.8, 0.21, 148)]);
   const bits = Array.from({length: 150}, () => {
     const a = Math.random() * 2 * Math.PI, v = 4 + Math.random() * 9;

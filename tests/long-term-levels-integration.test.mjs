@@ -23,7 +23,7 @@ function app(tone = LTLevels.createTone(1047, at), animated = false) {
     const SINE = {id: 'sine'}, PIANO = {id: 'piano'}, VOICES = [SINE, PIANO], input = {blur() {}}, elements = new Map(), animations = [], reduceMotion = {matches:!animated};
     const $ = id => { if (!elements.has(id)) elements.set(id, {id, hidden: true, textContent: '', dataset:{}, style:{}, attributes:{}, focus(){}, querySelectorAll(){return [];}, setAttribute(k,v){this.attributes[k]=v;}, animate(frames,options){const a={frames,options,cancel(){this.cancelled=true;}};animations.push(a);return a;}}); return elements.get(id); };
     ${section('const textFades =', 'let pageGhost =')}
-    const document = {activeElement: null, querySelectorAll(){return [];}}, window = {scrollTo(){}}, sfx = step => calls.push(['cue', step]);
+    const document = {activeElement: null, querySelectorAll(){return [];}}, window = {scrollTo(){}}, sfx = step => calls.push(['cue', step]), confetti = () => calls.push(['confetti']);
     ${section('let introActive = false', "$('countInCancel').addEventListener")}
     const setInterval = () => 1, clearInterval = () => {}, setTimeout = (fn, delay) => { calls.push(['timer', delay]); return schedule(fn, delay); };
     const saveLT = () => { saved = JSON.stringify(lt); }, ltSchedule = () => {};
@@ -47,7 +47,7 @@ function app(tone = LTLevels.createTone(1047, at), animated = false) {
       get cue() { return {hidden: $('countIn').hidden, word: $('countInWord').textContent, inert: $('app').inert}; },
       start(voice = 'sine') { LTLevels.begin(lt.tones[0], Date.now()); ltSessionTone = lt.tones[0].ladder.level <= 6 ? 1047 : null;
         round = {lt: 1047, ladder: true, tuneCount: 1, challengeLevel: lt.tones[0].ladder.level, items: []}; trial = {f: 1047, voice: VOICES.find(v => v.id === voice)}; phase = 'listening'; saveLT(); },
-      answer(ok, g = ok ? 1047 : 523) { recordLadder({task: 'find', t: Date.now(), f: 1047, g, cents: 1200 * Math.log2(g / 1047), ok: Number(ok)}); },
+      answer(ok, g = ok ? 1047 : 523, extra = {}) { recordLadder({task: 'find', t: Date.now(), f: 1047, g, cents: 1200 * Math.log2(g / 1047), ok: Number(ok), ...extra}); },
       replay: hearLadderPitch,
       summaryReplay: hearSummaryPitch, go,
       summaryPitches() { renderSummaryPitches(); return {hidden: $('sumPitchPair').hidden, listHidden: $('sumList').hidden, pitches: ['sumTargetPitch', 'sumGuessPitch'].map(id => ({disabled: $(id).disabled, playing: $(id).dataset.playing, pressed: $(id).attributes['aria-pressed'], note: $(id === 'sumTargetPitch' ? 'sumTargetNote' : 'sumGuessNote').textContent}))}; },
@@ -102,6 +102,19 @@ test('feedback becomes silent after three seconds and does not reveal or replay 
   advance(10000); api.clock();
   assert.equal(api.calls.filter(c => c[0] === 'tone').length, 1);
   assert.equal(api.calls.filter(c => c[0] === 'notes').length, 0);
+});
+
+test('long-term exact matches trigger confetti; ordinary hits, misses, replays and reduced motion do not', () => {
+  for (const [animated,ok,exact,expected] of [[true,true,1,1],[true,true,0,0],[true,false,1,0],[false,true,1,0]]) {
+    const {api,advance}=app(undefined,animated);
+    api.start(); api.answer(ok,ok?1047:523,{exact});
+    assert.equal(api.calls.filter(c=>c[0]==='confetti').length,expected);
+    advance(3050); ok?api.replay('true'):api.summaryReplay('true');
+    assert.equal(api.calls.filter(c=>c[0]==='confetti').length,expected);
+    assert.equal(api.state.lt.checks.length,1);
+    assert.equal(api.state.lt.checks[0].ok,Number(ok));
+    assert.equal(api.state.lt.tones[0].due,ok?at+MIN:at);
+  }
 });
 
 test('either pitch can be replayed and switching cancels the previous playback without changing progress', () => {

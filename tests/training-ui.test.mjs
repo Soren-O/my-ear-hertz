@@ -17,6 +17,22 @@ test('guessed notes keep their octave and use a spaced signed cents offset', () 
   assert.equal(context.label(2093 * 2 ** (25 / 1200)), 'C7 + 25c');
 });
 
+test('confetti launches around the visible target instead of the hidden old note button and clears afterward', () => {
+  const frames=[],particles=[],math=Object.create(Math);
+  math.random=()=>0.5;
+  const drawing={setTransform(){},clearRect(){},save(){},translate(x,y){particles.push([x,y]);},rotate(){},fillRect(){},restore(){}};
+  const canvas={getContext:()=>drawing},hidden={left:0,top:0,width:0,height:0};
+  const rects={ltTargetPitch:{left:70,top:280,width:150,height:112},playBtn:hidden,scoreRing:hidden};
+  const context=vm.createContext({$:id=>id==='confetti'?canvas:{getBoundingClientRect:()=>rects[id]},
+    Math:math,window:{devicePixelRatio:1},innerWidth:390,innerHeight:844,performance:{now:()=>0},
+    waveColors:()=>['#fff'],oklchRgb:()=> '#0f0',requestAnimationFrame:frame=>frames.push(frame)});
+  vm.runInContext(section('function confetti(){','/* ---------- lab ----------'),context);
+  context.confetti(); frames.shift()(16);
+  assert.equal(particles.length,150);
+  assert.ok(particles.every(([x,y])=>x>=70&&x<=220&&y>=280&&y<=392));
+  frames.shift()(2400); assert.equal(frames.length,0);
+});
+
 function countIn(reduced = true) {
   let now = 0, id = 0;
   const timers = new Map(), elements = new Map(), animations = [], sounds = [], pitches = [], errors = [];
@@ -31,7 +47,7 @@ function countIn(reduced = true) {
   };
   const context = vm.createContext({$, document:{activeElement:null}, reduceMotion:{matches:reduced},
     sfx:step=>{if(engine.state==='running')sounds.push([step,now]);}, audio:()=>engine, SINE:sine,
-    stopAll:()=>stops++, voiceReady:voice=>voice!==sine, ampFor:()=>0, noteName:()=> 'C6',
+    stopAll:()=>stops++, voiceReady:voice=>voice!==sine, ampFor:()=>0, noteName:f=>({523:'C5',1047:'C6',2093:'C7'})[f],
     tone:(f,at,dur)=>pitches.push(['sine',f,at,dur]), strike:(voice,f,at,opts)=>pitches.push([voice.id,f,at,opts.dur]),
     noteAnchor(){}, setAudio(){}, showError:message=>errors.push(message),
     setTimeout(fn, delay) { const key = ++id; timers.set(key, {fn,at:now+delay}); return key; },
@@ -154,6 +170,56 @@ test('an instrument target is struck once, and cancelling its preview stops play
   const stops=ui.stops; ui.advance(1000); ui.cancel(); ui.advance(5000);
   assert.equal(ui.stops,stops+1); assert.equal(starts,0); assert.deepEqual(ui.sounds,[]);
   assert.equal(ui.$('cue-target').hidden,true); assert.equal(ui.$('app').inert,false);
+});
+
+test('C5, C6 and C7 each play with their label before one count-in and the first guess', () => {
+  const ui=countIn(); let began;
+  ui.start(()=>began=ui.now,'♪ Find',[523,1047,2093].map(f=>({f,voice:ui.sine})));
+  assert.equal(ui.$('countInTargetNote').textContent,'C5');
+  ui.advance(3099); assert.equal(ui.pitches.length,1); assert.equal(began,undefined);
+  ui.advance(1); assert.equal(ui.$('countInTargetNote').textContent,'C6');
+  ui.advance(3100); assert.equal(ui.$('countInTargetNote').textContent,'C7');
+  assert.deepEqual(ui.pitches.map(p=>[p[1],p[3]]),[[523,3],[1047,3],[2093,3]]);
+  assert.deepEqual(ui.sounds,[]); assert.equal(began,undefined);
+  ui.advance(3100); assert.equal(ui.$('countInWord').textContent,'READY');
+  ui.advance(2399); assert.equal(began,undefined);
+  ui.advance(1); assert.equal(began,11700);
+  assert.deepEqual(ui.sounds,[['ready',9300],['set',10100],['go',10900]]);
+});
+
+test('cancelling during a multi-note reference stops that note and prevents later notes and the count-in', () => {
+  const ui=countIn(); let starts=0;
+  ui.start(()=>starts++,'♪ Find',[523,1047,2093].map(f=>({f,voice:{id:'piano'}})));
+  ui.advance(3500); assert.equal(ui.pitches.length,2);
+  const stops=ui.stops; ui.cancel(); ui.advance(20000);
+  assert.equal(ui.stops,stops+1); assert.equal(starts,0);
+  assert.deepEqual(ui.pitches.map(p=>[p[0],p[1],p[3]]),[['piano',523,3],['piano',1047,3]]);
+  assert.deepEqual(ui.sounds,[]); assert.equal(ui.$('app').inert,false);
+});
+
+test('only the mixed C5–C7 Find levels add the three-note reference, using the round instrument', () => {
+  const intros=[], sine={id:'sine'}, voice={id:'piano'};
+  const context=vm.createContext({SINE:sine,roundVoice:()=>voice,voiceReady:()=>true,audio:()=>({state:'running'}),
+    $:()=>({}),lt:{tones:[]},go(){},nextQuestion(){},
+    startCountIn:(begin,label,reference)=>intros.push({begin,reference})});
+  vm.runInContext(`
+    ${section('const NOTE =','const CHOICE_TASKS =')}
+    let introActive=false,round=null,screen='home'; const settings={level:1};
+    ${section('function startRound(', 'function nextQuestion()')}
+    globalThis.api={levels:LEVELS,start(lv,extra={}){round=null;startRound(null,{lv,...extra});},get round(){return round;}};
+  `,context);
+  const {api}=context;
+  for(let i=0;i<api.levels.length;i++){
+    api.start(i+1);
+    const references=intros.at(-1).reference;
+    if (i===4 || i===10) {
+      assert.deepEqual(Array.from(references,r=>r.f),[523,1047,2093]);
+      assert.ok(references.every(r=>r.voice===voice));
+      intros.at(-1).begin(); assert.equal(api.round.previewed,true);
+    } else assert.equal(references,undefined,api.levels[i].name+' '+api.levels[i].short);
+  }
+  api.start(5,{practice:true}); assert.equal(intros.at(-1).reference,undefined);
+  api.start(5,{lt:1047}); assert.equal(intros.at(-1).reference,undefined);
 });
 
 test('Level 1 starts with its reference and count-in; later long-term checks start cold without another count-in', () => {
