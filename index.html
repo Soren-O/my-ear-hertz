@@ -1097,6 +1097,7 @@ img{max-width:100%}
     <div class="article">
       <h2>Levels</h2>
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
+      <p>The first Find steps introduce C6, then C5, then C5 and C6 together. Next comes C7, then C6 and C7 together, and finally all three. Each pair or three-note step begins by playing its notes once.</p>
       <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After each pitch answer, the correct tone plays once. Use Actual to replay the target or My guess to hear your answer. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
       <p>Train for as long as you like. Ten correct answers in a row unlock the next step; a miss resets the streak to zero. Your streak is saved when you leave, and unlocked steps stay open. Choose another step from Train whenever you’re ready.</p>
       <h2>Interference</h2>
@@ -1231,7 +1232,7 @@ const store = {
    Everything is notes, C3 to C9 at A4 = 440, rounded to whole hertz. Five stages split the octave finer and
    finer: Cs; C·F♯ (halves); C·E·G♯ (thirds); C·D♯·F♯·A (quarters); all twelve notes. Each stage runs four
    ranges: C5–C7, C3–C5, C7–C9, then all of C3–C9. Every set is learned by note name first (♪), then by
-   number with the note (Hz), and each pass goes Name → Type → Find. The very first set finds one C at a time.
+   number with the note (Hz), and each pass goes Name → Type → Find. The first Find steps build from single Cs to pairs, then all three.
    The last level mixes typing and tuning arbitrary whole-number frequencies. */
 const NOTE = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
 const noteHz = midi => 440 * Math.pow(2, (midi - 69) / 12);
@@ -1261,13 +1262,20 @@ function stepsFor(T){
   const pass = (wrap, mark) => {
     const steps = [T.piano && wrap === 'note' ? {task: 'piano', short: `${mark} Keys`} : {task: wrap === 'note' ? 'notes' : 'pick', short: `${mark} Name`}];
     if (wrap === 'both') steps.push({task: 'type', short: `${mark} Type`});   // typing is for numbers only
-    if (T.first) FIND_ONE.forEach(([short, f]) => steps.push({task: 'find', short: `${mark} ${short}`, only: [f]}));
+    if (T.first) FIND_ONE.forEach(([short, f]) => {
+      steps.push({task: 'find', short: `${mark} ${short}`, only: [f]});
+      if (f === C5 || f === C7) {
+        const choices = f === C5 ? [C5, C6] : [C6, C7];
+        steps.push({task: 'find', short: `${mark} Find ${choices.map(noteName).join(' + ')}`, choices, pair: true});
+      }
+    });
     steps.push({task: 'find', short: `${mark} Find`});
     return steps.map(x => Object.assign(x, {wrap}));
   };
   return [...pass('note', '♪'), ...pass('both', 'Hz')];
 }
 const LEVELS = TIERS.flatMap((T, ti) => stepsFor(T).map(S => Object.assign({}, T, S, {tier: ti}, S.only ? {choices: S.only, narrow: true} : {})));
+const PRE_PAIR_LEVELS = LEVELS.filter(L => !L.pair);
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
 const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
 const ROUND = 10, UP = 10;   // historical round size and unlock threshold
@@ -1305,7 +1313,7 @@ if (settings.ladder < 3) {                 // 2026-10-04: a note-name pass of th
   store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
 }
 if (settings.ladder < 4) {                 // 2026-10-04: the whole ladder became notes; steps 1–12 (C5–C7) carry over
-  const shift = r => { if (r.lv > 12) r.lv = LEVELS.length; };            // old round-number answers count as "any frequency"
+  const shift = r => { if (r.lv > 12) r.lv = PRE_PAIR_LEVELS.length; };   // old round-number answers count as "any frequency"
   history.forEach(shift); rounds.forEach(shift);
   if (settings.level > 12) settings.level = 13;
   settings.ladder = 4;
@@ -1314,16 +1322,31 @@ if (settings.ladder < 4) {                 // 2026-10-04: the whole ladder becam
 if (settings.ladder < 5) {                 // 2026-10-04: the ♪ Type steps (typing a note name) are gone
   const map = [];                          // old level number - 1 → new level number
   TIERS.forEach((T, ti) => {
-    const first = LEVELS.findIndex(L => L.tier === ti) + 1, count = LEVELS.filter(L => L.tier === ti).length;
+    const first = PRE_PAIR_LEVELS.findIndex(L => L.tier === ti) + 1, count = PRE_PAIR_LEVELS.filter(L => L.tier === ti).length;
     for (let k = 0; k < count; k++) {
       map.push(first + k);
       if (k === 0 && T.choices) map.push(first + 1);                     // the old ♪ Type step → the step that followed it
     }
   });
-  const shift = r => { if (r.lv) r.lv = map[r.lv - 1] || LEVELS.length; };
+  const shift = r => { if (r.lv) r.lv = map[r.lv - 1] || PRE_PAIR_LEVELS.length; };
   history.forEach(shift); rounds.forEach(shift);
   settings.level = map[settings.level - 1] || 1;
   settings.ladder = 5;
+  store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
+}
+if (settings.ladder < 6) {                 // 2026-10-16: pair Find steps go between the single Cs and all three
+  const map = lv => LEVELS.indexOf(PRE_PAIR_LEVELS[lv - 1]) + 1 || LEVELS.length;
+  const top = settings.top || Math.max(1, ...rounds.map(r => r.lv && (r.ch === 'up' || r.score >= UP) ? r.lv + 1 : r.lv || 1));
+  const shift = r => { if (r.lv) r.lv = map(r.lv); };
+  history.forEach(shift); rounds.forEach(shift);
+  settings.level = map(settings.level); settings.top = map(top);
+  for (const key of ['trainStreaks', 'trainBest', 'trainCleared']) {
+    const values = settings[key];
+    if (values && typeof values === 'object' && !Array.isArray(values)) {
+      settings[key] = Object.fromEntries(Object.entries(values).filter(([lv]) => PRE_PAIR_LEVELS[lv - 1]).map(([lv, value]) => [map(lv), value]));
+    }
+  }
+  settings.ladder = 6;
   store.set('hbe3.history', history); store.set('hbe3.rounds', rounds); store.set('hbe3.settings', settings);
 }
 if (!LEVELS[settings.level-1]) settings.level = 1;
@@ -2541,7 +2564,7 @@ const LT_NOTES = (() => {
   FIND_ONE.forEach(([, f]) => add(f, findOneLv(f), 0));
   TIERS.forEach((T, ti) => {
     if (!T.choices) return;
-    const lv = LEVELS.findIndex(L => L.tier === ti && L.task === 'find' && L.wrap === 'note' && !L.narrow) + 1;   // the set's ♪ Find
+    const lv = LEVELS.findIndex(L => L.tier === ti && L.task === 'find' && L.wrap === 'note' && !L.narrow && !L.pair) + 1;   // the full set's ♪ Find
     [...T.choices].sort((a, b) => Math.abs(Math.log2(a / C6)) - Math.abs(Math.log2(b / C6)) || a - b).forEach(f => add(f, lv, T.div));
   });
   return out;
@@ -3933,7 +3956,7 @@ function examplePick(){      // a simulated learner: rounds of octaves, then hal
 }
 function exampleMatch(){
   const rnd = mulberry32(5), gauss = gaussFrom(rnd);
-  const noteFind = [0, 1].map(ti => LEVELS.findIndex(L => L.tier === ti && L.task === 'find' && L.wrap === 'note' && !L.narrow) + 1);
+  const noteFind = [0, 1].map(ti => LEVELS.findIndex(L => L.tier === ti && L.task === 'find' && L.wrap === 'note' && !L.narrow && !L.pair) + 1);
   const c = Math.log2(1000), out = [];
   for (let i = 0; i < 60; i++) {
     const p = i / 59, lv = noteFind[i < 40 ? 0 : 1], L = LEVELS[lv-1];  // ♪ Find on C5–C7, then on C3–C5

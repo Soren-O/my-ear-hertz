@@ -197,7 +197,7 @@ test('cancelling during a multi-note reference stops that note and prevents late
   assert.deepEqual(ui.sounds,[]); assert.equal(ui.$('app').inert,false);
 });
 
-test('only the mixed C5–C7 Find levels add the three-note reference, using the round instrument', () => {
+test('pair and mixed C5–C7 Find levels preview only their notes, using the round instrument', () => {
   const intros=[], sine={id:'sine'}, voice={id:'piano'};
   const context=vm.createContext({SINE:sine,roundVoice:()=>voice,voiceReady:()=>true,audio:()=>({state:'running'}),
     $:()=>({}),lt:{tones:[]},go(){},nextQuestion(){},
@@ -209,17 +209,19 @@ test('only the mixed C5–C7 Find levels add the three-note reference, using the
     globalThis.api={levels:LEVELS,start(lv,extra={}){round=null;startRound(null,{lv,...extra});},get round(){return round;}};
   `,context);
   const {api}=context;
+  const expected=new Map([[4,[523,1047]],[6,[1047,2093]],[7,[523,1047,2093]],
+    [12,[523,1047]],[14,[1047,2093]],[15,[523,1047,2093]]]);
   for(let i=0;i<api.levels.length;i++){
     api.start(i+1);
     const references=intros.at(-1).reference;
-    if (i===4 || i===10) {
-      assert.deepEqual(Array.from(references,r=>r.f),[523,1047,2093]);
+    if (expected.has(i+1)) {
+      assert.deepEqual(Array.from(references,r=>r.f),expected.get(i+1));
       assert.ok(references.every(r=>r.voice===voice));
       intros.at(-1).begin(); assert.equal(api.round.previewed,true);
     } else assert.equal(references,undefined,api.levels[i].name+' '+api.levels[i].short);
   }
-  api.start(5,{practice:true}); assert.equal(intros.at(-1).reference,undefined);
-  api.start(5,{lt:1047}); assert.equal(intros.at(-1).reference,undefined);
+  api.start(4,{practice:true}); assert.equal(intros.at(-1).reference,undefined);
+  api.start(4,{lt:1047}); assert.equal(intros.at(-1).reference,undefined);
 });
 
 test('Level 1 starts with its reference and count-in; later long-term checks start cold without another count-in', () => {
