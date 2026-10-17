@@ -560,6 +560,7 @@ body{background:radial-gradient(640px 440px at 15% -150px,var(--glow-teal),trans
 .score-num.gold{color:var(--gold);text-shadow:0 0 34px var(--gold-bg)}
 .banner.gold{color:var(--gold);background:var(--gold-bg);border-color:transparent}
 .echo-actions{display:flex;flex-direction:column;gap:10px}
+.echo-instructions{max-width:40ch;margin:0 auto 8px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6}
 .best-list .row{cursor:default}
 .best-list .rank{font-family:var(--font-num);color:var(--faint);width:16px}
 .best-list .num{font-family:var(--font-num);font-weight:400;font-size:17px}
@@ -807,6 +808,7 @@ img{max-width:100%}
   <!-- ============ ECHO ============ -->
   <section class="screen" id="scr-echo" aria-label="Echo" hidden>
     <div class="echo-hero" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg></div>
+    <p class="echo-instructions">Listen to a tone, then match it. Swipe anywhere: up or down for larger pitch changes, left or right for finer changes. Tap <b>Lock in</b> to submit your guess.</p>
     <div class="tiles two" id="echoTiles"></div>
     <div class="list">
       <div class="row col"><span class="row-main"><b>Interference</b></span><div class="chips" id="echoItf" role="group" aria-label="Interference"><button type="button" data-itf="noise">White noise</button><button type="button" data-itf="notes">Notes</button></div></div>
@@ -858,7 +860,7 @@ img{max-width:100%}
       <div class="ladder-pitches" id="ltPitchPair" hidden>
         <button class="pitch-choice" id="ltTargetPitch" type="button" disabled aria-label="Replay target" aria-pressed="false"><span class="pitch-note" id="ltTargetNote"></span><span class="pitch-caption" id="ltTargetCaption">Target</span></button>
         <button class="pitch-choice" id="ltGuessPitch" type="button" disabled aria-label="Replay your guess" aria-pressed="false" hidden><span class="pitch-note" id="ltGuessNote"></span><span class="pitch-caption" id="ltGuessCaption">Your guess</span></button>
-        <div class="swipe-hint ladder-swipe-hint" id="ltSwipeHint" hidden><p>Up or down<br><span>Larger changes</span></p><p>Left or right<br><span>Finer changes</span></p></div>
+        <div class="swipe-hint ladder-swipe-hint" id="ltSwipeHint" hidden><p>Swipe up or down<br><span>Larger changes</span></p><p>Swipe left or right<br><span>Finer changes</span></p><span id="echoSwipeSubmit" hidden>Tap Lock in to submit</span></div>
       </div>
       </div>
       <div class="challenge-clock" id="ltChallengeStatus" role="timer" aria-live="off" hidden>
@@ -2842,6 +2844,7 @@ function placeLadderContent(){
 }
 function renderLadderPitches(){
   if (!round?.ladder || !trial) return;
+  $('echoSwipeSubmit').hidden = true;
   const currentRound = round, currentTrial = trial;
   fadePhase($('ltPitchPair'), phase === 'revealed' ? round.check : trial, () => {
     if (round !== currentRound || trial !== currentTrial) return;
@@ -3550,6 +3553,7 @@ function renderTrainingPitches(notes, both){
   fadePhase(pair, answered ? last : trial, () => {
     if (round !== currentRound || trial !== currentTrial) return;
     $('ltSwipeHint').hidden = !finding || answered || round.tuneCount !== 1;
+    $('echoSwipeSubmit').hidden = !trial.echo || !finding || answered || round.tuneCount !== 1;
     $('ltGuessPitch').hidden = !answered;
     pair.dataset.result = answered ? last.ok ? 'good' : 'bad' : '';
     const unknown = finding && trial.echo && !answered;

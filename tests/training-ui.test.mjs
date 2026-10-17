@@ -442,13 +442,56 @@ test('the shared note display hides Echo targets until submission and offers bot
   context.ui.render(true,false);
   assert.equal($('ltTargetNote').textContent,'?'); assert.equal($('ltTargetPitch').disabled,true);
   assert.equal($('ltGuessPitch').hidden,true); assert.equal($('ltSwipeHint').hidden,false);
+  assert.equal($('echoSwipeSubmit').hidden,false);
   context.ui.reveal(); context.ui.render(true,false);
   assert.equal($('ltTargetNote').textContent,'C6'); assert.equal($('ltGuessNote').textContent,'A5 + 15c');
   assert.equal($('ltTargetPitch').disabled,false); assert.equal($('ltGuessPitch').disabled,false);
   assert.equal($('ltSwipeHint').hidden,true);
+  assert.equal($('echoSwipeSubmit').hidden,true);
   context.ui.newFind(); context.ui.render(true,false);
   assert.equal($('ltTargetNote').textContent,'C6'); assert.equal($('ltGuessPitch').hidden,true);
   assert.equal($('ltSwipeHint').hidden,true);
+  assert.equal($('echoSwipeSubmit').hidden,true);
+});
+
+test('Echo shows swipe and submit guidance at the first guess even with Train tips disabled, then hides it after submission', () => {
+  for (const daily of [false,true]) for (const hideFindTip of [false,true]) {
+    const pending=[],context=vm.createContext({daily,hideFindTip,pending,
+      setTimeout:fn=>{pending.push(fn);return pending.length;}});
+    vm.runInContext(`
+      const $=id=>{if(!elements.has(id))elements.set(id,{hidden:true,dataset:{},textContent:'',setAttribute(){}});return elements.get(id);};
+      const elements=new Map(),reduceMotion={matches:true},settings={hideFindTip},SINE={id:'sine'};
+      const input={value:''},ctx={currentTime:0},ECHO_TONE=2,ECHO_GAP=1;
+      let round={echo:{daily,tones:[1047,880]},items:[]},trial=null,last=null,phase='idle',audioState='idle',timers=[];
+      const levelOf=()=>({task:'find',choices:null}),voiceRange=()=>[100,2000],makeStops=()=>({n:5,ti:2}),newRove=()=>0;
+      const audio=()=>true,stopAll=()=>{},voiceNote=()=>ECHO_TONE,pulseNote=()=>{},armIdle=()=>{},setAudio=s=>{audioState=s;};
+      const showError=()=>{},showTip=()=>{},render=()=>renderTrainingPitches(false,true),noteName=()=> 'C6',fmtFreq=String;
+      ${section('const textFades =','let pageGhost =')}
+      ${section('function nextQuestion()','const playPreview =')}
+      ${section('function startEchoTone()','function finishEcho()')}
+      ${section('function renderTrainingPitches(','function howto()')}
+      globalThis.ui={next:nextQuestion,render,element:$,
+        ready(){while(pending.length)pending.shift()();},
+        reveal(){phase='revealed';last={f:1047,g:1047,ok:1};round.items.push(last);render();},
+        get trial(){return trial;}};
+    `,context);
+    const ui=context.ui;
+    ui.next();
+    assert.equal(ui.element('ltPitchPair').hidden,true);
+    assert.equal(ui.element('echoSwipeSubmit').hidden,true);
+    ui.ready();
+    assert.equal(ui.trial.heard,true);
+    assert.equal(ui.element('ltPitchPair').hidden,false);
+    assert.equal(ui.element('ltSwipeHint').hidden,false);
+    assert.equal(ui.element('echoSwipeSubmit').hidden,false);
+    assert.equal(ui.element('ltTargetNote').textContent,'?');
+    ui.render();assert.equal(ui.element('echoSwipeSubmit').hidden,false);
+    ui.reveal();assert.equal(ui.element('ltSwipeHint').hidden,true);
+    assert.equal(ui.element('echoSwipeSubmit').hidden,true);
+    ui.next();ui.ready();
+    assert.equal(ui.element('ltSwipeHint').hidden,true);
+    assert.equal(ui.element('echoSwipeSubmit').hidden,true);
+  }
 });
 
 
