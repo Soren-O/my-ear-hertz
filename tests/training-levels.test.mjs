@@ -7,8 +7,9 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const script=html.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
 const section=(from,to)=>script.slice(script.indexOf(from),script.indexOf(to,script.indexOf(from)));
 const plain=value=>JSON.parse(JSON.stringify(value));
-function app(data={}) {
-  const stored=plain(data),context=vm.createContext({store:{
+function app(data={},random=()=>0.999) {
+  const math=Object.create(Math);math.random=random;
+  const stored=plain(data),context=vm.createContext({Math:math,store:{
     get:(key,fallback)=>key in stored?plain(stored[key]):fallback,
     set:(key,value)=>{stored[key]=plain(value);}
   }});
@@ -16,11 +17,17 @@ function app(data={}) {
     ${section('const NOTE =','/* ---------- formatting & math ---------- */')}
     const lt={unlocked:false,tones:[]},saveLT=()=>{};
     ${section('const isFindC6 =','lt.tones.forEach(t => {')}
-    let round=null;
+    let round=null,trial=null,last=null,phase='idle';
+    const SINE={id:'sine'},input={value:''},$=()=>({focus(){}});
+    const levelOf=()=>round.L||LEVELS[round.lv-1],voiceRange=()=>[50,14000],makeStops=()=>({n:10,ti:5}),newRove=()=>0;
+    const render=()=>{},showError=()=>{},showTip=()=>{},playPreview=()=>{},startAdj=()=>{},trainItf=()=>null;
+    const startEchoTone=()=>{},armLadderClock=()=>{},play=()=>{},centerRoll=()=>{},logUniform=()=>880,checkHasCard=()=>false;
     ${section('const trainingStreak =','let introActive =')}
+    ${section('function nextQuestion()','const playPreview =')}
     globalThis.api={settings,history,rounds,levels:LEVELS,oldLevels:PRE_PAIR_LEVELS,gateLv,findOneLv,
-      start(lv){round={lv,freeform:true,items:[]};},
-      answer(ok){const rec={ok:Number(ok)};round.items.push(rec);recordTrainingStreak(rec);},
+      start(lv,extra={}){round={lv,freeform:true,items:[],...extra};trial=null;},
+      question(){nextQuestion();return trial.f;},
+      answer(ok){const rec={task:'find',f:trial?.f||LEVELS[round.lv-1].choices[0],ok:Number(ok)};round.items.push(rec);recordTrainingStreak(rec);},
       get round(){return round;},get lt(){return lt;}};
   `,context);
   return {api:context.api,stored};
@@ -42,21 +49,75 @@ test('both opening passes find C6, C5, their pair, C7, its pair with C6, then al
   assert.equal(api.levels.filter(L=>L.pair).length,4);
 });
 
-test('new users unlock each pair and the following exercise only after ten consecutive hits',()=>{
+test('new users unlock each pair and the following exercise only after twelve consecutive hits',()=>{
   const {api}=app();
   assert.equal(api.settings.level,1);assert.equal(api.settings.top,1);assert.equal(api.settings.ladder,6);
-  api.start(2);for(let i=0;i<10;i++)api.answer(true);
+  api.start(2);for(let i=0;i<12;i++)api.answer(true);
   assert.equal(api.lt.unlocked,true);
   for(const [lv,next] of [[3,4],[4,5],[5,6],[6,7]]) {
     api.start(lv);
-    for(let i=0;i<9;i++)api.answer(true);
+    for(let i=0;i<11;i++)api.answer(true);
     assert.equal(api.settings.top,lv);
     api.answer(false);assert.equal(api.settings.trainStreaks[lv],0);
-    for(let i=0;i<9;i++)api.answer(true);
+    for(let i=0;i<11;i++)api.answer(true);
     assert.equal(api.settings.top,lv);
     api.answer(true);assert.equal(api.settings.top,next);
-    assert.equal(api.settings.trainBest[lv],10);
+    assert.equal(api.settings.trainBest[lv],12);
   }
+});
+
+test('multi-note Find exercises cycle in order in both passes regardless of the random starting pitch',()=>{
+  for(const random of [()=>0,()=>0.999]) {
+    const {api}=app({},random);
+    const wide=api.levels.findIndex(L=>L.task==='find'&&L.choices?.length===7)+1;
+    for(const lv of [4,6,7,12,14,15,wide]) {
+      api.start(lv);const choices=Array.from(api.levels[lv-1].choices),targets=[];
+      for(let i=0;i<choices.length*3;i++){targets.push(api.question());api.answer(true);}
+      assert.deepEqual(targets,[...choices,...choices,...choices]);
+    }
+  }
+});
+
+test('twelve consecutive hits cover each of two notes six times or each of three notes four times, even after a miss',()=>{
+  for(const lv of [4,6,7,12,14,15]) {
+    const {api}=app({'hbe3.settings':{ladder:6,level:lv,top:lv}});
+    api.start(lv);api.question();api.answer(false);
+    assert.equal(api.settings.trainStreaks[lv],0);
+    const choices=Array.from(api.levels[lv-1].choices),targets=[];
+    for(let i=0;i<12;i++) {
+      assert.equal(api.settings.top,lv);
+      targets.push(api.question());api.answer(true);
+    }
+    assert.equal(targets[0],choices[1]);
+    assert.equal(api.settings.top,lv+1);
+    for(const f of choices)assert.equal(targets.filter(target=>target===f).length,12/choices.length);
+  }
+});
+
+test('the note cycle and streak resume after quitting without an unanswered question advancing the cycle',()=>{
+  const first=app({'hbe3.settings':{ladder:6,level:7,top:7}}),targets=[];
+  first.api.start(7);
+  for(let i=0;i<5;i++){targets.push(first.api.question());first.api.answer(true);}
+  assert.equal(first.api.question(),2093);
+  const resumed=app(first.stored);resumed.api.start(7);
+  assert.equal(resumed.api.settings.trainStreaks[7],5);
+  for(let i=0;i<7;i++){targets.push(resumed.api.question());resumed.api.answer(true);}
+  assert.deepEqual(targets,Array.from({length:4},()=>[523,1047,2093]).flat());
+  assert.equal(resumed.api.settings.trainStreaks[7],12);assert.equal(resumed.api.settings.top,8);
+});
+
+test('each Find level keeps its own position while Name, Echo and correction practice keep their target rules',()=>{
+  const {api}=app();
+  api.start(4);assert.equal(api.question(),523);api.answer(true);
+  api.start(6);assert.equal(api.question(),1047);api.answer(true);
+  api.start(4);assert.equal(api.question(),1047);
+  const positions=plain(api.settings.trainFindNext);
+  api.start(1);assert.equal(api.question(),2093);assert.equal(api.question(),2093);
+  api.start(4,{freeform:false,practice:true});assert.equal(api.question(),1047);api.answer(true);
+  api.start(4,{freeform:false,echo:{tones:[1500,500]}});
+  assert.equal(api.question(),1500);api.answer(true);assert.equal(api.question(),500);
+  assert.deepEqual(plain(api.settings.trainFindNext),positions);
+  assert.equal(api.settings.trainStreaks[4],1);
 });
 
 test('existing levels, history and streaks migrate to the same exercises once, without creating pair streaks',()=>{
