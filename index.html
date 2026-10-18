@@ -829,7 +829,7 @@ img{max-width:100%}
       <div class="train-track">
         <div class="train-stats" id="trainStats" hidden>
           <div class="train-stat"><strong id="trainCurrent">0</strong><span>Current streak</span></div>
-          <div class="train-stat"><strong id="trainBest">0</strong><span id="trainBestLabel">12 to unlock next level</span></div>
+          <div class="train-stat"><strong id="trainBest">0</strong><span id="trainBestLabel">10 to unlock next level</span></div>
         </div>
         <div class="progress" id="dots" aria-hidden="true"></div>
       </div>
@@ -1101,7 +1101,7 @@ img{max-width:100%}
       <p>Everything starts from C. First the Cs: C5–C7, then C3–C5, then C7–C9, then all seven, from C3 (131 Hz) to C9 (8,372 Hz). Then the same four ranges with F♯ added halfway between the Cs, then E and G♯ (thirds of an octave), then D♯, F♯ and A (quarters), then all twelve notes on a keyboard.</p>
       <p>The first Find steps introduce C6, then C5, then C5 and C6 together. Next comes C7, then C6 and C7 together, and finally all three. Each pair or three-note step begins by playing its notes once.</p>
       <p>Every set is learned by note name first, then by number with the note, and each pass goes name, then find, with typing the number in between on the number pass. You name a tone on a full piano keyboard or with buttons; choose in Settings. After each pitch answer, the correct tone plays once. Use Actual to replay the target or My guess to hear your answer. Notes are rounded to whole hertz. Last comes any frequency. Every answer, typed or tuned, passes within a quarter tone (about ±2.9%): close enough to say which note a tone is nearest.</p>
-      <p>Train for as long as you like. Twelve correct answers in a row unlock the next step; a miss resets the streak to zero. Find levels cycle through their notes in order, so a twelve-answer streak on three notes includes four of each. Your streak and place in the note cycle are saved when you leave, and unlocked steps stay open. Choose another step from Train whenever you’re ready.</p>
+      <p>Train for as long as you like. Ten correct answers in a row unlock the next step. Find levels with three or more notes require four correct answers per note: 12 in a row for three notes, 16 for four, and so on. A miss resets the streak to zero. Find levels cycle through their notes in order. Your streak and place in the note cycle are saved when you leave, and unlocked steps stay open. Choose another step from Train whenever you’re ready.</p>
       <h2>Interference</h2>
       <p>Before every question: fast bursts of notes on your instrument, close to what you just heard, alternating with white noise, four times over. It erases the last tone so you can't answer by comparison. Either part can be switched off in Settings.</p>
       <h2>Find the tone</h2>
@@ -1187,7 +1187,7 @@ img{max-width:100%}
       <h2 id="ltTitle">Long-term memory training</h2>
       <svg class="curve" id="ltCurve" viewBox="0 0 320 150" role="img" aria-label="Memory fading on its own, and staying up with spaced checks"></svg>
       <div class="lt-copy">
-        <p>You just found C6 twelve times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
+        <p>You just found C6 ten times in a row. But a pitch you haven&rsquo;t heard for a while fades fast, often within minutes.</p>
         <p>Each time you find it again <b>just before</b> it fades, it comes back stronger and stays longer. That&rsquo;s spaced repetition, the trick behind flashcard apps like Anki and Duolingo.</p>
         <p>Start with six ten-minute levels: 10, 5, 4, 3, 2, then 1 correct pitch guesses. You have 20 seconds for each guess. After a correct answer, listen to the target for 20 seconds, then random notes. A wrong answer or timeout ends the attempt.</p>
         <p id="ltReminderNote"></p>
@@ -1281,7 +1281,7 @@ const PRE_PAIR_LEVELS = LEVELS.filter(L => !L.pair);
 const CHOICE_TASKS = ['pick', 'notes', 'piano'];
 const noteOnly = (L, task) => L.wrap === 'note' || task === 'notes' || task === 'piano';   // no Hz shown anywhere
 const ROUND = 10, UP = 10;   // historical round size and unlock threshold
-const TRAIN_GOAL = 12;
+const TRAIN_GOAL = 10;
 const TOL = 1/24;      // every answer passes within a quarter tone (±50 cents, about ±2.9%), in octaves: fine enough to
                        // tell which note any tone is nearest. Buttons and keys are a half step or more apart, so only the right one is.
 const lvOf = r => r.lv || LEVELS.length;
@@ -2081,6 +2081,10 @@ const canAdjust = () => screen === 'train' && !!trial && trial.task === 'find' &
 const trainingStreak = lv => Math.max(0, Math.floor(Number(settings.trainStreaks?.[lv]) || 0));
 const trainingCleared = lv => lv < settings.top || !!settings.trainCleared?.[lv];
 const trainingBest = lv => Math.max(trainingStreak(lv), Number(settings.trainBest?.[lv]) || 0);
+const trainingGoal = lv => {
+  const L = LEVELS[lv - 1];
+  return L?.task === 'find' && L.choices ? Math.max(TRAIN_GOAL, L.choices.length * 4) : TRAIN_GOAL;
+};
 const trainingFindNext = lv => Math.max(0, Math.floor(Number(settings.trainFindNext?.[lv]) || 0));
 function recordTrainingStreak(rec){
   if (!round.freeform) return;
@@ -2092,7 +2096,7 @@ function recordTrainingStreak(rec){
     settings.trainFindNext[lv] = (L.choices.indexOf(rec.f) + 1) % L.choices.length;
   }
   round.bestStreak = Math.max(round.bestStreak || 0, streak);
-  if (streak === TRAIN_GOAL && !trainingCleared(lv)) {
+  if (streak >= trainingGoal(lv) && !trainingCleared(lv)) {
     settings.trainCleared[lv] = true;
     settings.top = Math.max(settings.top, Math.min(LEVELS.length, lv + 1));
     round.unlockedAt = round.items.length;
@@ -3489,7 +3493,7 @@ function drawLevelRing(){                          // one arc per stage (Cs, C·
   const svg = $('levelRing'), S = 300, c = S/2, r = 136, groups = DIVISIONS.length + 1, per = 360 / groups, gap = 7;
   const lr = [...rounds].reverse().find(x => x.lv === settings.level && !x.p);
   const within = trainingCleared(settings.level) ? 1 : settings.trainStreaks[settings.level] != null
-    ? trainingStreak(settings.level) / TRAIN_GOAL : clamp(lr ? lr.score / (lr.n || UP) : 0, 0, 1);
+    ? trainingStreak(settings.level) / trainingGoal(settings.level) : clamp(lr ? lr.score / (lr.n || UP) : 0, 0, 1);
   let s = '';
   for (let g = 0; g < groups; g++) {
     const lvs = LEVELS.map((L, i) => i + 1).filter(n => LEVELS[n-1].div === g);
@@ -3539,10 +3543,10 @@ function renderTrainingProgress(){
   $('trainStats').hidden = !free;
   fadeVisibility($('dots'), visible); fadeVisibility($('trCount'), !free);
   if (free) {
-    const best = trainingBest(round.lv);
+    const best = trainingBest(round.lv), goal = trainingGoal(round.lv);
     $('trainCurrent').textContent = String(k);
     $('trainBest').textContent = String(best);
-    $('trainBestLabel').textContent = best < TRAIN_GOAL && !trainingCleared(round.lv) ? `${TRAIN_GOAL} to unlock next level` : 'Longest streak';
+    $('trainBestLabel').textContent = best < goal && !trainingCleared(round.lv) ? `${goal} to unlock next level` : 'Longest streak';
   }
   $('trCount').textContent = `${k}/${n}`;
   $('quitBtn').setAttribute('aria-label', free ? 'End training' : 'End round');
@@ -3594,9 +3598,9 @@ function howto(){                                               // one short lin
 function updateHowto(){ fadeText($('howto'), howto()); $('howto').classList.remove('off'); }
 function roundProgress(){
   if (round.freeform) {
-    const streak = trainingStreak(round.lv), showUnlock = phase === 'revealed' && round.unlockedAt === round.items.length;
-    return {n: TRAIN_GOAL, k: streak, visible: !trainingCleared(round.lv) || showUnlock,
-      marks: Array.from({length: TRAIN_GOAL}, (_, i) => i < streak ? 'y' : '')};
+    const streak = trainingStreak(round.lv), goal = trainingGoal(round.lv), showUnlock = phase === 'revealed' && round.unlockedAt === round.items.length;
+    return {n: goal, k: streak, visible: !trainingCleared(round.lv) || showUnlock,
+      marks: Array.from({length: goal}, (_, i) => i < streak ? 'y' : '')};
   }
   if (round.ladder) {
     const s = lt.tones.find(t => t.f === round.lt).ladder, n = roundLen();
@@ -4189,7 +4193,7 @@ function renderClear(){
 }
 
 /* ---------- level list: the Levels screen and Settings ----------
-   Levels above settings.top are shown but locked; twelve consecutive correct answers open the next one. */
+   Levels above settings.top are locked; each Find set's size determines its required streak. */
 function levelRows(){
   return TIERS.map((T, ti) => {
     const steps = LEVELS.map((L, i) => [L, i + 1]).filter(([L]) => L.tier === ti);

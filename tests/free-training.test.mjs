@@ -7,7 +7,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const script=html.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
 const section=(from,to)=>script.slice(script.indexOf(from),script.indexOf(to,script.indexOf(from)));
 
-function app(saved) {
+function app(saved,customLevels) {
   const data=saved||{}, elements=new Map();
   const $=id=>{
     if(!elements.has(id))elements.set(id,{hidden:false,textContent:'',dataset:{},style:{},setAttribute(){},focus(){},
@@ -16,8 +16,8 @@ function app(saved) {
   };
   const context=vm.createContext({$,Date,stored:data,
     store:{set(key,value){data[key]=JSON.parse(JSON.stringify(value));}},
-    settings:{trainBest:{},...(data.settings?JSON.parse(JSON.stringify(data.settings)):{level:1,top:1,trainStreaks:{},trainCleared:{}})},
-    levels:Array.from({length:4},(_,i)=>({short:'Find',choices:[1047],c6:i===1})),
+    settings:{trainBest:{},trainFindNext:{},...(data.settings?JSON.parse(JSON.stringify(data.settings)):{level:1,top:1,trainStreaks:{},trainCleared:{}})},
+    levels:customLevels||Array.from({length:4},(_,i)=>({task:'find',short:'Find',choices:[1047],c6:i===1})),
     reduceMotion:{matches:true},document:{},input:{blur(){}},
     fadeText:(el,text)=>{el.textContent=text;},fadeVisibility:(el,visible)=>{el.hidden=!visible;},sfx(){},stopAll(){},showTip(){},confetti(){},hearOne(){},
     saveCheckAnswer(){},completeLTPractice(){},noteAnchor(){},saveLT(){},ltOfferOnce(){},
@@ -50,23 +50,23 @@ function app(saved) {
   return {api:context.api,data,$};
 }
 
-test('training continues past twelve total answers; only twelve consecutive hits unlock the next step',()=>{
+test('training continues past ten total answers; single-note levels need ten consecutive hits',()=>{
   const {api}=app();api.start();
-  for(let i=0;i<11;i++){api.answer(true);api.next();}
-  assert.equal(api.settings.top,1);assert.equal(api.progress().k,11);assert.equal(api.progress().n,12);
+  for(let i=0;i<9;i++){api.answer(true);api.next();}
+  assert.equal(api.settings.top,1);assert.equal(api.progress().k,9);assert.equal(api.progress().n,10);
   api.answer(false);assert.equal(api.progress().k,0);
   assert.ok(api.progress().marks.every(mark=>mark===''));
   api.next();assert.equal(api.length(),Infinity);assert.equal(api.label(),'Next');
-  for(let i=0;i<11;i++){api.answer(true);api.next();}
+  for(let i=0;i<9;i++){api.answer(true);api.next();}
   assert.equal(api.settings.top,1);
   api.answer(true);
   assert.equal(api.settings.top,2);assert.equal(api.settings.level,1);
-  assert.equal(api.progress().k,12);assert.equal(api.progress().visible,true);
+  assert.equal(api.progress().k,10);assert.equal(api.progress().visible,true);
   assert.ok(api.progress().marks.every(mark=>mark==='y'));
   api.next();assert.equal(api.progress().visible,false);
   api.answer(false);api.next();
   assert.equal(api.settings.top,2);assert.equal(api.progress().visible,false);
-  assert.equal(api.round.items.length,25);assert.equal(api.questions,26);assert.equal(api.screen,'train');
+  assert.equal(api.round.items.length,21);assert.equal(api.questions,22);assert.equal(api.screen,'train');
 });
 
 test('streaks survive quitting and reloading, and belong to the individual level',()=>{
@@ -75,7 +75,7 @@ test('streaks survive quitting and reloading, and belong to the individual level
   first.api.quit();assert.equal(first.api.screen,'home');assert.equal(first.api.sessions.length,1);
   assert.equal(first.api.sessions[0].n,6);assert.equal(first.api.sessions[0].freeform,1);
   const resumed=app(first.data);resumed.api.start();assert.equal(resumed.api.progress().k,6);
-  for(let i=0;i<6;i++){resumed.api.answer(true);resumed.api.next();}
+  for(let i=0;i<4;i++){resumed.api.answer(true);resumed.api.next();}
   assert.equal(resumed.api.settings.top,2);resumed.api.quit();
   resumed.api.start(2);assert.equal(resumed.api.progress().k,0);assert.equal(resumed.api.progress().visible,true);
   resumed.api.answer(true);assert.equal(resumed.api.progress().k,1);
@@ -85,15 +85,15 @@ test('previously unlocked steps have no streak bar, and the final step stays com
   const {api}=app({settings:{level:1,top:4,trainStreaks:{},trainCleared:{}}});
   api.start(1);assert.equal(api.progress().visible,false);api.quit();
   api.start(4);assert.equal(api.progress().visible,true);
-  for(let i=0;i<12;i++){api.answer(true);api.next();}
+  for(let i=0;i<10;i++){api.answer(true);api.next();}
   assert.equal(api.settings.top,4);assert.equal(api.progress().visible,false);
   api.answer(false);api.next();assert.equal(api.progress().visible,false);
 });
 
-test('Find C6 opens long-term training immediately on the twelfth consecutive success',()=>{
+test('Find C6 opens long-term training immediately on the tenth consecutive success',()=>{
   const {api}=app({settings:{level:2,top:2,trainStreaks:{},trainCleared:{}}});
   api.start(2);
-  for(let i=0;i<11;i++){api.answer(true);api.next();}
+  for(let i=0;i<9;i++){api.answer(true);api.next();}
   assert.equal(api.longTermUnlocked,false);api.answer(true);
   assert.equal(api.longTermUnlocked,true);assert.equal(api.screen,'train');
 });
@@ -108,11 +108,32 @@ test('free training hides the level heading; Echo and correction practice retain
   assert.equal(ui.$('ltChallengeLevel').textContent,'PRACTICE');
 });
 
+test('Find unlocks, progress segments and captions use 10, 12 or 16 according to the note count',()=>{
+  for(const [choices,goal] of [[[1047],10],[[523,1047],10],[[523,1047,2093],12],[[262,523,1047,2093],16]]) {
+    const ui=app(undefined,[{task:'find',short:'Find',choices},{task:'find',choices:[1047]}]);
+    ui.api.start();ui.api.display();
+    assert.equal(ui.api.progress().n,goal);assert.equal(ui.api.progress().marks.length,goal);
+    assert.equal(ui.$('trainBestLabel').textContent,goal+' to unlock next level');
+    for(let i=0;i<goal-1;i++){ui.api.answer(true);ui.api.next();}
+    assert.equal(ui.api.settings.top,1);
+    ui.api.answer(true);ui.api.display();
+    assert.equal(ui.api.settings.top,2);assert.equal(ui.$('trainBestLabel').textContent,'Longest streak');
+    ui.api.next();assert.equal(ui.api.progress().visible,false);
+  }
+});
+
+test('Name exercises retain a ten-answer goal even when their note set is larger',()=>{
+  const ui=app(undefined,[{task:'notes',choices:[131,262,523,1047,2093]}]);
+  ui.api.start();ui.api.display();
+  assert.equal(ui.api.progress().n,10);
+  assert.equal(ui.$('trainBestLabel').textContent,'10 to unlock next level');
+});
+
 test('current and longest streaks persist beyond twelve; a miss resets only the current count',()=>{
   const ui=app();ui.api.start();
   for(let i=0;i<7;i++){ui.api.answer(true);ui.api.next();}
   ui.api.display();assert.equal(ui.$('trainCurrent').textContent,'7');assert.equal(ui.$('trainBest').textContent,'7');
-  assert.equal(ui.$('trainBestLabel').textContent,'12 to unlock next level');
+  assert.equal(ui.$('trainBestLabel').textContent,'10 to unlock next level');
   ui.api.answer(false);ui.api.next();ui.api.display();
   assert.equal(ui.$('trainCurrent').textContent,'0');assert.equal(ui.$('trainBest').textContent,'7');
   for(let i=0;i<13;i++){ui.api.answer(true);ui.api.next();}

@@ -24,7 +24,7 @@ function app(data={},random=()=>0.999) {
     const startEchoTone=()=>{},armLadderClock=()=>{},play=()=>{},centerRoll=()=>{},logUniform=()=>880,checkHasCard=()=>false;
     ${section('const trainingStreak =','let introActive =')}
     ${section('function nextQuestion()','const playPreview =')}
-    globalThis.api={settings,history,rounds,levels:LEVELS,oldLevels:PRE_PAIR_LEVELS,gateLv,findOneLv,
+    globalThis.api={settings,history,rounds,levels:LEVELS,oldLevels:PRE_PAIR_LEVELS,gateLv,findOneLv,goal:trainingGoal,
       start(lv,extra={}){round={lv,freeform:true,items:[],...extra};trial=null;},
       question(){nextQuestion();return trial.f;},
       answer(ok){const rec={task:'find',f:trial?.f||LEVELS[round.lv-1].choices[0],ok:Number(ok)};round.items.push(rec);recordTrainingStreak(rec);},
@@ -49,20 +49,21 @@ test('both opening passes find C6, C5, their pair, C7, its pair with C6, then al
   assert.equal(api.levels.filter(L=>L.pair).length,4);
 });
 
-test('new users unlock each pair and the following exercise only after twelve consecutive hits',()=>{
+test('single-note and pair levels require ten consecutive hits while the three-note level requires twelve',()=>{
   const {api}=app();
   assert.equal(api.settings.level,1);assert.equal(api.settings.top,1);assert.equal(api.settings.ladder,6);
-  api.start(2);for(let i=0;i<12;i++)api.answer(true);
+  api.start(2);for(let i=0;i<10;i++)api.answer(true);
   assert.equal(api.lt.unlocked,true);
-  for(const [lv,next] of [[3,4],[4,5],[5,6],[6,7]]) {
+  for(const [lv,next,goal] of [[3,4,10],[4,5,10],[5,6,10],[6,7,10],[7,8,12]]) {
     api.start(lv);
-    for(let i=0;i<11;i++)api.answer(true);
+    assert.equal(api.goal(lv),goal);
+    for(let i=0;i<goal-1;i++)api.answer(true);
     assert.equal(api.settings.top,lv);
     api.answer(false);assert.equal(api.settings.trainStreaks[lv],0);
-    for(let i=0;i<11;i++)api.answer(true);
+    for(let i=0;i<goal-1;i++)api.answer(true);
     assert.equal(api.settings.top,lv);
     api.answer(true);assert.equal(api.settings.top,next);
-    assert.equal(api.settings.trainBest[lv],12);
+    assert.equal(api.settings.trainBest[lv],goal);
   }
 });
 
@@ -78,20 +79,32 @@ test('multi-note Find exercises cycle in order in both passes regardless of the 
   }
 });
 
-test('twelve consecutive hits cover each of two notes six times or each of three notes four times, even after a miss',()=>{
+test('pair streaks cover each note five times and three-note streaks cover each note four times, even after a miss',()=>{
   for(const lv of [4,6,7,12,14,15]) {
     const {api}=app({'hbe3.settings':{ladder:6,level:lv,top:lv}});
     api.start(lv);api.question();api.answer(false);
     assert.equal(api.settings.trainStreaks[lv],0);
-    const choices=Array.from(api.levels[lv-1].choices),targets=[];
-    for(let i=0;i<12;i++) {
+    const choices=Array.from(api.levels[lv-1].choices),targets=[],goal=choices.length===2?10:12;
+    for(let i=0;i<goal;i++) {
       assert.equal(api.settings.top,lv);
       targets.push(api.question());api.answer(true);
     }
     assert.equal(targets[0],choices[1]);
     assert.equal(api.settings.top,lv+1);
-    for(const f of choices)assert.equal(targets.filter(target=>target===f).length,12/choices.length);
+    for(const f of choices)assert.equal(targets.filter(target=>target===f).length,goal/choices.length);
   }
+});
+
+test('a four-note Find set unlocks after sixteen hits with four successes on each note',()=>{
+  const {api}=app(),choices=[262,523,1047,2093],targets=[];
+  const lv=api.levels.push({task:'find',choices,short:'Find four',wrap:'note'});
+  api.settings.top=lv;api.start(lv);
+  assert.equal(api.goal(lv),16);
+  for(let i=0;i<15;i++){targets.push(api.question());api.answer(true);}
+  assert.equal(api.settings.trainCleared[lv],undefined);
+  targets.push(api.question());api.answer(true);
+  assert.equal(api.settings.trainCleared[lv],true);
+  assert.deepEqual(targets,Array.from({length:4},()=>choices).flat());
 });
 
 test('the note cycle and streak resume after quitting without an unanswered question advancing the cycle',()=>{
